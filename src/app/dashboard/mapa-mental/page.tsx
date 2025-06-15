@@ -104,9 +104,7 @@ export default function MapaMentalPage() {
         </CardContent>
       </Card>
 
-      {isLoading && (
-         <p className="mt-6 text-lg text-muted-foreground animate-pulse">{translate('generatingMindMap')}</p>
-      )}
+      {/* Removed loading text paragraph from here */}
 
       {mindMapResult && !isLoading && (
         <Card className="mt-6 w-full max-w-lg text-left shadow-md">
