@@ -2,7 +2,7 @@
 "use client";
 
 import { useLanguage } from '@/contexts/language-context';
-import { Home as HomeIcon, Library, Newspaper, Network, FileQuestion, ClipboardList } from 'lucide-react';
+import { Library, Newspaper, Network, FileQuestion, ClipboardList } from 'lucide-react';
 import Logo from '@/components/shared/logo';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -80,7 +80,6 @@ export default function DashboardHomePage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3 sm:gap-4">
-        <HomeIcon className="w-7 h-7 sm:w-8 sm:h-8 text-foreground" />
         <h2 className="text-2xl sm:text-3xl font-semibold font-headline text-foreground">
           {translate('welcomeMessage')}
         </h2>
