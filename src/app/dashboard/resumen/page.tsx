@@ -5,7 +5,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,6 +12,49 @@ import { Newspaper, Sparkles, Download, Network, FileQuestion, ClipboardList } f
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateSummary } from '@/ai/flows/generate-summary';
 import { useToast } from "@/hooks/use-toast";
+
+// Helper function to convert basic Markdown to HTML
+function simpleMarkdownToHtml(mdText: string): string {
+  if (!mdText) return '';
+
+  let html = mdText;
+
+  // Normalize line endings
+  html = html.replace(/\r\n?/g, '\n');
+
+  // Headings (##, ###)
+  html = html.replace(/^### +(.*?) *(\n|$)/gm, '<h3>$1</h3>\n');
+  html = html.replace(/^## +(.*?) *(\n|$)/gm, '<h2>$1</h2>\n');
+  html = html.replace(/^# +(.*?) *(\n|$)/gm, '<h1>$1</h1>\n');
+
+  // Bold (**)
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Italics (*)
+  html = html.replace(/(?<!\*)\*(?!\s)(.*?[^\s\*])\*(?!\*)/g, '<em>$1</em>');
+
+
+  // Paragraphs from blocks separated by one or more blank lines
+  // Blocks that are already Hx tags are preserved.
+  // Single newlines within a paragraph block are converted to <br />.
+  html = html
+    .split(/\n\s*\n/) // Split by one or more blank lines
+    .map((block) => {
+      const trimmedBlock = block.trim();
+      if (trimmedBlock === '') {
+        return ''; // Skip empty blocks
+      }
+      // If it's already an Hx tag (from our conversion above)
+      if (trimmedBlock.match(/^<(h[1-6]).*?>.*?<\/\1>/i)) {
+        return trimmedBlock; 
+      }
+      // Otherwise, wrap in <p> and convert internal single newlines to <br>
+      return `<p>${trimmedBlock.replace(/\n/g, '<br />')}</p>`;
+    })
+    .join('');
+
+  return html;
+}
+
 
 export default function ResumenPage() {
   const { translate, language: currentUiLanguage } = useLanguage();
@@ -63,10 +105,11 @@ export default function ResumenPage() {
   };
 
   const handleDownloadPdf = () => {
-    if (!summaryResult) return;
+    if (!summaryResult?.summary) return;
 
     const title = `${translate('summaryTitlePrefix')} - ${currentTopicForDisplay.toUpperCase()}`;
-    const summaryHtml = summaryResult.summary;
+    // Use the same Markdown to HTML conversion for PDF content
+    const summaryHtmlForPdf = simpleMarkdownToHtml(summaryResult.summary);
 
     let contentHtml = `
       <html>
@@ -74,12 +117,14 @@ export default function ResumenPage() {
           <title>${title}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
-            body { font-family: 'Space Grotesk', sans-serif; margin: 25px; line-height: 1.6; }
+            body { font-family: 'Space Grotesk', sans-serif; margin: 25px; line-height: 1.6; text-align: justify; }
+            h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
             h1 { text-align: center; font-size: 1.5em; margin-bottom: 1em; }
             h2 { font-size: 1.2em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.3em; }
-            .summary-text { text-align: justify; }
-            .summary-text p { margin-bottom: 0.5em; }
-            .summary-text strong { font-weight: bold; }
+            h3 { font-size: 1.1em; margin-top: 1em; }
+            p { margin-bottom: 0.75em; }
+            strong { font-weight: bold; }
+            em { font-style: italic; }
             ul { list-style-type: disc; padding-left: 20px; }
             li { margin-bottom: 0.3em; }
           </style>
@@ -87,13 +132,14 @@ export default function ResumenPage() {
         <body>
           <h1>${title}</h1>
           <h2>${translate('summaryContentTitle')}</h2>
-          <div class="summary-text">${summaryHtml}</div>
+          <div>${summaryHtmlForPdf}</div>
     `;
 
     if (keyPointsRequested && summaryResult.keyPoints && summaryResult.keyPoints.length > 0) {
       contentHtml += `<h2>${translate('summaryKeyPointsTitle')}</h2><ul>`;
       summaryResult.keyPoints.forEach(point => {
-        contentHtml += `<li>${point}</li>`;
+        // Also format key points for PDF
+        contentHtml += `<li>${simpleMarkdownToHtml(point)}</li>`;
       });
       contentHtml += `</ul>`;
     }
@@ -120,6 +166,7 @@ export default function ResumenPage() {
     }
   };
 
+  const formattedSummaryHtml = summaryResult?.summary ? simpleMarkdownToHtml(summaryResult.summary) : '';
 
   return (
     <div className="flex flex-col items-center text-center">
@@ -142,13 +189,13 @@ export default function ResumenPage() {
           />
           <div className="space-y-2">
             <Label htmlFor="summary-topic-input" className="text-left block">{translate('summaryTopicPlaceholder')}</Label>
-            <Textarea
+            <input
               id="summary-topic-input"
-              rows={2}
+              type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder={translate('summaryTopicPlaceholder')}
-              className="text-base md:text-sm"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
             />
           </div>
           
@@ -192,7 +239,7 @@ export default function ResumenPage() {
           </CardHeader>
           <CardContent>
             <div 
-              dangerouslySetInnerHTML={{ __html: summaryResult.summary }} 
+              dangerouslySetInnerHTML={{ __html: formattedSummaryHtml }} 
               className="prose dark:prose-invert max-w-none text-sm leading-relaxed font-headline text-justify" 
             />
             {keyPointsRequested && (
@@ -200,9 +247,10 @@ export default function ResumenPage() {
                 <h3 className="text-lg font-semibold mb-2 font-headline text-left">{translate('summaryKeyPointsTitle')}</h3>
                 {summaryResult.keyPoints && summaryResult.keyPoints.length > 0 ? (
                   <ul className="list-disc list-inside space-y-1 text-sm font-headline text-left">
-                    {summaryResult.keyPoints.map((point, index) => (
-                      <li key={index}>{point}</li>
-                    ))}
+                    {summaryResult.keyPoints.map((point, index) => {
+                      const formattedPoint = simpleMarkdownToHtml(point);
+                      return <li key={index} dangerouslySetInnerHTML={{ __html: formattedPoint }} />;
+                    })}
                   </ul>
                 ) : (
                   <p className="text-sm text-muted-foreground font-headline text-left">{translate('summaryNoKeyPointsGenerated')}</p>
@@ -238,5 +286,4 @@ export default function ResumenPage() {
     </div>
   );
 }
-
     
