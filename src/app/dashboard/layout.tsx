@@ -84,7 +84,8 @@ export default function DashboardLayout({
           <div className="hidden md:flex items-center justify-center space-x-1 lg:space-x-2 overflow-x-auto">
             {navItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-              let activeStyle = 'bg-primary/10 text-primary font-semibold'; // Default active style
+              let activeStyle = 'bg-muted text-foreground font-semibold'; // Default active style (light gray)
+              
               if (item.labelKey === 'navSummary') {
                 activeStyle = 'bg-custom-blue-100 text-custom-blue-800 font-semibold';
               } else if (item.labelKey === 'navBooks') {
@@ -131,16 +132,28 @@ export default function DashboardLayout({
             <div className="flex items-center justify-start space-x-1 overflow-x-auto">
             {navItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-              // You might want to apply similar conditional styling for mobile here if needed
+              let mobileActiveClasses = 'text-muted-foreground hover:text-foreground hover:bg-muted/50';
+              
+              if (isActive) {
+                if (item.labelKey === 'navSummary') {
+                  mobileActiveClasses = 'bg-custom-blue-100/50 text-custom-blue-800 font-semibold';
+                } else if (item.labelKey === 'navBooks') {
+                  mobileActiveClasses = 'bg-custom-green-100/50 text-custom-green-800 font-semibold';
+                } else if (item.labelKey === 'navMindMap') {
+                  mobileActiveClasses = 'bg-custom-yellow-100/50 text-custom-yellow-800 font-semibold';
+                } else if (item.labelKey === 'navQuiz') {
+                  mobileActiveClasses = 'bg-custom-cyan-100/50 text-custom-cyan-800 font-semibold';
+                } else {
+                  // For Home, Profile, Help, Evaluation
+                  mobileActiveClasses = 'bg-muted text-foreground font-semibold';
+                }
+              }
+              
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors min-w-[60px] text-center
-                    ${isActive
-                      ? 'text-primary font-semibold' // Consider if mobile active "Resumen" or "Libros" needs custom style too
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                    }`}
+                  className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors min-w-[60px] text-center ${mobileActiveClasses}`}
                 >
                   <item.icon className="w-5 h-5" />
                   <span className="whitespace-nowrap">{translate(item.labelKey)}</span>
