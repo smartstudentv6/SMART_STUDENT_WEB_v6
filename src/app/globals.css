@@ -117,27 +117,26 @@ html.theme-accent-default {
   --primary-foreground: 0 0% 100%; /* White */
   --accent: 160 54% 52%; /* Teal #34D399 */
   --accent-foreground: 0 0% 100%; /* White */
-  /* --ring uses default from :root */
 }
 html.theme-accent-blue { 
-  --primary: hsl(var(--custom-blue-100)); --primary-foreground: hsl(var(--custom-blue-800)); 
-  --accent: hsl(var(--custom-blue-100)); --accent-foreground: hsl(var(--custom-blue-800));
+  --primary: hsl(var(--custom-blue-800)); --primary-foreground: hsl(var(--custom-blue-100)); 
+  --accent: hsl(var(--custom-blue-800)); --accent-foreground: hsl(var(--custom-blue-100));
 }
 html.theme-accent-green {
-  --primary: hsl(var(--custom-green-100)); --primary-foreground: hsl(var(--custom-green-800));
-  --accent: hsl(var(--custom-green-100)); --accent-foreground: hsl(var(--custom-green-800));
+  --primary: hsl(var(--custom-green-800)); --primary-foreground: hsl(var(--custom-green-100));
+  --accent: hsl(var(--custom-green-800)); --accent-foreground: hsl(var(--custom-green-100));
 }
 html.theme-accent-yellow {
-  --primary: hsl(var(--custom-yellow-100)); --primary-foreground: hsl(var(--custom-yellow-800));
-  --accent: hsl(var(--custom-yellow-100)); --accent-foreground: hsl(var(--custom-yellow-800));
+  --primary: hsl(var(--custom-yellow-800)); --primary-foreground: hsl(var(--custom-yellow-100));
+  --accent: hsl(var(--custom-yellow-800)); --accent-foreground: hsl(var(--custom-yellow-100));
 }
 html.theme-accent-cyan {
-  --primary: hsl(var(--custom-cyan-100)); --primary-foreground: hsl(var(--custom-cyan-800));
-  --accent: hsl(var(--custom-cyan-100)); --accent-foreground: hsl(var(--custom-cyan-800));
+  --primary: hsl(var(--custom-cyan-800)); --primary-foreground: hsl(var(--custom-cyan-100));
+  --accent: hsl(var(--custom-cyan-800)); --accent-foreground: hsl(var(--custom-cyan-100));
 }
 html.theme-accent-purple {
-  --primary: hsl(var(--custom-purple-100)); --primary-foreground: hsl(var(--custom-purple-800));
-  --accent: hsl(var(--custom-purple-100)); --accent-foreground: hsl(var(--custom-purple-800));
+  --primary: hsl(var(--custom-purple-800)); --primary-foreground: hsl(var(--custom-purple-100));
+  --accent: hsl(var(--custom-purple-800)); --accent-foreground: hsl(var(--custom-purple-100));
 }
 
 /* Dark Mode Theme-specific primary, accent colors. Ring color is now globally neutral. */
@@ -146,7 +145,6 @@ html.dark.theme-accent-default {
   --primary-foreground: 222 47% 11%; /* Dark for contrast */
   --accent: 160 60% 62%; /* Lighter Teal */
   --accent-foreground: 222 47% 11%; /* Dark for contrast */
-   /* --ring uses default from .dark */
 }
 html.dark.theme-accent-blue {
   --primary: hsl(var(--custom-blue-100)); --primary-foreground: hsl(var(--custom-blue-800));
@@ -195,17 +193,17 @@ html.dark.theme-accent-purple {
 .home-card-button {
   @apply w-full font-semibold py-2 px-6 rounded-lg transition-colors;
 }
-.home-card-button-green { @apply bg-[hsl(var(--custom-green-100))] text-[hsl(var(--custom-green-800))] hover:bg-[hsl(var(--custom-green-100-hover))]; }
-.home-card-button-blue { @apply bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))] hover:bg-[hsl(var(--custom-blue-100-hover))]; }
-.home-card-button-yellow { @apply bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))] hover:bg-[hsl(var(--custom-yellow-100-hover))]; }
-.home-card-button-cyan { @apply bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))] hover:bg-[hsl(var(--custom-cyan-100-hover))]; }
-.home-card-button-purple { @apply bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))] hover:bg-[hsl(var(--custom-purple-100-hover))]; }
+.home-card-button-green { @apply bg-[hsl(var(--custom-green-100))] text-[hsl(var(--custom-green-800))] hover:bg-muted hover:text-foreground; }
+.home-card-button-blue { @apply bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))] hover:bg-muted hover:text-foreground; }
+.home-card-button-yellow { @apply bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))] hover:bg-muted hover:text-foreground; }
+.home-card-button-cyan { @apply bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))] hover:bg-muted hover:text-foreground; }
+.home-card-button-purple { @apply bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))] hover:bg-muted hover:text-foreground; }
 
-.dark .home-card-button-green { @apply bg-[hsl(var(--custom-green-100))] text-[hsl(var(--custom-green-800))] hover:bg-[hsl(var(--custom-green-100-hover))]; }
-.dark .home-card-button-blue { @apply bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))] hover:bg-[hsl(var(--custom-blue-100-hover))]; }
-.dark .home-card-button-yellow { @apply bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))] hover:bg-[hsl(var(--custom-yellow-100-hover))]; }
-.dark .home-card-button-cyan { @apply bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))] hover:bg-[hsl(var(--custom-cyan-100-hover))]; }
-.dark .home-card-button-purple { @apply bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))] hover:bg-[hsl(var(--custom-purple-100-hover))]; }
+.dark .home-card-button-green { @apply bg-[hsl(var(--custom-green-100))] text-[hsl(var(--custom-green-800))] hover:bg-muted hover:text-foreground; }
+.dark .home-card-button-blue { @apply bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))] hover:bg-muted hover:text-foreground; }
+.dark .home-card-button-yellow { @apply bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))] hover:bg-muted hover:text-foreground; }
+.dark .home-card-button-cyan { @apply bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))] hover:bg-muted hover:text-foreground; }
+.dark .home-card-button-purple { @apply bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))] hover:bg-muted hover:text-foreground; }
 
 
 /* FAQ specific styles */
@@ -255,3 +253,4 @@ input:-webkit-autofill:active {
   transform: translateY(-20px);
   transition: opacity 300ms, transform 300ms;
 }
+
