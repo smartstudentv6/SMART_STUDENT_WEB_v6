@@ -34,18 +34,20 @@ const createMindMapFlow = ai.defineFlow(
     outputSchema: CreateMindMapOutputSchema,
   },
   async (input: CreateMindMapInput): Promise<CreateMindMapOutput> => {
-    const generationPrompt = `You are an expert at creating clear, visually appealing, and informative mind map images.
-Generate a mind map image centered around the theme: "${input.centralTheme}".
-The context for this mind map is the book: "${input.bookTitle}".
+    const generationPrompt = `You are an expert at creating clear, visually appealing, and informative conceptual map images.
+Generate a conceptual map image, NOT just text.
+The central theme of this conceptual map is: "${input.centralTheme}".
+The information and context for this map should be drawn as if from the book titled: "${input.bookTitle}".
 
-All concepts and text in the mind map nodes MUST be:
-1. Directly relevant to "${input.centralTheme}", drawing information as if from the book "${input.bookTitle}".
-2. Clearly legible with large enough text. Avoid very small or unreadable characters.
-3. Concise and easy to understand. Use keywords or short phrases.
+The conceptual map image MUST adhere to the following strict requirements:
+1.  **Clear Hierarchy**: The central theme ("${input.centralTheme}") must be the main, central node. Main ideas directly related to the theme should branch out from it. Sub-topics or related concepts should branch from these main ideas. Ensure clear visual connections between related nodes.
+2.  **Legible Text in Nodes**: ALL text within EVERY node MUST be perfectly clear, easily readable, and large enough to be distinguished. Use a simple, legible font style. Avoid small, blurry, or distorted characters. Ensure good contrast between the text and its node background.
+3.  **Relevant Content**: ALL concepts, terms, and phrases used in the nodes MUST be directly and solely relevant to the central theme "${input.centralTheme}", drawing information as if from the book "${input.bookTitle}". Do not include extraneous information.
+4.  **Concise Node Text**: Text within each node should be brief and to the point, using keywords or very short phrases.
+5.  **Professional Appearance**: The overall map should be visually organized, clean, and professional, suitable as an effective study tool.
 
-Visually structure the main ideas branching from the central theme ("${input.centralTheme}") as the main node. Sub-topics should be connected appropriately.
-The mind map should be designed to be an effective study tool, with a clean and professional appearance.
-Ensure good contrast between text and background within the nodes.`;
+Prioritize the clarity of the text and the logical structure of the conceptual relationships above all else.
+If you cannot generate an image with clearly legible text in the nodes that accurately represents the conceptual map based on the theme and book, indicate failure.`;
 
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-exp', // Specific model for image generation
@@ -62,3 +64,4 @@ Ensure good contrast between text and background within the nodes.`;
     return { imageDataUri: media.url };
   }
 );
+
