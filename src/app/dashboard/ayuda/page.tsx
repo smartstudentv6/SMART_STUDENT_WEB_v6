@@ -6,7 +6,7 @@ import { useAppData } from '@/contexts/app-data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { HelpCircle, MessageSquareQuestion } from 'lucide-react';
+import { HelpCircle, MessageSquareQuote } from 'lucide-react';
 
 export default function AyudaPage() {
   const { translate } = useLanguage();
@@ -19,7 +19,7 @@ export default function AyudaPage() {
           <div className="flex items-center gap-3 sm:gap-4">
             <HelpCircle className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
             <CardTitle className="text-3xl font-bold font-headline">{translate('helpPageTitle')}</CardTitle>
-            <MessageSquareQuestion className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
+            <MessageSquareQuote className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
           </div>
           <CardDescription className="mt-2 text-muted-foreground max-w-xl">
             {translate('helpPageSub')}
@@ -50,5 +50,3 @@ export default function AyudaPage() {
     </div>
   );
 }
-
-    
