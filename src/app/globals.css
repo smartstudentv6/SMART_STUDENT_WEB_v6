@@ -36,27 +36,25 @@ body {
 
     /* Custom color HSL values */
     --custom-green-100: 145 75% 90%; 
-    --custom-green-100-hover: 145 75% 85%;
+    --custom-green-100-hover: 145 75% 83%; /* Slightly darker light green for hover */
     --custom-green-800: 150 65% 30%; 
-    --custom-green-solid-bg-light: 145 60% 45%;
-    --custom-green-solid-fg-light: 0 0% 100%;
-    --custom-green-solid-bg-dark: 145 55% 55%;
-    --custom-green-solid-fg-dark: 0 0% 100%;
-
+    --custom-green-solid-bg-light: 145 60% 45%; /* Solid green for light mode button */
+    --custom-green-solid-fg-light: 0 0% 100%;   /* White text for light mode button */
+    
     --custom-blue-100: 220 100% 92%; 
-    --custom-blue-100-hover: 220 100% 87%;
+    --custom-blue-100-hover: 220 100% 87%; /* Slightly darker light blue for hover */
     --custom-blue-800: 220 70% 45%; 
 
     --custom-yellow-100: 45 100% 88%; 
-    --custom-yellow-100-hover: 45 100% 83%;
+    --custom-yellow-100-hover: 45 100% 83%; /* Slightly darker light yellow for hover */
     --custom-yellow-800: 45 85% 40%; 
 
     --custom-cyan-100: 185 90% 88%; 
-    --custom-cyan-100-hover: 185 90% 83%;
+    --custom-cyan-100-hover: 185 90% 83%; /* Slightly darker light cyan for hover */
     --custom-cyan-800: 185 75% 35%; 
 
     --custom-purple-100: 260 100% 92%; 
-    --custom-purple-100-hover: 260 100% 87%;
+    --custom-purple-100-hover: 260 100% 87%; /* Slightly darker light purple for hover */
     --custom-purple-800: 260 70% 50%; 
   }
 
@@ -82,29 +80,27 @@ body {
     --ring: hsl(var(--border)); 
 
     /* Custom color HSL values for dark mode */
-    --custom-green-100: 145 75% 90%; 
-    --custom-green-100-hover: 145 75% 85%;
-    --custom-green-800: 150 65% 30%; 
-    --custom-green-solid-bg-light: 145 60% 45%; /* Defined for consistency, dark theme uses its own */
-    --custom-green-solid-fg-light: 0 0% 100%;
-    --custom-green-solid-bg-dark: 145 55% 55%;
-    --custom-green-solid-fg-dark: 0 0% 100%;
+    --custom-green-100: 145 75% 90%; /* Light green base for dark theme accents */
+    --custom-green-100-hover: 145 75% 83%; 
+    --custom-green-800: 150 65% 30%; /* Dark green base for dark theme accents text */
+    --custom-green-solid-bg-dark: 145 55% 55%;  /* Solid green for dark mode button (slightly lighter than light mode's) */
+    --custom-green-solid-fg-dark: 0 0% 100%;    /* White text for dark mode button */
 
-    --custom-blue-100: 220 100% 92%; 
-    --custom-blue-100-hover: 220 100% 87%;
-    --custom-blue-800: 220 70% 45%; 
+    --custom-blue-100: 220 75% 80%; /* Adjusted for dark theme */
+    --custom-blue-100-hover: 220 75% 75%;
+    --custom-blue-800: 220 90% 60%; /* Adjusted for dark theme */
 
-    --custom-yellow-100: 45 100% 88%; 
-    --custom-yellow-100-hover: 45 100% 83%;
-    --custom-yellow-800: 45 85% 40%; 
+    --custom-yellow-100: 45 80% 75%; /* Adjusted for dark theme */
+    --custom-yellow-100-hover: 45 80% 70%;
+    --custom-yellow-800: 45 95% 55%; /* Adjusted for dark theme */
 
-    --custom-cyan-100: 185 90% 88%; 
-    --custom-cyan-100-hover: 185 90% 83%;
-    --custom-cyan-800: 185 75% 35%; 
+    --custom-cyan-100: 185 70% 75%; /* Adjusted for dark theme */
+    --custom-cyan-100-hover: 185 70% 70%;
+    --custom-cyan-800: 185 85% 50%; /* Adjusted for dark theme */
 
-    --custom-purple-100: 260 100% 92%; 
-    --custom-purple-100-hover: 260 100% 87%;
-    --custom-purple-800: 260 70% 50%; 
+    --custom-purple-100: 260 80% 80%; /* Adjusted for dark theme */
+    --custom-purple-100-hover: 260 80% 75%;
+    --custom-purple-800: 260 90% 65%; /* Adjusted for dark theme */
   }
 }
 
@@ -139,10 +135,10 @@ html.theme-accent-blue {
   --accent: hsl(var(--custom-blue-800)); --accent-foreground: hsl(var(--custom-blue-100));
 }
 html.theme-accent-green {
-  --primary: hsl(var(--custom-green-solid-bg-light)); 
-  --primary-foreground: hsl(var(--custom-green-solid-fg-light));
-  --accent: hsl(var(--custom-green-800)); 
-  --accent-foreground: hsl(var(--custom-green-100));
+  --primary: hsl(var(--custom-green-solid-bg-light)); /* Solid Green BG for Button */
+  --primary-foreground: hsl(var(--custom-green-solid-fg-light)); /* White text for Button */
+  --accent: hsl(var(--custom-green-800)); /* Dark green for general accent (e.g. select highlight text) */
+  --accent-foreground: hsl(var(--custom-green-100)); /* Light green for general accent bg (e.g. select highlight bg) */
 }
 html.theme-accent-yellow {
   --primary: hsl(var(--custom-yellow-100)); --primary-foreground: hsl(var(--custom-yellow-800));
@@ -169,10 +165,10 @@ html.dark.theme-accent-blue {
   --accent: hsl(var(--custom-blue-100)); --accent-foreground: hsl(var(--custom-blue-800));
 }
 html.dark.theme-accent-green {
-  --primary: hsl(var(--custom-green-solid-bg-dark)); 
-  --primary-foreground: hsl(var(--custom-green-solid-fg-dark));
-  --accent: hsl(var(--custom-green-100)); 
-  --accent-foreground: hsl(var(--custom-green-800));
+  --primary: hsl(var(--custom-green-solid-bg-dark)); /* Solid Green BG for Button */
+  --primary-foreground: hsl(var(--custom-green-solid-fg-dark)); /* White text for Button */
+  --accent: hsl(var(--custom-green-100));  /* Light green for general accent (e.g. select highlight text) */
+  --accent-foreground: hsl(var(--custom-green-800)); /* Dark green for general accent bg (e.g. select highlight bg) */
 }
 html.dark.theme-accent-yellow {
   --primary: hsl(var(--custom-yellow-800)); --primary-foreground: hsl(var(--custom-yellow-100));
@@ -191,25 +187,26 @@ html.dark.theme-accent-purple {
 /* Specific styles for color pairings from proposal (used for nav items, etc.) */
 .bg-custom-green-100 { @apply bg-[hsl(var(--custom-green-100))]; }
 .text-custom-green-800 { @apply text-[hsl(var(--custom-green-800))]; }
-.hover\:bg-custom-green-200:hover { @apply hover:bg-opacity-80 hover:bg-[hsl(var(--custom-green-100))]; }
+.hover\:bg-custom-green-100\/80:hover { @apply hover:bg-[hsl(var(--custom-green-100-hover))]; } /* Use hover variable */
 
 .bg-custom-blue-100 { @apply bg-[hsl(var(--custom-blue-100))]; }
 .text-custom-blue-800 { @apply text-[hsl(var(--custom-blue-800))]; }
-.hover\:bg-custom-blue-200:hover { @apply hover:bg-opacity-80 hover:bg-[hsl(var(--custom-blue-100))]; }
+.hover\:bg-custom-blue-100\/80:hover { @apply hover:bg-[hsl(var(--custom-blue-100-hover))]; }
 
 .bg-custom-yellow-100 { @apply bg-[hsl(var(--custom-yellow-100))]; }
 .text-custom-yellow-800 { @apply text-[hsl(var(--custom-yellow-800))]; }
-.hover\:bg-custom-yellow-200:hover { @apply hover:bg-opacity-80 hover:bg-[hsl(var(--custom-yellow-100))]; }
+.hover\:bg-custom-yellow-100\/80:hover { @apply hover:bg-[hsl(var(--custom-yellow-100-hover))]; }
 
 .bg-custom-cyan-100 { @apply bg-[hsl(var(--custom-cyan-100))]; }
 .text-custom-cyan-800 { @apply text-[hsl(var(--custom-cyan-800))]; }
-.hover\:bg-custom-cyan-200:hover { @apply hover:bg-opacity-80 hover:bg-[hsl(var(--custom-cyan-100))]; }
+.hover\:bg-custom-cyan-100\/80:hover { @apply hover:bg-[hsl(var(--custom-cyan-100-hover))]; }
 
 .bg-custom-purple-100 { @apply bg-[hsl(var(--custom-purple-100))]; }
 .text-custom-purple-800 { @apply text-[hsl(var(--custom-purple-800))]; }
-.hover\:bg-custom-purple-200:hover { @apply hover:bg-opacity-80 hover:bg-[hsl(var(--custom-purple-100))]; }
+.hover\:bg-custom-purple-100\/80:hover { @apply hover:bg-[hsl(var(--custom-purple-100-hover))]; }
 
-/* For buttons on home cards */
+
+/* For buttons on home cards - now using bg-muted on hover */
 .home-card-button {
   @apply w-full font-semibold py-2 px-6 rounded-lg transition-colors;
 }
@@ -218,6 +215,7 @@ html.dark.theme-accent-purple {
 .home-card-button-yellow { @apply bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))] hover:bg-muted hover:text-foreground; }
 .home-card-button-cyan { @apply bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))] hover:bg-muted hover:text-foreground; }
 .home-card-button-purple { @apply bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))] hover:bg-muted hover:text-foreground; }
+
 
 /* FAQ specific styles */
 .faq-answer {
