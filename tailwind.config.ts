@@ -11,7 +11,7 @@ export default {
     extend: {
       fontFamily: {
         body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
+        headline: ['Space Grotesk', 'sans-serif'], // Added Space Grotesk for headlines
         code: ['monospace'],
       },
       colors: {
@@ -65,6 +65,17 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        // Custom colors from globals.css for Tailwind intellisense (optional but helpful)
+        'custom-green-100': 'hsl(var(--custom-green-100))',
+        'custom-green-800': 'hsl(var(--custom-green-800))',
+        'custom-blue-100': 'hsl(var(--custom-blue-100))',
+        'custom-blue-800': 'hsl(var(--custom-blue-800))',
+        'custom-yellow-100': 'hsl(var(--custom-yellow-100))',
+        'custom-yellow-800': 'hsl(var(--custom-yellow-800))',
+        'custom-cyan-100': 'hsl(var(--custom-cyan-100))',
+        'custom-cyan-800': 'hsl(var(--custom-cyan-800))',
+        'custom-purple-100': 'hsl(var(--custom-purple-100))',
+        'custom-purple-800': 'hsl(var(--custom-purple-800))',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -97,3 +108,5 @@ export default {
   },
   plugins: [require('tailwindcss-animate')],
 } satisfies Config;
+
+    

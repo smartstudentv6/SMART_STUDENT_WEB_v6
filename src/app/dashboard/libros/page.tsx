@@ -1,0 +1,95 @@
+
+"use client";
+
+import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/language-context';
+import { useAppData } from '@/contexts/app-data-context';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Library } from 'lucide-react';
+import type { CourseData } from '@/lib/types';
+
+export default function LibrosPage() {
+  const { translate, language } = useLanguage();
+  const { courses } = useAppData();
+  const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedBook, setSelectedBook] = useState('');
+  const [booksForCourse, setBooksForCourse] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (selectedCourse && courses[selectedCourse]) {
+      setBooksForCourse(courses[selectedCourse][language] || []);
+      setSelectedBook(''); // Reset book selection when course changes
+    } else {
+      setBooksForCourse([]);
+    }
+  }, [selectedCourse, language, courses]);
+
+  const handleCourseChange = (value: string) => {
+    setSelectedCourse(value);
+  };
+
+  const handleBookChange = (value: string) => {
+    setSelectedBook(value);
+  };
+
+  const handleDownloadPdf = () => {
+    // Mock download functionality
+    alert(`${translate('downloadPDF')} for ${selectedBook} (Not implemented)`);
+  };
+
+  return (
+    <div className="flex flex-col items-center text-center">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="items-center">
+          <Library className="w-10 h-10 text-green-500 dark:text-green-400 mb-3" />
+          <CardTitle className="text-3xl font-bold font-headline">{translate('digitalLibraryTitle')}</CardTitle>
+          <CardDescription className="mt-2 text-muted-foreground max-w-xl">
+            {translate('digitalLibrarySub')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Select onValueChange={handleCourseChange} value={selectedCourse}>
+            <SelectTrigger className="w-full py-3 text-base md:text-sm">
+              <SelectValue placeholder={translate('selectCourse')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="" disabled>{translate('selectCourse')}</SelectItem>
+              {Object.keys(courses).map(courseName => (
+                <SelectItem key={courseName} value={courseName}>
+                  {courseName.replace(/Básico/g, 'Básico').replace(/Medio/g, 'Medio')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select onValueChange={handleBookChange} value={selectedBook} disabled={!selectedCourse || booksForCourse.length === 0}>
+            <SelectTrigger className="w-full py-3 text-base md:text-sm">
+              <SelectValue placeholder={translate('selectBook')} />
+            </SelectTrigger>
+            <SelectContent>
+               <SelectItem value="" disabled>{translate('selectBook')}</SelectItem>
+              {booksForCourse.map(bookName => (
+                <SelectItem key={bookName} value={bookName}>
+                  {bookName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            onClick={handleDownloadPdf}
+            disabled={!selectedBook}
+            className="w-full font-semibold py-3 text-base md:text-sm"
+            variant={selectedBook ? 'default' : 'secondary'}
+          >
+            {translate('downloadPDF')}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+    
