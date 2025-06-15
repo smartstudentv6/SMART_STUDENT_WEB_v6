@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Newspaper, Sparkles, Download, Network, FileQuestion, ClipboardList } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
-import { generateSummary } from '@/ai/flows/generate-summary';
+import { generateSummary, type GenerateSummaryInput } from '@/ai/flows/generate-summary';
 import { useToast } from "@/hooks/use-toast";
 
 // Helper function to convert basic Markdown to HTML for the main summary
@@ -100,12 +100,13 @@ export default function ResumenPage() {
     setCurrentTopicForDisplay(topicForSummary); 
 
     try {
-      const result = await generateSummary({
+      const input: GenerateSummaryInput = {
         bookTitle: selectedBook,
         topic: topicForSummary,
         includeKeyPoints: includeKeyPoints,
         language: currentUiLanguage,
-      });
+      };
+      const result = await generateSummary(input);
       setSummaryResult({
         summary: result.summary, 
         keyPoints: result.keyPoints
@@ -187,8 +188,10 @@ export default function ResumenPage() {
     <div className="flex flex-col items-center text-center">
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="items-center">
-          <Newspaper className="w-10 h-10 text-primary mb-3" />
-          <CardTitle className="text-3xl font-bold font-headline">{translate('summaryPageTitle')}</CardTitle>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <CardTitle className="text-3xl font-bold font-headline">{translate('summaryPageTitle')}</CardTitle>
+            <Newspaper className="w-8 h-8 text-primary" />
+          </div>
           <CardDescription className="mt-2 text-muted-foreground max-w-2xl">
             {translate('summaryPageSub')}
           </CardDescription>
@@ -249,7 +252,7 @@ export default function ResumenPage() {
         <Card className="mt-6 w-full max-w-lg text-left shadow-md">
           <CardHeader>
             <CardTitle className="font-headline text-center">
-              {translate('summaryTitlePrefix')} - {currentTopicForDisplay.toUpperCase()}
+              {translate('summaryTitlePrefix').toUpperCase()} - {currentTopicForDisplay.toUpperCase()}
             </CardTitle>
           </CardHeader>
           <CardContent>
