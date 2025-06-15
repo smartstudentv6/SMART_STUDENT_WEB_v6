@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Logo from '@/components/shared/logo';
 import LanguageToggle from '@/components/shared/language-toggle';
@@ -33,12 +33,57 @@ export default function DashboardLayout({
   const { translate } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
+  const [activeAccentTheme, setActiveAccentTheme] = useState('default');
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    // Determine active theme based on pathname when dashboard is visible
+    if (!isLoading && isAuthenticated) {
+      const currentNavItem = navItems.find(item => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));
+      let newTheme = 'default';
+      if (currentNavItem) {
+        switch (currentNavItem.labelKey) {
+          case 'navSummary': newTheme = 'blue'; break;
+          case 'navBooks': newTheme = 'green'; break;
+          case 'navMindMap': newTheme = 'yellow'; break;
+          case 'navQuiz': newTheme = 'cyan'; break;
+          case 'navEvaluation': newTheme = 'purple'; break;
+          default: newTheme = 'default';
+        }
+      }
+      setActiveAccentTheme(newTheme);
+    } else if (!isLoading && !isAuthenticated) {
+      // If navigating away from dashboard (e.g. logout), reset to default
+      setActiveAccentTheme('default');
+    }
+  }, [pathname, isLoading, isAuthenticated]);
+
+  useEffect(() => {
+    // List of all possible theme classes
+    const themeClasses = ['theme-accent-default', 'theme-accent-blue', 'theme-accent-green', 'theme-accent-yellow', 'theme-accent-cyan', 'theme-accent-purple'];
+    
+    // Clean up previous theme classes from html element
+    themeClasses.forEach(cls => document.documentElement.classList.remove(cls));
+
+    // Add current theme class to html element
+    if (activeAccentTheme) {
+      document.documentElement.classList.add(`theme-accent-${activeAccentTheme}`);
+    }
+    
+    // Cleanup function to remove class when component unmounts 
+    // or before the effect runs next time if activeAccentTheme changes.
+    return () => {
+      if (activeAccentTheme) {
+        document.documentElement.classList.remove(`theme-accent-${activeAccentTheme}`);
+      }
+    };
+  }, [activeAccentTheme]);
+
 
   if (isLoading || !isAuthenticated) {
     return (
