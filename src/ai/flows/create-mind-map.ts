@@ -82,7 +82,7 @@ const renderMindMapImageHandlebarsPrompt = ai.definePrompt({
 Generate a conceptual map IMAGE based on the EXACT structure provided below.
 Do NOT generate text output, only the IMAGE.
 
-The absolute MOST IMPORTANT requirement is that ALL TEXT in EVERY NODE must be perfectly clear, easily readable, and large enough to be distinguished. Use a simple, legible font style. Avoid small, blurry, or distorted characters. Ensure good contrast between the text and its node background.
+The absolute MOST IMPORTANT requirement is that ALL TEXT in EVERY NODE must be perfectly clear, easily readable, and large enough to be distinguished. Use a simple, legible font style. Avoid small, blurry, or distorted characters. Ensure good contrast between the text and its node background. The text for each node is provided to you explicitly in the structure below; you MUST use this exact text.
 
 Central Theme (Main, Central Node): "{{centralThemeLabel}}"
 
@@ -104,13 +104,17 @@ Main Ideas branching from the Central Theme:
 {{/each}}
 
 Strict Requirements for the IMAGE:
-1.  **Legible Text in ALL Nodes**: Re-iterating, this is paramount. The text for each node is GIVEN to you above. You MUST render this text clearly. If you cannot render perfectly clear text for ALL provided labels, the image is a failure.
-2.  **Clear Hierarchy**: The central theme ("{{centralThemeLabel}}") must be the main, central node. The main ideas (labels from mainBranches) must clearly branch from it. Sub-topics (labels from children) must clearly branch from their respective parent nodes. Use clear visual connectors (lines, arrows).
-3.  **Professional Appearance**: The overall map should be visually organized, clean, and professional. Use distinct shapes or colors for different levels if it enhances clarity, but prioritize text legibility.
-4.  **Accurate Representation**: The image must accurately represent the provided hierarchical structure and labels. Do not add, omit, or change any text from the provided labels. Render them exactly as given.
+1.  **RENDER PROVIDED TEXT EXACTLY AND CLEARLY**: This is the most critical instruction. The textual content for every node is GIVEN to you in the structure above (e.g., "{{centralThemeLabel}}", "{{label}}", "{{this.label}}"). You MUST render this text precisely as it is written, inside its respective node. The text must be:
+    *   PERFECTLY LEGIBLE.
+    *   LARGE ENOUGH to be easily read without zooming.
+    *   Use a SIMPLE, SANS-SERIF FONT.
+    *   Have EXCELLENT CONTRAST against the node's background.
+    *   DO NOT ABBREVIATE, CHANGE, OMIT, OR ADD ANY TEXT to the labels provided.
+2.  **CLEAR HIERARCHY**: The central theme ("{{centralThemeLabel}}") must be the most prominent, central node. The main ideas (labels from \`mainBranches\`) must clearly branch from it. Sub-topics (labels from \`children\`) must clearly branch from their respective parent nodes. Use clear visual connectors (lines or arrows).
+3.  **PROFESSIONAL APPEARANCE**: The map should be visually organized, uncluttered, and professional. Use distinct shapes or colors for different levels if it enhances clarity, BUT text legibility and accuracy are more important than aesthetics.
+4.  **NO HALLUCINATED CONTENT**: Do not add any nodes, text, or visual elements that are not explicitly defined by the structure provided above. Your task is to visualize the given data, not to add to it.
 
-Prioritize the clarity of the text and the logical structure of the conceptual relationships above all else.
-If you cannot generate an image with clearly legible text in the nodes that accurately represents the provided conceptual map structure, please try your best to make the text as clear as possible given your capabilities.
+If you are unable to generate an image where all provided text labels are perfectly clear and accurately rendered as given, the result is not acceptable. Prioritize text clarity and faithfulness to the provided content above all other considerations.
 `,
 });
 
