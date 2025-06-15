@@ -124,5 +124,13 @@
     "noTopicProvided": "Por favor, ingresa un tema.",
     "noTopicOrContentProvided": "Por favor, ingresa un tema o proporciona el contenido del libro.",
     "noBookSelected": "Por favor, selecciona un libro.",
-    "noCourseSelected": "Por favor, selecciona un curso."
+    "noCourseSelected": "Por favor, selecciona un curso.",
+    "summaryActionDownloadPdf": "Descargar PDF",
+    "summaryActionCreateMap": "Crear Mapa Mental",
+    "summaryActionCreateQuiz": "Crear Cuestionario",
+    "summaryActionCreateEval": "Crear Evaluación",
+    "summaryContentTitle": "Resumen",
+    "pdfDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes."
 }
+
+    
