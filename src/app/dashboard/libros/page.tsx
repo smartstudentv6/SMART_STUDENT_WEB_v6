@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Library } from 'lucide-react';
 import type { CourseData } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 export default function LibrosPage() {
   const { translate, language } = useLanguage();
@@ -89,8 +90,12 @@ export default function LibrosPage() {
           <Button
             onClick={handleDownloadPdf}
             disabled={!selectedBook}
-            className="w-full font-semibold py-3 text-base md:text-sm"
             variant={selectedBook ? 'default' : 'secondary'}
+            className={cn(
+              "w-full font-semibold py-3 text-base md:text-sm",
+              selectedBook && 
+                "bg-[hsl(var(--custom-green-solid-bg-light))] text-[hsl(var(--custom-green-solid-fg-light))] dark:bg-[hsl(var(--custom-green-solid-bg-dark))] dark:text-[hsl(var(--custom-green-solid-fg-dark))] hover:bg-[hsl(var(--custom-green-solid-bg-light))]/90 dark:hover:bg-[hsl(var(--custom-green-solid-bg-dark))]/90"
+            )}
           >
             {translate('downloadPDF')}
           </Button>
