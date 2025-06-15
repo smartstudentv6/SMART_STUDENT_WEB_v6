@@ -24,6 +24,7 @@ export default function ResumenPage() {
   const [summaryResult, setSummaryResult] = useState<{ summary: string; keyPoints?: string[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [keyPointsRequested, setKeyPointsRequested] = useState(false);
+  const [currentTopicForDisplay, setCurrentTopicForDisplay] = useState('');
 
   const handleGenerateSummary = async () => {
     if (!selectedBook) {
@@ -37,11 +38,14 @@ export default function ResumenPage() {
 
     setIsLoading(true);
     setSummaryResult(null);
-    setKeyPointsRequested(includeKeyPoints); // Store if key points were requested for this generation
+    setKeyPointsRequested(includeKeyPoints); 
+    const topicForSummary = topic.trim() || "General Summary";
+    setCurrentTopicForDisplay(topicForSummary); // Save the topic used for generation
+
     try {
       const result = await generateSummary({
         bookTitle: selectedBook,
-        topic: topic.trim() || "General Summary",
+        topic: topicForSummary,
         bookContent: bookContentInput.trim() || undefined,
         includeKeyPoints: includeKeyPoints,
       });
@@ -75,7 +79,6 @@ export default function ResumenPage() {
             onCourseChange={setSelectedCourse}
             onBookChange={(book) => {
               setSelectedBook(book);
-              // setBookContentInput(''); // Optionally clear content if book changes
             }}
           />
           <div className="space-y-2">
@@ -98,7 +101,7 @@ export default function ResumenPage() {
               rows={8}
               value={bookContentInput}
               onChange={(e) => setBookContentInput(e.target.value)}
-              placeholder={translate('summaryPasteBookContentPlaceholder')}
+              placeholder={translate('summaryPasteBookContentPlaceholderOptional')}
               className="text-base md:text-sm"
             />
             <p className="text-xs text-muted-foreground text-left flex items-start gap-1.5 pt-1">
@@ -140,14 +143,16 @@ export default function ResumenPage() {
       {summaryResult && !isLoading && (
         <Card className="mt-6 w-full max-w-lg text-left shadow-md">
           <CardHeader>
-            <CardTitle className="font-headline">{translate('summaryResultTitle')}</CardTitle>
+            <CardTitle className="font-headline">
+              SUMMARY - {currentTopicForDisplay.toUpperCase()}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div dangerouslySetInnerHTML={{ __html: summaryResult.summary }} className="prose dark:prose-invert max-w-none text-sm leading-relaxed" />
-            {keyPointsRequested && typeof summaryResult.keyPoints !== 'undefined' && (
+            {keyPointsRequested && (
               <div className="mt-6">
                 <h3 className="text-lg font-semibold mb-2 font-headline">{translate('summaryKeyPointsTitle')}</h3>
-                {summaryResult.keyPoints.length > 0 ? (
+                {summaryResult.keyPoints && summaryResult.keyPoints.length > 0 ? (
                   <ul className="list-disc list-inside space-y-1 text-sm">
                     {summaryResult.keyPoints.map((point, index) => (
                       <li key={index}>{point}</li>
@@ -164,3 +169,4 @@ export default function ResumenPage() {
     </div>
   );
 }
+
