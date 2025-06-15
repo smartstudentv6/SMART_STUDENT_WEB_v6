@@ -35,8 +35,18 @@ export default function LibrosPage() {
   };
 
   const handleDownloadPdf = () => {
-    // Mock download functionality
-    alert(`${translate('downloadPDF')} for ${selectedBook} (Not implemented)`);
+    const cienciasNaturalesEs = "Ciencias Naturales";
+    const cienciasNaturalesEn = "Natural Sciences";
+    const googleDriveLink = "https://drive.google.com/file/d/11CRuh_h2pNqYdOsWadQMXicjKAp9VimH/view";
+
+    if (
+      selectedCourse === "8vo Básico" &&
+      (selectedBook === cienciasNaturalesEs || selectedBook === cienciasNaturalesEn)
+    ) {
+      window.open(googleDriveLink, '_blank');
+    } else {
+      alert(`${translate('downloadPDF')} for ${selectedBook} (Not implemented for this book)`);
+    }
   };
 
   return (
@@ -89,5 +99,3 @@ export default function LibrosPage() {
     </div>
   );
 }
-
-    
