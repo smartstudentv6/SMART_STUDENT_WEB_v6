@@ -91,6 +91,8 @@ export default function DashboardLayout({
                 activeStyle = 'bg-custom-green-100 text-custom-green-800 font-semibold';
               } else if (item.labelKey === 'navMindMap') {
                 activeStyle = 'bg-custom-yellow-100 text-custom-yellow-800 font-semibold';
+              } else if (item.labelKey === 'navQuiz') {
+                activeStyle = 'bg-custom-cyan-100 text-custom-cyan-800 font-semibold';
               }
               
               return (
