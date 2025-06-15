@@ -14,19 +14,19 @@ body {
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 243 75% 59%; /* Indigo #4F46E5 */
-    --primary-foreground: 0 0% 100%; /* White for primary contrast */
+    --primary: 243 75% 59%; /* Indigo #4F46E5 - Default primary */
+    --primary-foreground: 0 0% 100%; /* White for primary contrast - Default primary foreground */
     --secondary: 220 14% 93%; /* Tailwind gray-200 */
     --secondary-foreground: 222 47% 11%;
     --muted: 220 14% 93%;
     --muted-foreground: 220 9% 46%; /* Tailwind gray-500 */
-    --accent: 160 54% 52%; /* Teal #34D399 */
-    --accent-foreground: 0 0% 100%; /* White for accent contrast */
+    --accent: 160 54% 52%; /* Teal #34D399 - Default accent */
+    --accent-foreground: 0 0% 100%; /* White for accent contrast - Default accent foreground */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 220 13% 91%; /* Tailwind gray-200 for borders */
     --input: 220 13% 91%;
-    --ring: 243 75% 59%; /* Primary color for rings */
+    --ring: 243 75% 59%; /* Default Indigo for rings */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -34,17 +34,17 @@ body {
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
 
-    /* Custom variables from HTML proposal for easier mapping if needed */
-    --custom-green-100: 145 75% 90%; /* Approx for bg-green-100 */
-    --custom-green-800: 150 65% 30%; /* Approx for text-green-800 */
-    --custom-blue-100: 220 100% 92%; /* Approx for bg-blue-100 */
-    --custom-blue-800: 220 70% 45%; /* Approx for text-blue-800 */
-    --custom-yellow-100: 45 100% 88%; /* Approx for bg-yellow-100 */
-    --custom-yellow-800: 45 85% 40%; /* Approx for text-yellow-800 */
-    --custom-cyan-100: 185 90% 88%; /* Approx for bg-cyan-100 */
-    --custom-cyan-800: 185 75% 35%; /* Approx for text-cyan-800 */
-    --custom-purple-100: 260 100% 92%; /* Approx for bg-purple-100 */
-    --custom-purple-800: 260 70% 50%; /* Approx for text-purple-800 */
+    /* Custom color HSL values */
+    --custom-green-100: 145 75% 90%; 
+    --custom-green-800: 150 65% 30%; 
+    --custom-blue-100: 220 100% 92%; 
+    --custom-blue-800: 220 70% 45%; 
+    --custom-yellow-100: 45 100% 88%; 
+    --custom-yellow-800: 45 85% 40%; 
+    --custom-cyan-100: 185 90% 88%; 
+    --custom-cyan-800: 185 75% 35%; 
+    --custom-purple-100: 260 100% 92%; 
+    --custom-purple-800: 260 70% 50%; 
   }
 
   .dark {
@@ -54,31 +54,31 @@ body {
     --card-foreground: 220 17% 98%;
     --popover: 215 28% 17%;
     --popover-foreground: 220 17% 98%;
-    --primary: 243 80% 69%; /* Lighter Indigo for dark mode */
-    --primary-foreground: 222 47% 11%;
+    --primary: 243 80% 69%; /* Lighter Indigo for dark mode - Default primary */
+    --primary-foreground: 222 47% 11%; /* Default primary foreground */
     --secondary: 217 33% 20%; /* Darker gray for secondary */
     --secondary-foreground: 220 17% 98%;
     --muted: 217 33% 20%;
     --muted-foreground: 215 20% 65%; /* Lighter gray text */
-    --accent: 160 60% 62%; /* Lighter Teal for dark mode */
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 72% 51%; /* Slightly adjusted destructive */
+    --accent: 160 60% 62%; /* Lighter Teal for dark mode - Default accent */
+    --accent-foreground: 222 47% 11%; /* Default accent foreground */
+    --destructive: 0 72% 51%; 
     --destructive-foreground: 0 0% 98%;
     --border: 215 28% 23%; /* Darker border #374151 */
     --input: 215 28% 23%;
-    --ring: 243 80% 69%;
+    --ring: 243 80% 69%; /* Default Lighter Indigo for rings in dark */
 
-    /* Custom variables for dark mode */
-    --custom-green-100: 160 76% 15%; /* #10B98130 -> Darker, more saturated green */
-    --custom-green-800: 145 63% 65%; /* text-green-300 */
-    --custom-blue-100: 221 83% 20%; /* #3B82F630 -> Darker, more saturated blue */
-    --custom-blue-800: 220 85% 75%; /* text-blue-300 */
-    --custom-yellow-100: 43 96% 20%; /* #F59E0B30 -> Darker, more saturated yellow */
-    --custom-yellow-800: 45 90% 65%; /* text-yellow-300 */
-    --custom-cyan-100: 188 96% 17%; /* #06B6D430 -> Darker, more saturated cyan */
-    --custom-cyan-800: 185 70% 65%; /* text-cyan-300 */
-    --custom-purple-100: 258 90% 25%; /* #8B5CF630 -> Darker, more saturated purple */
-    --custom-purple-800: 260 85% 75%; /* text-purple-300 */
+    /* Custom color HSL values for dark mode (mostly reusing light ones for background, text will be the dark variant) */
+    --custom-green-100: 145 75% 90%; 
+    --custom-green-800: 150 65% 30%; 
+    --custom-blue-100: 220 100% 92%; 
+    --custom-blue-800: 220 70% 45%; 
+    --custom-yellow-100: 45 100% 88%; 
+    --custom-yellow-800: 45 85% 40%; 
+    --custom-cyan-100: 185 90% 88%; 
+    --custom-cyan-800: 185 75% 35%; 
+    --custom-purple-100: 260 100% 92%; 
+    --custom-purple-800: 260 70% 50%; 
   }
 }
 
@@ -90,43 +90,76 @@ body {
     @apply bg-background text-foreground;
     @apply antialiased;
   }
-  /* Ensure select dropdown arrows are visible in dark mode */
   .dark select {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   }
   select:disabled {
     @apply bg-gray-100 cursor-not-allowed dark:bg-muted;
   }
-
-  /* Headings font */
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
   }
 }
 
-/* Light Mode Theme-specific accent colors */
-/* Applied to html tag by DashboardLayout */
-html.theme-accent-blue { --accent: hsl(var(--custom-blue-100)); --accent-foreground: hsl(var(--custom-blue-800)); }
-html.theme-accent-green { --accent: hsl(var(--custom-green-100)); --accent-foreground: hsl(var(--custom-green-800)); }
-html.theme-accent-yellow { --accent: hsl(var(--custom-yellow-100)); --accent-foreground: hsl(var(--custom-yellow-800)); }
-html.theme-accent-cyan { --accent: hsl(var(--custom-cyan-100)); --accent-foreground: hsl(var(--custom-cyan-800)); }
-html.theme-accent-purple { --accent: hsl(var(--custom-purple-100)); --accent-foreground: hsl(var(--custom-purple-800)); }
-/* Default accent is already defined in :root if no theme-accent-* class is present */
+/* Light Mode Theme-specific primary, accent, and ring colors */
+html.theme-accent-blue { 
+  --primary: hsl(var(--custom-blue-100)); --primary-foreground: hsl(var(--custom-blue-800)); 
+  --accent: hsl(var(--custom-blue-100)); --accent-foreground: hsl(var(--custom-blue-800));
+  --ring: hsl(var(--custom-blue-800));
+}
+html.theme-accent-green {
+  --primary: hsl(var(--custom-green-100)); --primary-foreground: hsl(var(--custom-green-800));
+  --accent: hsl(var(--custom-green-100)); --accent-foreground: hsl(var(--custom-green-800));
+  --ring: hsl(var(--custom-green-800));
+}
+html.theme-accent-yellow {
+  --primary: hsl(var(--custom-yellow-100)); --primary-foreground: hsl(var(--custom-yellow-800));
+  --accent: hsl(var(--custom-yellow-100)); --accent-foreground: hsl(var(--custom-yellow-800));
+  --ring: hsl(var(--custom-yellow-800));
+}
+html.theme-accent-cyan {
+  --primary: hsl(var(--custom-cyan-100)); --primary-foreground: hsl(var(--custom-cyan-800));
+  --accent: hsl(var(--custom-cyan-100)); --accent-foreground: hsl(var(--custom-cyan-800));
+  --ring: hsl(var(--custom-cyan-800));
+}
+html.theme-accent-purple {
+  --primary: hsl(var(--custom-purple-100)); --primary-foreground: hsl(var(--custom-purple-800));
+  --accent: hsl(var(--custom-purple-100)); --accent-foreground: hsl(var(--custom-purple-800));
+  --ring: hsl(var(--custom-purple-800));
+}
 
-/* Dark Mode Theme-specific accent colors */
-/* These will combine with .dark class also on html element */
-html.dark.theme-accent-blue { --accent: hsl(var(--custom-blue-100)); --accent-foreground: hsl(var(--custom-blue-800)); }
-html.dark.theme-accent-green { --accent: hsl(var(--custom-green-100)); --accent-foreground: hsl(var(--custom-green-800)); }
-html.dark.theme-accent-yellow { --accent: hsl(var(--custom-yellow-100)); --accent-foreground: hsl(var(--custom-yellow-800)); }
-html.dark.theme-accent-cyan { --accent: hsl(var(--custom-cyan-100)); --accent-foreground: hsl(var(--custom-cyan-800)); }
-html.dark.theme-accent-purple { --accent: hsl(var(--custom-purple-100)); --accent-foreground: hsl(var(--custom-purple-800)); }
-/* Default dark accent is already defined in .dark if no theme-accent-* class is present */
+/* Dark Mode Theme-specific primary, accent, and ring colors */
+html.dark.theme-accent-blue {
+  --primary: hsl(var(--custom-blue-100)); --primary-foreground: hsl(var(--custom-blue-800));
+  --accent: hsl(var(--custom-blue-100)); --accent-foreground: hsl(var(--custom-blue-800));
+  --ring: hsl(var(--custom-blue-100));
+}
+html.dark.theme-accent-green {
+  --primary: hsl(var(--custom-green-100)); --primary-foreground: hsl(var(--custom-green-800));
+  --accent: hsl(var(--custom-green-100)); --accent-foreground: hsl(var(--custom-green-800));
+  --ring: hsl(var(--custom-green-100));
+}
+html.dark.theme-accent-yellow {
+  --primary: hsl(var(--custom-yellow-100)); --primary-foreground: hsl(var(--custom-yellow-800));
+  --accent: hsl(var(--custom-yellow-100)); --accent-foreground: hsl(var(--custom-yellow-800));
+  --ring: hsl(var(--custom-yellow-100));
+}
+html.dark.theme-accent-cyan {
+  --primary: hsl(var(--custom-cyan-100)); --primary-foreground: hsl(var(--custom-cyan-800));
+  --accent: hsl(var(--custom-cyan-100)); --accent-foreground: hsl(var(--custom-cyan-800));
+  --ring: hsl(var(--custom-cyan-100));
+}
+html.dark.theme-accent-purple {
+  --primary: hsl(var(--custom-purple-100)); --primary-foreground: hsl(var(--custom-purple-800));
+  --accent: hsl(var(--custom-purple-100)); --accent-foreground: hsl(var(--custom-purple-800));
+  --ring: hsl(var(--custom-purple-100));
+}
 
 
-/* Specific styles for color pairings from proposal */
+/* Specific styles for color pairings from proposal (used for nav items, etc.) */
 .bg-custom-green-100 { @apply bg-[hsl(var(--custom-green-100))]; }
 .text-custom-green-800 { @apply text-[hsl(var(--custom-green-800))]; }
-.hover\:bg-custom-green-200:hover { @apply hover:bg-opacity-80 hover:bg-[hsl(var(--custom-green-100))]; } /* Adjust hover as needed */
+.hover\:bg-custom-green-200:hover { @apply hover:bg-opacity-80 hover:bg-[hsl(var(--custom-green-100))]; }
 
 .bg-custom-blue-100 { @apply bg-[hsl(var(--custom-blue-100))]; }
 .text-custom-blue-800 { @apply text-[hsl(var(--custom-blue-800))]; }
@@ -144,25 +177,24 @@ html.dark.theme-accent-purple { --accent: hsl(var(--custom-purple-100)); --accen
 .text-custom-purple-800 { @apply text-[hsl(var(--custom-purple-800))]; }
 .hover\:bg-custom-purple-200:hover { @apply hover:bg-opacity-80 hover:bg-[hsl(var(--custom-purple-100))]; }
 
-/* For buttons on home cards */
+/* For buttons on home cards - these use primary/primary-foreground now through globals theming */
 .home-card-button {
-  @apply w-full font-semibold py-2 px-6 rounded-lg transition-colors;
+  @apply w-full font-semibold py-2 px-6 rounded-lg transition-colors bg-primary text-primary-foreground hover:bg-primary/90;
 }
-.home-card-button-green {
-  @apply bg-custom-green-100 text-custom-green-800 hover:bg-green-200 dark:bg-[hsl(var(--custom-green-100))] dark:text-[hsl(var(--custom-green-800))] dark:hover:bg-opacity-70 dark:hover:bg-[hsl(var(--custom-green-100))];
-}
-.home-card-button-blue {
-  @apply bg-custom-blue-100 text-custom-blue-800 hover:bg-blue-200 dark:bg-[hsl(var(--custom-blue-100))] dark:text-[hsl(var(--custom-blue-800))] dark:hover:bg-opacity-70 dark:hover:bg-[hsl(var(--custom-blue-100))];
-}
-.home-card-button-yellow {
-  @apply bg-custom-yellow-100 text-custom-yellow-800 hover:bg-yellow-200 dark:bg-[hsl(var(--custom-yellow-100))] dark:text-[hsl(var(--custom-yellow-800))] dark:hover:bg-opacity-70 dark:hover:bg-[hsl(var(--custom-yellow-100))];
-}
-.home-card-button-cyan {
-  @apply bg-custom-cyan-100 text-custom-cyan-800 hover:bg-cyan-200 dark:bg-[hsl(var(--custom-cyan-100))] dark:text-[hsl(var(--custom-cyan-800))] dark:hover:bg-opacity-70 dark:hover:bg-[hsl(var(--custom-cyan-100))];
-}
-.home-card-button-purple {
-  @apply bg-custom-purple-100 text-custom-purple-800 hover:bg-purple-200 dark:bg-[hsl(var(--custom-purple-100))] dark:text-[hsl(var(--custom-purple-800))] dark:hover:bg-opacity-70 dark:hover:bg-[hsl(var(--custom-purple-100))];
-}
+/* Specific home card button color classes can be simplified or removed if covered by primary theming */
+.home-card-button-green { @apply bg-[hsl(var(--custom-green-100))] text-[hsl(var(--custom-green-800))] hover:bg-opacity-80 hover:bg-[hsl(var(--custom-green-100))]; }
+.home-card-button-blue { @apply bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))] hover:bg-opacity-80 hover:bg-[hsl(var(--custom-blue-100))]; }
+.home-card-button-yellow { @apply bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))] hover:bg-opacity-80 hover:bg-[hsl(var(--custom-yellow-100))]; }
+.home-card-button-cyan { @apply bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))] hover:bg-opacity-80 hover:bg-[hsl(var(--custom-cyan-100))]; }
+.home-card-button-purple { @apply bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))] hover:bg-opacity-80 hover:bg-[hsl(var(--custom-purple-100))]; }
+
+/* Dark mode overrides for home-card-buttons if specific styling is needed beyond primary theming */
+.dark .home-card-button-green { @apply bg-[hsl(var(--custom-green-100))] text-[hsl(var(--custom-green-800))] hover:bg-opacity-70 hover:bg-[hsl(var(--custom-green-100))]; }
+.dark .home-card-button-blue { @apply bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))] hover:bg-opacity-70 hover:bg-[hsl(var(--custom-blue-100))]; }
+.dark .home-card-button-yellow { @apply bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))] hover:bg-opacity-70 hover:bg-[hsl(var(--custom-yellow-100))]; }
+.dark .home-card-button-cyan { @apply bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))] hover:bg-opacity-70 hover:bg-[hsl(var(--custom-cyan-100))]; }
+.dark .home-card-button-purple { @apply bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))] hover:bg-opacity-70 hover:bg-[hsl(var(--custom-purple-100))]; }
+
 
 /* FAQ specific styles */
 .faq-answer {
@@ -211,5 +243,3 @@ input:-webkit-autofill:active {
   transform: translateY(-20px);
   transition: opacity 300ms, transform 300ms;
 }
-
-    
