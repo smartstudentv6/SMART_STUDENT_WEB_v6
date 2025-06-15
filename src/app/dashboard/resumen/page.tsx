@@ -189,7 +189,7 @@ export default function ResumenPage() {
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="items-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <CardTitle className="text-3xl font-bold font-headline">{translate('summaryPageTitle')}</CardTitle>
+            <CardTitle className="text-3xl font-bold font-headline whitespace-nowrap">{translate('summaryPageTitle')}</CardTitle>
             <Newspaper className="w-8 h-8 text-primary" />
           </div>
           <CardDescription className="mt-2 text-muted-foreground max-w-2xl">
