@@ -1,3 +1,4 @@
+
 // src/ai/flows/generate-summary.ts
 'use server';
 
@@ -22,8 +23,8 @@ const GenerateSummaryInputSchema = z.object({
 export type GenerateSummaryInput = z.infer<typeof GenerateSummaryInputSchema>;
 
 const GenerateSummaryOutputSchema = z.object({
-  summary: z.string().describe('The generated summary of the topic, potentially up to 10,000 words based on AI knowledge of the book and topic.'),
-  keyPoints: z.array(z.string()).optional().describe('An array of 10 key points if requested.'),
+  summary: z.string().describe('The generated summary of the topic, potentially up to 10,000 words based on AI knowledge of the book and topic. Should be formatted in Markdown.'),
+  keyPoints: z.array(z.string()).optional().describe('An array of 10 key points if requested, in the specified language.'),
   progress: z.string().describe('One-sentence progress of summary generation.'),
 });
 
@@ -51,6 +52,10 @@ Instructions:
 1. Generate a very detailed and comprehensive summary of the specified topic, based on your knowledge of the book titled '{{{bookTitle}}}'.
    The summary MUST be written in the language specified by the 'language' input field (i.e., if 'language' is 'es', the summary must be in Spanish; if 'language' is 'en', the summary must be in English).
    Aim for a substantial length, potentially up to 10,000 words if your knowledge warrants such detail. Prioritize quality, coherence, and relevance to the topic.
+   Please format your summary using Markdown syntax:
+   - Use double newlines (pressing Enter twice) to separate paragraphs.
+   - Use Markdown headings (e.g., ## My Subheading) for sub-sections.
+   - Use double asterisks (e.g., **important term**) for bold text.
 
 {{#if includeKeyPoints}}
 2. After generating the summary, extract exactly 10 key points from the summary you wrote. These key points should be distinct and represent the most crucial takeaways.
@@ -81,3 +86,4 @@ const generateSummaryFlow = ai.defineFlow(
     };
   }
 );
+
