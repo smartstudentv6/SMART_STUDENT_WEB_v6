@@ -75,10 +75,10 @@ export default function DashboardLayout({
       <header className="bg-card border-b border-border sticky top-0 z-50">
         <nav className="container mx-auto px-4 sm:px-6 h-16 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 sm:gap-x-6">
           <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-            <Logo className="w-7 h-7 text-primary" />
             <h1 className="text-xl font-bold whitespace-nowrap text-foreground hidden sm:block font-headline">
               SMART STUDENT
             </h1>
+            <Logo className="w-7 h-7 text-primary" />
           </Link>
           
           <div className="hidden md:flex items-center justify-center space-x-1 lg:space-x-2 overflow-x-auto">
@@ -88,13 +88,13 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap
+                  className={`flex items-center px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap
                     ${isActive
                       ? 'bg-primary/10 text-primary font-semibold'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 font-medium'
                     }`}
                 >
-                  <item.icon className="w-4 h-4" />
+                  {/* Icon removed for desktop view to match the image */}
                   {translate(item.labelKey)}
                 </Link>
               );
@@ -146,5 +146,4 @@ export default function DashboardLayout({
     </div>
   );
 }
-
     

@@ -2,12 +2,11 @@
 "use client";
 
 import { useTheme } from 'next-themes';
-import { Button } from '@/components/ui/button';
-import { Sun, Moon } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useEffect, useState } from 'react';
 
 export default function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -15,24 +14,22 @@ export default function ThemeToggle() {
   }, []);
 
   if (!mounted) {
-    return <Button variant="outline" size="icon" className="w-10 h-10" disabled><Sun className="h-[1.2rem] w-[1.2rem]" /></Button>;
+    // Return a div that occupies roughly the same space as the Switch
+    // to prevent layout shift during hydration.
+    // Shadcn Switch is w-11 (2.75rem ~ 44px) h-6 (1.5rem ~ 24px).
+    return <div style={{ width: '44px', height: '24px' }} aria-hidden="true" />;
   }
 
+  // Determine the checked state based on the current theme.
+  // resolvedTheme helps handle 'system' preference correctly.
+  const isDarkMode = theme === 'dark' || (theme === 'system' && resolvedTheme === 'dark');
+
   return (
-    <Button
-      variant="outline"
-      size="icon"
-      className="w-10 h-10"
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      aria-label={theme === 'dark' ? "Switch to light mode" : "Switch to dark mode"}
-    >
-      {theme === 'dark' ? (
-        <Sun className="h-[1.2rem] w-[1.2rem] transition-all" />
-      ) : (
-        <Moon className="h-[1.2rem] w-[1.2rem] transition-all" />
-      )}
-    </Button>
+    <Switch
+      checked={isDarkMode}
+      onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+      aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+    />
   );
 }
-
     
