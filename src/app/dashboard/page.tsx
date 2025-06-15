@@ -89,10 +89,6 @@ export default function DashboardHomePage() {
         <p className="text-muted-foreground text-left ml-0.5">{translate('appSlogan')}</p>
       </div>
 
-      <p className="text-md text-muted-foreground">
-        {translate('welcomeSubMessage')}
-      </p>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {featureCards.map((card) => (
           <Card key={card.titleKey} className="flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300">
