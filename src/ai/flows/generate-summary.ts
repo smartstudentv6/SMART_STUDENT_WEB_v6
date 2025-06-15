@@ -2,7 +2,7 @@
 'use server';
 
 /**
- * @fileOverview Generates a summary of a specific topic from a selected book.
+ * @fileOverview Generates a summary of a specific topic from a selected book, potentially using full book content.
  *
  * - generateSummary - A function that handles the summary generation process.
  * - GenerateSummaryInput - The input type for the generateSummary function.
@@ -14,15 +14,16 @@ import {z} from 'genkit';
 
 const GenerateSummaryInputSchema = z.object({
   bookTitle: z.string().describe('The title of the book to summarize from.'),
-  topic: z.string().describe('The specific topic to summarize.'),
-  includeKeywords: z.boolean().optional().describe('Whether to include key points in the summary.'),
-  bookContent: z.string().optional().describe('Optional content from the book to focus the generation. This should be plain text.'),
+  topic: z.string().describe('The specific topic to summarize. This helps focus the summary even with full book content.'),
+  includeKeyPoints: z.boolean().optional().describe('Whether to include 10 key points from the summary.'),
+  bookContent: z.string().optional().describe('Optional full text content of the book for a comprehensive summary. Can be very long (e.g., 10,000+ words).'),
 });
 
 export type GenerateSummaryInput = z.infer<typeof GenerateSummaryInputSchema>;
 
 const GenerateSummaryOutputSchema = z.object({
-  summary: z.string().describe('The generated summary of the topic.'),
+  summary: z.string().describe('The generated summary of the topic, potentially up to 10,000 words.'),
+  keyPoints: z.array(z.string()).optional().describe('An array of 10 key points if requested.'),
   progress: z.string().describe('One-sentence progress of summary generation.'),
 });
 
@@ -40,20 +41,25 @@ const generateSummaryPrompt = ai.definePrompt({
   output: {
     schema: GenerateSummaryOutputSchema,
   },
-  prompt: `You are an AI assistant that generates summaries of specific topics from books.
-{{#if bookContent}}
-Use the following content from the book as the primary source for the summary:
-{{{bookContent}}}
-{{/if}}
+  prompt: `You are an AI assistant that generates detailed and comprehensive summaries of specific topics from books.
+
 Book Title: {{{bookTitle}}}
 Topic: {{{topic}}}
 
-Instructions: Generate a concise and informative summary of the specified topic from the given book. The summary should be easy to understand and highlight the key concepts related to the topic.
-{{#if includeKeywords}}
-Also, include key points related to the topic.
+{{#if bookContent}}
+Use the following extensive content from the book as the primary source for the summary:
+{{{bookContent}}}
+Instructions: Generate a very detailed and comprehensive summary of the specified topic, drawing deeply from the provided book content. Aim for a substantial length, potentially up to 10,000 words if the source material is sufficient and warrants such detail, but prioritize quality, coherence, and relevance to the topic. If the topic is broad, the summary should cover it extensively based on the provided text.
+{{else}}
+Instructions: Generate a concise and informative summary of the specified topic from the given book title (using general knowledge if specific content is not provided).
 {{/if}}
 
-Summary:`,
+{{#if includeKeyPoints}}
+After generating the summary, also extract exactly 10 key points from the summary you wrote. These key points should be distinct and represent the most crucial takeaways.
+{{/if}}
+
+Return the output in the specified JSON format. The summary should be in the "summary" field. If requested, the 10 key points should be in the "keyPoints" field as an array of strings.
+`,
 });
 
 const generateSummaryFlow = ai.defineFlow(
@@ -64,9 +70,17 @@ const generateSummaryFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await generateSummaryPrompt(input);
+    // Ensure output is not null and matches the schema.
+    // The prompt is instructed to return data for 'summary' and 'keyPoints' (if applicable).
+    // 'progress' can be set here.
+    if (!output) {
+      throw new Error('Failed to generate summary output.');
+    }
     return {
-      ...output!,
-      progress: 'Generated a concise summary of the specified topic from the book.',
+      summary: output.summary || '',
+      keyPoints: output.keyPoints || (input.includeKeyPoints ? [] : undefined),
+      progress: 'Generated a detailed summary of the specified topic.',
     };
   }
 );
+

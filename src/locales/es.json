@@ -42,9 +42,12 @@
     "summaryPageTitle": "Genera Resúmenes Inteligentes",
     "summaryPageSub": "Simplifica temas complejos con resúmenes generados por IA, para facilitar tu comprensión y estudio.",
     "summaryTopicPlaceholder": "Tema específico a resumir...",
-    "summaryIncludeKeywords": "Incluir puntos clave",
+    "summaryIncludeKeyPoints": "Incluir 10 puntos clave",
     "summaryGenerateBtn": "Generar Resumen",
     "summaryResultTitle": "Resumen Generado",
+    "summaryKeyPointsTitle": "Puntos Clave",
+    "summaryBookContentPlaceholderOptional": "Pega aquí el contenido completo del libro (opcional para resumen exhaustivo)...",
+    "summaryBookContentNote": "Para textos muy largos, el procesamiento puede tomar tiempo. La IA usará este contenido para un resumen detallado.",
     "mapPageTitle": "Crea Mapas Conceptuales",
     "mapPageSub": "Visualiza relaciones entre conceptos y fortalece tu comprensión con mapas conceptuales personalizados.",
     "mapCentralThemePlaceholder": "Tema central del mapa...",
@@ -121,6 +124,7 @@
     "generatingEvaluation": "Generando evaluación...",
     "errorGenerating": "Error al generar. Por favor, inténtalo de nuevo.",
     "noTopicProvided": "Por favor, ingresa un tema.",
+    "noTopicOrContentProvided": "Por favor, ingresa un tema o proporciona el contenido del libro.",
     "noBookSelected": "Por favor, selecciona un libro.",
     "noCourseSelected": "Por favor, selecciona un curso."
 }

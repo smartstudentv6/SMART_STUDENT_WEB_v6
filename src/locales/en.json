@@ -42,9 +42,12 @@
     "summaryPageTitle": "Generate Smart Summaries",
     "summaryPageSub": "Simplify complex topics with AI-generated summaries to facilitate your understanding and study.",
     "summaryTopicPlaceholder": "Specific topic to summarize...",
-    "summaryIncludeKeywords": "Include key points",
+    "summaryIncludeKeyPoints": "Include 10 key points",
     "summaryGenerateBtn": "Generate Summary",
     "summaryResultTitle": "Generated Summary",
+    "summaryKeyPointsTitle": "Key Points",
+    "summaryBookContentPlaceholderOptional": "Paste full book content here (optional for comprehensive summary)...",
+    "summaryBookContentNote": "For very long texts, processing may take some time. The AI will use this content to generate a detailed summary.",
     "mapPageTitle": "Create Concept Maps",
     "mapPageSub": "Visualize relationships between concepts and strengthen your understanding with personalized concept maps.",
     "mapCentralThemePlaceholder": "Central theme of the map...",
@@ -121,6 +124,7 @@
     "generatingEvaluation": "Generating evaluation...",
     "errorGenerating": "Error generating. Please try again.",
     "noTopicProvided": "Please enter a topic.",
+    "noTopicOrContentProvided": "Please enter a topic or provide book content.",
     "noBookSelected": "Please select a book.",
     "noCourseSelected": "Please select a course."
 }

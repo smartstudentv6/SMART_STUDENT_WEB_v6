@@ -19,8 +19,9 @@ export default function ResumenPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [topic, setTopic] = useState('');
-  const [includeKeywords, setIncludeKeywords] = useState(false);
-  const [summaryResult, setSummaryResult] = useState('');
+  const [bookContentInput, setBookContentInput] = useState('');
+  const [includeKeyPoints, setIncludeKeyPoints] = useState(false);
+  const [summaryResult, setSummaryResult] = useState<{ summary: string; keyPoints?: string[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGenerateSummary = async () => {
@@ -28,24 +29,28 @@ export default function ResumenPage() {
       toast({ title: translate('errorGenerating'), description: translate('noBookSelected'), variant: 'destructive'});
       return;
     }
-    if (!topic.trim()) {
-      toast({ title: translate('errorGenerating'), description: translate('noTopicProvided'), variant: 'destructive'});
+    if (!topic.trim() && !bookContentInput.trim()) {
+      toast({ title: translate('errorGenerating'), description: translate('noTopicOrContentProvided'), variant: 'destructive'});
       return;
     }
 
     setIsLoading(true);
-    setSummaryResult('');
+    setSummaryResult(null);
     try {
       const result = await generateSummary({
         bookTitle: selectedBook,
         topic: topic,
-        includeKeywords: includeKeywords,
+        includeKeyPoints: includeKeyPoints,
+        bookContent: bookContentInput.trim() || undefined,
       });
-      setSummaryResult(result.summary.replace(/\n/g, '<br />'));
+      setSummaryResult({
+        summary: result.summary.replace(/\n/g, '<br />'),
+        keyPoints: result.keyPoints
+      });
     } catch (error) {
       console.error("Error generating summary:", error);
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
-      setSummaryResult(`<p class="text-destructive">${translate('errorGenerating')}</p>`);
+      setSummaryResult({ summary: `<p class="text-destructive">${translate('errorGenerating')}</p>` });
     } finally {
       setIsLoading(false);
     }
@@ -79,14 +84,26 @@ export default function ResumenPage() {
               className="text-base md:text-sm"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="summary-book-content-input" className="text-left block">{translate('summaryBookContentPlaceholderOptional')}</Label>
+            <Textarea
+              id="summary-book-content-input"
+              rows={8}
+              value={bookContentInput}
+              onChange={(e) => setBookContentInput(e.target.value)}
+              placeholder={translate('summaryBookContentPlaceholderOptional')}
+              className="text-base md:text-sm"
+            />
+             <p className="text-xs text-muted-foreground text-left">{translate('summaryBookContentNote')}</p>
+          </div>
           <div className="flex items-center space-x-2">
             <Checkbox
-              id="include-keywords"
-              checked={includeKeywords}
-              onCheckedChange={(checked) => setIncludeKeywords(Boolean(checked))}
+              id="include-key-points"
+              checked={includeKeyPoints}
+              onCheckedChange={(checked) => setIncludeKeyPoints(Boolean(checked))}
             />
-            <Label htmlFor="include-keywords" className="text-sm font-medium">
-              {translate('summaryIncludeKeywords')}
+            <Label htmlFor="include-key-points" className="text-sm font-medium">
+              {translate('summaryIncludeKeyPoints')}
             </Label>
           </div>
           <Button
@@ -113,10 +130,20 @@ export default function ResumenPage() {
       {summaryResult && !isLoading && (
         <Card className="mt-6 w-full max-w-lg text-left shadow-md">
           <CardHeader>
-            <CardTitle className="font-headline">{translate('summaryResultTitle', {defaultValue: "Generated Summary"})}</CardTitle>
+            <CardTitle className="font-headline">{translate('summaryResultTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div dangerouslySetInnerHTML={{ __html: summaryResult }} className="prose dark:prose-invert max-w-none" />
+            <div dangerouslySetInnerHTML={{ __html: summaryResult.summary }} className="prose dark:prose-invert max-w-none" />
+            {summaryResult.keyPoints && summaryResult.keyPoints.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-2 font-headline">{translate('summaryKeyPointsTitle')}</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  {summaryResult.keyPoints.map((point, index) => (
+                    <li key={index}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
