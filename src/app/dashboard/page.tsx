@@ -80,7 +80,7 @@ export default function DashboardHomePage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3 sm:gap-4">
-        <HomeIcon className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
+        <HomeIcon className="w-7 h-7 sm:w-8 sm:h-8 text-foreground" />
         <h2 className="text-2xl sm:text-3xl font-semibold font-headline text-foreground">
           {translate('welcomeMessage')}
         </h2>
