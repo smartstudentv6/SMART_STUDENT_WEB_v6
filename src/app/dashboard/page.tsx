@@ -2,8 +2,7 @@
 "use client";
 
 import { useLanguage } from '@/contexts/language-context';
-import { Library, Newspaper, Network, FileQuestion, ClipboardList } from 'lucide-react';
-import Logo from '@/components/shared/logo';
+import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,6 +52,7 @@ const featureCards = [
 
 export default function DashboardHomePage() {
   const { translate } = useLanguage();
+  const userName = "Felipe"; // Placeholder for actual user name
 
   const getButtonColorClass = (color: string) => {
     switch (color) {
@@ -79,13 +79,13 @@ export default function DashboardHomePage() {
 
   return (
     <div className="space-y-8">
-      {/* Adjusted title and logo section */}
       <div className="mb-4">
-        <div className="flex items-center justify-start gap-3"> {/* Aligns logo and text-block (title + slogan) */}
-          <h1 className="text-3xl font-bold text-foreground font-headline">SMART STUDENT</h1>
-          <Logo className="w-8 h-8 text-foreground" />
+        <div className="flex items-center justify-start gap-3">
+          <h1 className="text-3xl font-bold text-foreground font-headline">
+            {translate('welcomeMessage', { name: userName })}
+          </h1>
+          <Home className="w-8 h-8 text-foreground" />
         </div>
-        {/* Slogan is centered relative to "SMART STUDENT" due to text-left on parent and specific alignment */}
         <p className="text-muted-foreground text-left ml-0.5">{translate('appSlogan')}</p>
       </div>
 
@@ -114,5 +114,4 @@ export default function DashboardHomePage() {
     </div>
   );
 }
-
     

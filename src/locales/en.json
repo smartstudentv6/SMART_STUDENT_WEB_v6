@@ -17,7 +17,7 @@
     "navProfile": "Profile",
     "navHelp": "Help",
     "logoutButtonTitle": "Logout",
-    "welcomeMessage": "Welcome to SMART STUDENT",
+    "welcomeMessage": "Welcome {{name}},",
     "welcomeSubMessage": "Your AI-powered intelligent study assistant. Explore the tools to enhance your learning.",
     "cardBooksTitle": "Digital Books",
     "cardBooksDesc": "Access your digital books and study content",
