@@ -18,7 +18,7 @@ export default function LoginPage() {
       </div>
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
         <div className="text-center mb-8">
-          <Logo className="w-12 h-12 mx-auto text-primary" />
+          <Logo className="w-12 h-12 mx-auto text-foreground" />
           <h1 className="text-3xl font-bold mt-4 text-foreground font-headline">SMART STUDENT</h1>
           <p className="text-muted-foreground">{translate('appSlogan')}</p>
         </div>
