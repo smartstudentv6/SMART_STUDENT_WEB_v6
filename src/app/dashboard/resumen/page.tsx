@@ -272,24 +272,24 @@ export default function ResumenPage() {
                 )}
               </div>
             )}
-             <div className="mt-8 pt-6 border-t border-border flex flex-wrap justify-center gap-3 sm:gap-4">
+             <div className="mt-8 pt-6 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <Button
                 onClick={handleDownloadPdf}
-                className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-green min-w-[190px] text-xs sm:text-sm"
+                className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-green text-xs sm:text-sm"
               >
                 <Download className="mr-2 h-4 w-4" /> {translate('summaryActionDownloadPdf')}
               </Button>
-              <Button asChild className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-yellow min-w-[190px] text-xs sm:text-sm">
+              <Button asChild className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-yellow text-xs sm:text-sm">
                 <Link href="/dashboard/mapa-mental">
                   <Network className="mr-2 h-4 w-4" /> {translate('summaryActionCreateMap')}
                 </Link>
               </Button>
-              <Button asChild className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-cyan min-w-[190px] text-xs sm:text-sm">
+              <Button asChild className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-cyan text-xs sm:text-sm">
                 <Link href="/dashboard/cuestionario">
                   <FileQuestion className="mr-2 h-4 w-4" /> {translate('summaryActionCreateQuiz')}
                 </Link>
               </Button>
-              <Button asChild className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-purple min-w-[190px] text-xs sm:text-sm">
+              <Button asChild className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-purple text-xs sm:text-sm">
                 <Link href="/dashboard/evaluacion">
                   <ClipboardList className="mr-2 h-4 w-4" /> {translate('summaryActionCreateEval')}
                 </Link>
