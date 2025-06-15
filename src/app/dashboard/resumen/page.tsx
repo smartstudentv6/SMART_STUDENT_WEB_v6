@@ -49,7 +49,7 @@ export default function ResumenPage() {
         language: currentUiLanguage,
       });
       setSummaryResult({
-        summary: result.summary.replace(/\n/g, '<br />'),
+        summary: result.summary.replace(/\n/g, '<br />'), // Keep for explicit line breaks if AI uses them
         keyPoints: result.keyPoints
       });
     } catch (error) {
@@ -133,19 +133,19 @@ export default function ResumenPage() {
           <CardContent>
             <div 
               dangerouslySetInnerHTML={{ __html: summaryResult.summary }} 
-              className="prose dark:prose-invert max-w-none text-sm leading-relaxed font-serif" 
+              className="prose dark:prose-invert max-w-none text-sm leading-relaxed font-headline text-justify" 
             />
             {keyPointsRequested && (
               <div className="mt-6">
                 <h3 className="text-lg font-semibold mb-2 font-headline">{translate('summaryKeyPointsTitle')}</h3>
                 {summaryResult.keyPoints && summaryResult.keyPoints.length > 0 ? (
-                  <ul className="list-disc list-inside space-y-1 text-sm font-serif">
+                  <ul className="list-disc list-inside space-y-1 text-sm font-headline text-left">
                     {summaryResult.keyPoints.map((point, index) => (
                       <li key={index}>{point}</li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground font-serif">{translate('summaryNoKeyPointsGenerated')}</p>
+                  <p className="text-sm text-muted-foreground font-headline text-left">{translate('summaryNoKeyPointsGenerated')}</p>
                 )}
               </div>
             )}
