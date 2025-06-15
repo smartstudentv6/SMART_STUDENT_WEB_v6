@@ -12,7 +12,7 @@ import { Newspaper, Download, Network, FileQuestion, ClipboardList } from 'lucid
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateSummary, type GenerateSummaryInput } from '@/ai/flows/generate-summary';
 import { useToast } from "@/hooks/use-toast";
-import { Textarea } from '@/components/ui/textarea'; // Added import for Textarea
+import { Textarea } from '@/components/ui/textarea';
 
 // Helper function to convert basic Markdown to HTML for the main summary
 function simpleMarkdownToHtml(mdText: string): string {
@@ -189,11 +189,13 @@ export default function ResumenPage() {
     <div className="flex flex-col items-center text-center">
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="items-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <CardTitle className="text-3xl font-bold font-headline whitespace-nowrap">{translate('summaryPageTitle')}</CardTitle>
-            <Newspaper className="w-8 h-8 text-primary" />
-          </div>
-          <CardDescription className="mt-2 text-muted-foreground max-w-2xl">
+          <Newspaper className="w-10 h-10 text-primary mb-3" />
+          <CardTitle className="text-3xl font-bold font-headline text-center">
+            {translate('summaryPageTitleLine1')}
+            <br />
+            {translate('summaryPageTitleLine2')}
+          </CardTitle>
+          <CardDescription className="mt-2 text-muted-foreground max-w-2xl text-center">
             {translate('summaryPageSub')}
           </CardDescription>
         </CardHeader>
