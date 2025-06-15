@@ -3,13 +3,14 @@
 
 import { useState } from 'react';
 import Image from 'next/image'; // Import next/image
+import Link from 'next/link';
 import { useLanguage } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Network, Sparkles } from 'lucide-react';
+import { Network, Sparkles, Download, Newspaper as SummaryIcon, FileQuestion, ClipboardList } from 'lucide-react'; // Renamed Newspaper to SummaryIcon to avoid conflict
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { createMindMap } from '@/ai/flows/create-mind-map';
 import { useToast } from "@/hooks/use-toast";
@@ -20,9 +21,11 @@ export default function MapaMentalPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [centralTheme, setCentralTheme] = useState('');
-  const [isHorizontal, setIsHorizontal] = useState(false); // This option is UI only, AI doesn't use it
-  const [mindMapResult, setMindMapResult] = useState<string | null>(null); // Will store image data URI
+  const [isHorizontal, setIsHorizontal] = useState(false);
+  const [mindMapResult, setMindMapResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentCentralThemeForDisplay, setCurrentCentralThemeForDisplay] = useState('');
+
 
   const handleGenerateMap = async () => {
      if (!selectedBook) {
@@ -35,24 +38,66 @@ export default function MapaMentalPage() {
     }
 
     setIsLoading(true);
-    setMindMapResult(null); 
+    setMindMapResult(null);
+    setCurrentCentralThemeForDisplay(centralTheme.trim());
     try {
       const result = await createMindMap({
         centralTheme: centralTheme,
-        bookContent: `Content from the book: ${selectedBook}. Focus on the theme: ${centralTheme}.`,
+        bookContent: `Content from the book: ${selectedBook}. Focus on the theme: ${centralTheme}.`, // This is a simplified bookContent
       });
       setMindMapResult(result.imageDataUri);
     } catch (error) {
       console.error("Error generating mind map:", error);
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
-      setMindMapResult(null); 
+      setMindMapResult(null);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleDownloadPdf = () => {
+    if (!mindMapResult) return;
+
+    const title = `${translate('mindMapResultTitle')} - ${currentCentralThemeForDisplay.toUpperCase()}`;
+    
+    const contentHtml = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
+            body { font-family: 'Space Grotesk', sans-serif; margin: 20px; text-align: center; }
+            img { max-width: 100%; height: auto; border: 1px solid #eee; }
+            h1 { font-size: 1.5em; margin-bottom: 1em; font-family: 'Space Grotesk', sans-serif; }
+          </style>
+        </head>
+        <body>
+          <h1>${title}</h1>
+          <img src="${mindMapResult}" alt="${title}" />
+        </body>
+      </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(contentHtml);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+          printWindow.print();
+      }, 500); // Timeout to ensure content is loaded
+    } else {
+       toast({
+        title: translate('errorGenerating'),
+        description: translate('mapDownloadErrorPopupBlocked', {defaultValue: "Could not open print window. Please check your pop-up blocker settings."}),
+        variant: 'destructive',
+      });
+    }
+  };
+
+
   return (
-    <div className="flex flex-col items-center text-center">
+    <div className="flex flex-col items-center text-center space-y-6">
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="items-center">
           <Network className="w-10 h-10 text-yellow-500 dark:text-yellow-400 mb-3" />
@@ -103,20 +148,44 @@ export default function MapaMentalPage() {
       </Card>
 
       {mindMapResult && !isLoading && (
-        <Card className="mt-6 w-full max-w-lg text-left shadow-md">
+        <Card className="w-full max-w-3xl text-left shadow-md">
            <CardHeader>
-            <CardTitle className="font-headline">{translate('mindMapResultTitle', {defaultValue: "Generated Mind Map"})}</CardTitle>
+            <CardTitle className="font-headline text-center">
+              {translate('mindMapResultTitle', {defaultValue: "Generated Mind Map"})} - {currentCentralThemeForDisplay.toUpperCase()}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Using standard img tag for data URI. Next/Image requires width/height or fill for data URIs. */}
-            {/* For simplicity and variable image sizes from AI, standard img is used. */}
-            {/* If optimization is critical and dimensions can be predicted/handled, next/image could be configured. */}
-            <img 
-              src={mindMapResult} 
-              alt={translate('mindMapResultTitle', {defaultValue: "Generated Mind Map"})} 
-              className="w-full h-auto rounded-md border object-contain"
-              style={{ maxHeight: '600px' }} // Optional: constrain max height
-            />
+            <div className="mb-6">
+              <img 
+                src={mindMapResult} 
+                alt={translate('mindMapResultTitle', {defaultValue: "Generated Mind Map"})} 
+                className="w-full h-auto rounded-md border object-contain"
+              />
+            </div>
+            
+            <div className="mt-8 pt-6 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <Button
+                onClick={handleDownloadPdf}
+                className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-yellow text-xs sm:text-sm"
+              >
+                <Download className="mr-2 h-4 w-4" /> {translate('mapActionDownloadPdf', {defaultValue: "Download PDF"})}
+              </Button>
+              <Button asChild className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-blue text-xs sm:text-sm">
+                <Link href="/dashboard/resumen">
+                  <SummaryIcon className="mr-2 h-4 w-4" /> {translate('mapActionCreateSummary', {defaultValue: "Create Summary"})}
+                </Link>
+              </Button>
+              <Button asChild className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-cyan text-xs sm:text-sm">
+                <Link href="/dashboard/cuestionario">
+                  <FileQuestion className="mr-2 h-4 w-4" /> {translate('mapActionCreateQuiz', {defaultValue: "Create Quiz"})}
+                </Link>
+              </Button>
+              <Button asChild className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-purple text-xs sm:text-sm">
+                <Link href="/dashboard/evaluacion">
+                  <ClipboardList className="mr-2 h-4 w-4" /> {translate('mapActionCreateEval', {defaultValue: "Create Evaluation"})}
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

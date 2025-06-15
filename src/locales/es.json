@@ -10,7 +10,7 @@
     "loginError": "Usuario o contraseña incorrectos.",
     "navHome": "Inicio",
     "navBooks": "Libros",
-    "navSummary": "Resumen",
+    "navSummary": "Resúmenes",
     "navMindMap": "Mapa Mental",
     "navQuiz": "Cuestionario",
     "navEvaluation": "Evaluación",
@@ -118,7 +118,6 @@
     "faqContactUs": "Contáctanos",
     "loading": "Generando...",
     "generatingSummary": "Generando resumen...",
-    "generatingMindMap": "Generando mapa mental...",
     "generatingQuiz": "Generando cuestionario...",
     "generatingEvaluation": "Generando evaluación...",
     "errorGenerating": "Error al generar. Por favor, inténtalo de nuevo.",
@@ -130,5 +129,10 @@
     "summaryActionCreateQuiz": "Crear Cuestionario",
     "summaryActionCreateEval": "Crear Evaluación",
     "summaryContentTitle": "Resumen",
-    "pdfDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes."
+    "pdfDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes.",
+    "mapActionDownloadPdf": "Descargar PDF",
+    "mapActionCreateSummary": "Crear Resumen",
+    "mapActionCreateQuiz": "Crear Cuestionario",
+    "mapActionCreateEval": "Crear Evaluación",
+    "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes."
 }

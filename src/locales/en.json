@@ -10,7 +10,7 @@
     "loginError": "Incorrect username or password.",
     "navHome": "Home",
     "navBooks": "Books",
-    "navSummary": "Summary",
+    "navSummary": "Summaries",
     "navMindMap": "Mind Map",
     "navQuiz": "Quiz",
     "navEvaluation": "Evaluation",
@@ -118,7 +118,6 @@
     "faqContactUs": "Contact Us",
     "loading": "Generating...",
     "generatingSummary": "Generating summary...",
-    "generatingMindMap": "Generating mind map...",
     "generatingQuiz": "Generating quiz...",
     "generatingEvaluation": "Generating evaluation...",
     "errorGenerating": "Error generating. Please try again.",
@@ -130,5 +129,10 @@
     "summaryActionCreateQuiz": "Create Quiz",
     "summaryActionCreateEval": "Create Evaluation",
     "summaryContentTitle": "Summary",
-    "pdfDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings."
+    "pdfDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings.",
+    "mapActionDownloadPdf": "Download PDF",
+    "mapActionCreateSummary": "Create Summary",
+    "mapActionCreateQuiz": "Create Quiz",
+    "mapActionCreateEval": "Create Evaluation",
+    "mapDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings."
 }
