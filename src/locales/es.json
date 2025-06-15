@@ -46,8 +46,6 @@
     "summaryGenerateBtn": "Generar Resumen",
     "summaryResultTitle": "Resumen Generado",
     "summaryKeyPointsTitle": "Puntos Clave",
-    "summaryBookContentPlaceholderOptional": "Pega aquí el contenido completo del libro (opcional para resumen exhaustivo)...",
-    "summaryBookContentNote": "Para textos muy largos, el procesamiento puede tomar tiempo. La IA usará este contenido para un resumen detallado.",
     "mapPageTitle": "Crea Mapas Conceptuales",
     "mapPageSub": "Visualiza relaciones entre conceptos y fortalece tu comprensión con mapas conceptuales personalizados.",
     "mapCentralThemePlaceholder": "Tema central del mapa...",

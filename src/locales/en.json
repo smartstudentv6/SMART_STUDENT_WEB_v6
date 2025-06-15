@@ -46,8 +46,6 @@
     "summaryGenerateBtn": "Generate Summary",
     "summaryResultTitle": "Generated Summary",
     "summaryKeyPointsTitle": "Key Points",
-    "summaryBookContentPlaceholderOptional": "Paste full book content here (optional for comprehensive summary)...",
-    "summaryBookContentNote": "For very long texts, processing may take some time. The AI will use this content to generate a detailed summary.",
     "mapPageTitle": "Create Concept Maps",
     "mapPageSub": "Visualize relationships between concepts and strengthen your understanding with personalized concept maps.",
     "mapCentralThemePlaceholder": "Central theme of the map...",
