@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Newspaper, Sparkles } from 'lucide-react';
+import { Newspaper, Sparkles, Info } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateSummary } from '@/ai/flows/generate-summary';
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,7 @@ export default function ResumenPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [topic, setTopic] = useState('');
+  const [bookContentInput, setBookContentInput] = useState('');
   const [includeKeyPoints, setIncludeKeyPoints] = useState(false);
   const [summaryResult, setSummaryResult] = useState<{ summary: string; keyPoints?: string[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,8 +29,8 @@ export default function ResumenPage() {
       toast({ title: translate('errorGenerating'), description: translate('noBookSelected'), variant: 'destructive'});
       return;
     }
-    if (!topic.trim()) {
-      toast({ title: translate('errorGenerating'), description: translate('noTopicProvided'), variant: 'destructive'});
+    if (!topic.trim() && !bookContentInput.trim()) {
+      toast({ title: translate('errorGenerating'), description: translate('noTopicOrContentProvided'), variant: 'destructive'});
       return;
     }
 
@@ -38,11 +39,12 @@ export default function ResumenPage() {
     try {
       const result = await generateSummary({
         bookTitle: selectedBook,
-        topic: topic,
+        topic: topic.trim() || "General Summary", // Provide a default topic if only content is given
+        bookContent: bookContentInput.trim() || undefined,
         includeKeyPoints: includeKeyPoints,
       });
       setSummaryResult({
-        summary: result.summary.replace(/\n/g, '<br />'),
+        summary: result.summary.replace(/\n/g, '<br />'), // Basic formatting for display
         keyPoints: result.keyPoints
       });
     } catch (error) {
@@ -69,18 +71,38 @@ export default function ResumenPage() {
             selectedCourse={selectedCourse}
             selectedBook={selectedBook}
             onCourseChange={setSelectedCourse}
-            onBookChange={setSelectedBook}
+            onBookChange={(book) => {
+              setSelectedBook(book);
+              setBookContentInput(''); // Clear content if book changes
+            }}
           />
           <div className="space-y-2">
             <Label htmlFor="summary-topic-input" className="text-left block">{translate('summaryTopicPlaceholder')}</Label>
             <Textarea
               id="summary-topic-input"
-              rows={3}
+              rows={2} // Reduced rows for topic
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder={translate('summaryTopicPlaceholder')}
               className="text-base md:text-sm"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="summary-book-content-input" className="text-left block">
+              {translate('summaryBookContentPlaceholderOptional')}
+            </Label>
+            <Textarea
+              id="summary-book-content-input"
+              rows={8} // Increased rows for book content
+              value={bookContentInput}
+              onChange={(e) => setBookContentInput(e.target.value)}
+              placeholder={translate('summaryPasteBookContentPlaceholder')}
+              className="text-base md:text-sm"
+            />
+            <p className="text-xs text-muted-foreground text-left flex items-start gap-1.5 pt-1">
+              <Info size={14} className="flex-shrink-0 mt-0.5" />
+              {translate('summaryBookContentNote')}
+            </p>
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -119,7 +141,7 @@ export default function ResumenPage() {
             <CardTitle className="font-headline">{translate('summaryResultTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div dangerouslySetInnerHTML={{ __html: summaryResult.summary }} className="prose dark:prose-invert max-w-none" />
+            <div dangerouslySetInnerHTML={{ __html: summaryResult.summary }} className="prose dark:prose-invert max-w-none text-sm leading-relaxed" />
             {summaryResult.keyPoints && summaryResult.keyPoints.length > 0 && (
               <div className="mt-6">
                 <h3 className="text-lg font-semibold mb-2 font-headline">{translate('summaryKeyPointsTitle')}</h3>
