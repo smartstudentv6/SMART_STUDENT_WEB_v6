@@ -23,6 +23,7 @@ export default function ResumenPage() {
   const [includeKeyPoints, setIncludeKeyPoints] = useState(false);
   const [summaryResult, setSummaryResult] = useState<{ summary: string; keyPoints?: string[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [keyPointsRequested, setKeyPointsRequested] = useState(false);
 
   const handleGenerateSummary = async () => {
     if (!selectedBook) {
@@ -36,15 +37,16 @@ export default function ResumenPage() {
 
     setIsLoading(true);
     setSummaryResult(null);
+    setKeyPointsRequested(includeKeyPoints); // Store if key points were requested for this generation
     try {
       const result = await generateSummary({
         bookTitle: selectedBook,
-        topic: topic.trim() || "General Summary", // Provide a default topic if only content is given
+        topic: topic.trim() || "General Summary",
         bookContent: bookContentInput.trim() || undefined,
         includeKeyPoints: includeKeyPoints,
       });
       setSummaryResult({
-        summary: result.summary.replace(/\n/g, '<br />'), // Basic formatting for display
+        summary: result.summary.replace(/\n/g, '<br />'),
         keyPoints: result.keyPoints
       });
     } catch (error) {
@@ -73,14 +75,14 @@ export default function ResumenPage() {
             onCourseChange={setSelectedCourse}
             onBookChange={(book) => {
               setSelectedBook(book);
-              setBookContentInput(''); // Clear content if book changes
+              // setBookContentInput(''); // Optionally clear content if book changes
             }}
           />
           <div className="space-y-2">
             <Label htmlFor="summary-topic-input" className="text-left block">{translate('summaryTopicPlaceholder')}</Label>
             <Textarea
               id="summary-topic-input"
-              rows={2} // Reduced rows for topic
+              rows={2}
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder={translate('summaryTopicPlaceholder')}
@@ -89,11 +91,11 @@ export default function ResumenPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="summary-book-content-input" className="text-left block">
-              {translate('summaryBookContentPlaceholderOptional')}
+              {translate('summaryPasteBookContentPlaceholder')}
             </Label>
             <Textarea
               id="summary-book-content-input"
-              rows={8} // Increased rows for book content
+              rows={8}
               value={bookContentInput}
               onChange={(e) => setBookContentInput(e.target.value)}
               placeholder={translate('summaryPasteBookContentPlaceholder')}
@@ -142,14 +144,18 @@ export default function ResumenPage() {
           </CardHeader>
           <CardContent>
             <div dangerouslySetInnerHTML={{ __html: summaryResult.summary }} className="prose dark:prose-invert max-w-none text-sm leading-relaxed" />
-            {summaryResult.keyPoints && summaryResult.keyPoints.length > 0 && (
+            {keyPointsRequested && typeof summaryResult.keyPoints !== 'undefined' && (
               <div className="mt-6">
                 <h3 className="text-lg font-semibold mb-2 font-headline">{translate('summaryKeyPointsTitle')}</h3>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  {summaryResult.keyPoints.map((point, index) => (
-                    <li key={index}>{point}</li>
-                  ))}
-                </ul>
+                {summaryResult.keyPoints.length > 0 ? (
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    {summaryResult.keyPoints.map((point, index) => (
+                      <li key={index}>{point}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{translate('summaryNoKeyPointsGenerated')}</p>
+                )}
               </div>
             )}
           </CardContent>
