@@ -44,7 +44,7 @@
     "summaryTopicPlaceholder": "Specific topic to summarize (optional if book content is provided)...",
     "summaryPasteBookContentPlaceholder": "Paste full book content here (optional)...",
     "summaryBookContentNote": "For best results with specific texts (e.g., from a PDF), paste the content above. Otherwise, the AI will use its general knowledge of the selected book and topic.",
-    "summaryIncludeKeyPoints": "Include 10 key points",
+    "summaryIncludeKeyPoints": "Key Points",
     "summaryGenerateBtn": "Generate Summary",
     "summaryResultTitle": "Generated Summary",
     "summaryKeyPointsTitle": "Key Points",
