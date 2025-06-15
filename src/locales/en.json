@@ -42,8 +42,6 @@
     "summaryPageTitle": "Generate Smart Summaries",
     "summaryPageSub": "Simplify complex topics with AI-generated summaries to facilitate your understanding and study.",
     "summaryTopicPlaceholder": "Specific topic to summarize...",
-    "summaryBookContentPlaceholder": "Book content for summary (optional)",
-    "summaryBookContentPlaceholderOptional": "Paste relevant book text here (optional for more specific summary)",
     "summaryIncludeKeywords": "Include key points",
     "summaryGenerateBtn": "Generate Summary",
     "summaryResultTitle": "Generated Summary",

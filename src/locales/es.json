@@ -42,8 +42,6 @@
     "summaryPageTitle": "Genera Resúmenes Inteligentes",
     "summaryPageSub": "Simplifica temas complejos con resúmenes generados por IA, para facilitar tu comprensión y estudio.",
     "summaryTopicPlaceholder": "Tema específico a resumir...",
-    "summaryBookContentPlaceholder": "Contenido del libro para resumen (opcional)",
-    "summaryBookContentPlaceholderOptional": "Pega aquí el texto relevante del libro (opcional para un resumen más específico)",
     "summaryIncludeKeywords": "Incluir puntos clave",
     "summaryGenerateBtn": "Generar Resumen",
     "summaryResultTitle": "Resumen Generado",
