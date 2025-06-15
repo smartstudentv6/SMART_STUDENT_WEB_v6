@@ -263,7 +263,7 @@ export default function ResumenPage() {
                 {summaryResult.keyPoints && summaryResult.keyPoints.length > 0 ? (
                   <ul className="list-disc list-inside space-y-1 text-sm font-headline text-left">
                     {summaryResult.keyPoints.map((point, index) => {
-                      const formattedPoint = formatInlineMarkdown(point); // Use new formatter here
+                      const formattedPoint = formatInlineMarkdown(point);
                       return <li key={index} dangerouslySetInnerHTML={{ __html: formattedPoint }} />;
                     })}
                   </ul>

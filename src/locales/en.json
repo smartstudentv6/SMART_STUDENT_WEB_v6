@@ -122,7 +122,6 @@
     "generatingEvaluation": "Generating evaluation...",
     "errorGenerating": "Error generating. Please try again.",
     "noTopicProvided": "Please enter a topic.",
-    "noTopicOrContentProvided": "Please enter a topic or provide book content.",
     "noBookSelected": "Please select a book.",
     "noCourseSelected": "Please select a course.",
     "summaryActionDownloadPdf": "Download PDF",
@@ -132,5 +131,3 @@
     "summaryContentTitle": "Summary",
     "pdfDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings."
 }
-
-    
