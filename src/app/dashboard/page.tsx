@@ -86,7 +86,6 @@ export default function DashboardHomePage() {
           </h1>
           <Home className="w-8 h-8 text-foreground" />
         </div>
-        <p className="text-muted-foreground text-left ml-0.5">{translate('appSlogan')}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
