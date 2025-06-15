@@ -70,7 +70,7 @@ export default function LoginForm() {
             {isSubmitting ? `${translate('loading')}...` : translate('loginButton')}
           </Button>
         </form>
-        <Link href="#" className="block text-center mt-6 text-sm text-primary hover:underline">
+        <Link href="#" className="block text-center mt-6 text-sm text-foreground hover:underline">
           {translate('loginForgot')}
         </Link>
       </CardContent>
