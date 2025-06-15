@@ -17,17 +17,19 @@ export default function LoginPage() {
         <ThemeToggle />
       </div>
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
+        {/* Adjusted title and logo section to match image */}
+        <div className="mb-8">
+          <div className="flex items-center justify-center gap-3"> {/* Centers the logo and the text block (title + slogan) */}
             <Logo className="w-10 h-10 text-foreground" />
-            <h1 className="text-3xl font-bold text-foreground font-headline">SMART STUDENT</h1>
+            <div className="flex flex-col"> {/* Stacks title and slogan vertically */}
+              <h1 className="text-3xl font-bold text-foreground font-headline">SMART STUDENT</h1>
+              {/* Slogan is centered relative to "SMART STUDENT" due to text-center on this p and its parent's flex-col nature */}
+              <p className="text-muted-foreground text-center">{translate('appSlogan')}</p>
+            </div>
           </div>
-          <p className="text-muted-foreground">{translate('appSlogan')}</p>
         </div>
         <LoginForm />
       </div>
     </div>
   );
 }
-
-    
