@@ -90,7 +90,9 @@ export default function DashboardLayout({
                   href={item.href}
                   className={`flex items-center px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap
                     ${isActive
-                      ? 'bg-primary/10 text-primary font-semibold'
+                      ? (item.labelKey === 'navSummary'
+                        ? 'bg-custom-blue-100 text-custom-blue-800 font-semibold' // New style for active Resumen
+                        : 'bg-primary/10 text-primary font-semibold') // Original active style for others
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 font-medium'
                     }`}
                 >
@@ -127,7 +129,7 @@ export default function DashboardLayout({
                   href={item.href}
                   className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors min-w-[60px] text-center
                     ${isActive
-                      ? 'text-primary font-semibold'
+                      ? 'text-primary font-semibold' // Consider if mobile active "Resumen" needs custom style too
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     }`}
                 >
