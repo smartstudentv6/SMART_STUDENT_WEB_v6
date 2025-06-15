@@ -13,7 +13,7 @@ import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateSummary } from '@/ai/flows/generate-summary';
 import { useToast } from "@/hooks/use-toast";
 
-// Helper function to convert basic Markdown to HTML
+// Helper function to convert basic Markdown to HTML for the main summary
 function simpleMarkdownToHtml(mdText: string): string {
   if (!mdText) return '';
 
@@ -52,6 +52,21 @@ function simpleMarkdownToHtml(mdText: string): string {
     })
     .join('');
 
+  return html;
+}
+
+// Helper function for inline Markdown formatting (e.g., for key points)
+function formatInlineMarkdown(text: string): string {
+  if (!text) return '';
+  let html = text;
+  // Normalize line endings (though less critical for single lines)
+  html = html.replace(/\r\n?/g, '\n');
+  // Bold (**)
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Italics (*) - careful not to match bold's asterisks
+  html = html.replace(/(?<!\*)\*(?!\s)(.*?[^\s\*])\*(?!\*)/g, '<em>$1</em>');
+  // Convert any literal newlines within a key point to <br /> (AI should ideally provide single lines for points)
+  html = html.replace(/\n/g, '<br />');
   return html;
 }
 
@@ -138,8 +153,8 @@ export default function ResumenPage() {
     if (keyPointsRequested && summaryResult.keyPoints && summaryResult.keyPoints.length > 0) {
       contentHtml += `<h2>${translate('summaryKeyPointsTitle')}</h2><ul>`;
       summaryResult.keyPoints.forEach(point => {
-        // Also format key points for PDF
-        contentHtml += `<li>${simpleMarkdownToHtml(point)}</li>`;
+        // Use formatInlineMarkdown for key points in PDF too
+        contentHtml += `<li>${formatInlineMarkdown(point)}</li>`;
       });
       contentHtml += `</ul>`;
     }
@@ -248,7 +263,7 @@ export default function ResumenPage() {
                 {summaryResult.keyPoints && summaryResult.keyPoints.length > 0 ? (
                   <ul className="list-disc list-inside space-y-1 text-sm font-headline text-left">
                     {summaryResult.keyPoints.map((point, index) => {
-                      const formattedPoint = simpleMarkdownToHtml(point);
+                      const formattedPoint = formatInlineMarkdown(point); // Use new formatter here
                       return <li key={index} dangerouslySetInnerHTML={{ __html: formattedPoint }} />;
                     })}
                   </ul>
