@@ -35,7 +35,6 @@ export function BookCourseSelector({ onCourseChange, onBookChange, selectedCours
           <SelectValue placeholder={translate('selectCourse')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="" disabled>{translate('selectCourse')}</SelectItem>
           {Object.keys(courses).map(courseName => (
             <SelectItem key={courseName} value={courseName}>
               {courseName.replace(/Básico/g, 'Básico').replace(/Medio/g, 'Medio')}
@@ -49,7 +48,6 @@ export function BookCourseSelector({ onCourseChange, onBookChange, selectedCours
           <SelectValue placeholder={translate('selectBook')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="" disabled>{translate('selectBook')}</SelectItem>
           {booksForCourse.map(bookName => (
             <SelectItem key={bookName} value={bookName}>
               {bookName}
