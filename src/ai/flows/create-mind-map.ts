@@ -135,12 +135,16 @@ const createMindMapFlow = ai.defineFlow(
     }
 
     // Step 2: Render the structured data as an image
-    // We get the string representation of the prompt using .render()
-    const imagePromptString = await renderMindMapImageHandlebarsPrompt.render(mindMapStructure);
+    const renderOutput = await renderMindMapImageHandlebarsPrompt.render(mindMapStructure);
+    const actualPromptText = renderOutput.messages[0]?.content[0]?.text;
+
+    if (!actualPromptText) {
+      throw new Error('Failed to render the image generation prompt text from RenderResponse.');
+    }
     
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-exp', 
-      prompt: imagePromptString, // Pass the rendered string
+      prompt: actualPromptText, // Pass the extracted text string
       config: {
         responseModalities: ['TEXT', 'IMAGE'], 
       },
@@ -152,3 +156,4 @@ const createMindMapFlow = ai.defineFlow(
     return { imageDataUri: media.url };
   }
 );
+
