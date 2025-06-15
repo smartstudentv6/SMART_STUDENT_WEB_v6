@@ -40,7 +40,7 @@ export default function ResumenPage() {
     setSummaryResult(null);
     setKeyPointsRequested(includeKeyPoints); 
     const topicForSummary = topic.trim() || "General Summary";
-    setCurrentTopicForDisplay(topicForSummary); // Save the topic used for generation
+    setCurrentTopicForDisplay(topicForSummary); 
 
     try {
       const result = await generateSummary({
@@ -143,7 +143,7 @@ export default function ResumenPage() {
       {summaryResult && !isLoading && (
         <Card className="mt-6 w-full max-w-lg text-left shadow-md">
           <CardHeader>
-            <CardTitle className="font-headline">
+            <CardTitle className="font-headline text-center">
               SUMMARY - {currentTopicForDisplay.toUpperCase()}
             </CardTitle>
           </CardHeader>
@@ -169,4 +169,3 @@ export default function ResumenPage() {
     </div>
   );
 }
-
