@@ -42,8 +42,8 @@ export default function MapaMentalPage() {
     setCurrentCentralThemeForDisplay(centralTheme.trim());
     try {
       const result = await createMindMap({
-        centralTheme: centralTheme,
-        bookContent: `Content from the book: ${selectedBook}. Focus on the theme: ${centralTheme}.`, // This is a simplified bookContent
+        centralTheme: centralTheme.trim(),
+        bookTitle: selectedBook,
       });
       setMindMapResult(result.imageDataUri);
     } catch (error) {
