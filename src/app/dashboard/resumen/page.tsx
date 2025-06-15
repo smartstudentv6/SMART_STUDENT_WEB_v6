@@ -277,7 +277,7 @@ export default function ResumenPage() {
              <div className="mt-8 pt-6 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <Button
                 onClick={handleDownloadPdf}
-                className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-green text-xs sm:text-sm"
+                className="font-semibold py-2 px-6 rounded-lg transition-colors home-card-button-blue text-xs sm:text-sm"
               >
                 <Download className="mr-2 h-4 w-4" /> {translate('summaryActionDownloadPdf')}
               </Button>
