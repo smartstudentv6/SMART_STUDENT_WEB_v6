@@ -19,6 +19,7 @@ export default function ResumenPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [topic, setTopic] = useState('');
+  const [bookContentInput, setBookContentInput] = useState('');
   const [includeKeywords, setIncludeKeywords] = useState(false);
   const [summaryResult, setSummaryResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -40,6 +41,7 @@ export default function ResumenPage() {
         bookTitle: selectedBook,
         topic: topic,
         includeKeywords: includeKeywords,
+        bookContent: bookContentInput.trim() || undefined,
       });
       setSummaryResult(result.summary.replace(/\n/g, '<br />'));
     } catch (error) {
@@ -68,14 +70,28 @@ export default function ResumenPage() {
             onCourseChange={setSelectedCourse}
             onBookChange={setSelectedBook}
           />
-          <Textarea
-            id="summary-input"
-            rows={4}
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder={translate('summaryTopicPlaceholder')}
-            className="text-base md:text-sm"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="summary-topic-input" className="text-left block">{translate('summaryTopicPlaceholder')}</Label>
+            <Textarea
+              id="summary-topic-input"
+              rows={3}
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder={translate('summaryTopicPlaceholder')}
+              className="text-base md:text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="summary-book-content-input" className="text-left block">{translate('summaryBookContentPlaceholder')}</Label>
+            <Textarea
+              id="summary-book-content-input"
+              rows={5}
+              value={bookContentInput}
+              onChange={(e) => setBookContentInput(e.target.value)}
+              placeholder={translate('summaryBookContentPlaceholderOptional')}
+              className="text-base md:text-sm"
+            />
+          </div>
           <div className="flex items-center space-x-2">
             <Checkbox
               id="include-keywords"
@@ -120,5 +136,3 @@ export default function ResumenPage() {
     </div>
   );
 }
-
-    

@@ -10,6 +10,7 @@ import { FileQuestion, Sparkles } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateQuiz } from '@/ai/flows/generate-quiz';
 import { useToast } from "@/hooks/use-toast";
+import { Label } from '@/components/ui/label';
 
 export default function CuestionarioPage() {
   const { translate } = useLanguage();
@@ -17,6 +18,7 @@ export default function CuestionarioPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [topic, setTopic] = useState('');
+  const [bookContentInput, setBookContentInput] = useState('');
   const [quizResult, setQuizResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -36,15 +38,11 @@ export default function CuestionarioPage() {
       const result = await generateQuiz({
         bookTitle: selectedBook,
         topic: topic,
-        courseName: selectedCourse || "General", // Course name might be optional or derived
+        courseName: selectedCourse || "General",
+        bookContent: bookContentInput.trim() || undefined,
       });
-       // Format quiz text for better display, e.g., bold questions, highlight correct answers
-      let formattedQuiz = result.quiz.replace(/\n\n/g, '<hr class="my-4 border-border" /><br />'); // Separate questions
+      let formattedQuiz = result.quiz.replace(/\n\n/g, '<hr class="my-4 border-border" /><br />'); 
       formattedQuiz = formattedQuiz.replace(/\n/g, '<br />');
-      // Example: Bold questions (assuming questions end with '?')
-      // formattedQuiz = formattedQuiz.replace(/^(Q[0-9]+:.*?)\?/gm, '<strong>$1?</strong>');
-      // Example: Highlight correct answer (assuming it's marked like "Correct Answer: C)")
-      // formattedQuiz = formattedQuiz.replace(/(Correct Answer: .*?\))/g, '<span class="text-green-600 dark:text-green-400 font-semibold">$1</span>');
       
       setQuizResult(formattedQuiz);
     } catch (error) {
@@ -73,14 +71,28 @@ export default function CuestionarioPage() {
             onCourseChange={setSelectedCourse}
             onBookChange={setSelectedBook}
           />
-          <Textarea
-            id="quiz-input"
-            rows={2}
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder={translate('quizTopicPlaceholder')}
-            className="text-base md:text-sm"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="quiz-topic-input" className="text-left block">{translate('quizTopicPlaceholder')}</Label>
+            <Textarea
+              id="quiz-topic-input"
+              rows={2}
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder={translate('quizTopicPlaceholder')}
+              className="text-base md:text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="quiz-book-content-input" className="text-left block">{translate('quizBookContentPlaceholder')}</Label>
+            <Textarea
+              id="quiz-book-content-input"
+              rows={5}
+              value={bookContentInput}
+              onChange={(e) => setBookContentInput(e.target.value)}
+              placeholder={translate('quizBookContentPlaceholderOptional')}
+              className="text-base md:text-sm"
+            />
+          </div>
           <Button
             onClick={handleGenerateQuiz}
             disabled={isLoading}
@@ -115,5 +127,3 @@ export default function CuestionarioPage() {
     </div>
   );
 }
-
-    
