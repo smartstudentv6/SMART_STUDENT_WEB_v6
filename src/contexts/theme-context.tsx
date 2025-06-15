@@ -4,26 +4,17 @@
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import type { ThemeProviderProps } from "next-themes/dist/types";
 import type React from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
+// useEffect and useState are not directly needed here if we remove the mounted guard
+// import { useEffect, useState } from 'react'; 
 
-// This is a wrapper around next-themes to fit the custom HTML structure if needed,
-// but for now, next-themes handles most of it.
+// This is a wrapper around next-themes.
 // The custom toggle logic from the HTML might need a separate component that uses `useTheme` from `next-themes`.
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    // Avoid hydration mismatch by rendering nothing or a loader on the server.
-    // Or, ensure the initial theme is consistent. For now, returning children directly.
-    // This ensures the theme is applied only on the client after mount.
-     return <>{children}</>;
-  }
-
+  // The `mounted` state guard is generally not needed here because
+  // NextThemesProvider itself handles the logic for theme application
+  // across SSR and client-side hydration using its props like `defaultTheme` and `enableSystem`.
+  // It's designed to prevent hydration mismatches for theme-related attributes.
   return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
 }
 

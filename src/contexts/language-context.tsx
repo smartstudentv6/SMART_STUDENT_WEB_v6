@@ -32,6 +32,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>('es');
+  // `mounted` is primarily to gate client-side only operations like localStorage access.
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -39,14 +40,19 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     if (storedLang && (storedLang === 'es' || storedLang === 'en')) {
       setLanguageState(storedLang);
       document.documentElement.lang = storedLang;
+    } else {
+      // If no stored language, ensure the initial state ('es') is reflected.
+      document.documentElement.lang = 'es';
     }
     setMounted(true);
-  }, []);
+  }, []); // Runs once on client mount
   
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('scholarai-lang', lang);
-    document.documentElement.lang = lang;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('scholarai-lang', lang);
+      document.documentElement.lang = lang;
+    }
   }, []);
 
   const toggleLanguage = useCallback(() => {
@@ -54,15 +60,17 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, [language, setLanguage]);
 
   const translate = useCallback((key: string, replacements?: Record<string, string>): string => {
-    if (!mounted) return key; // Return key if not mounted to avoid hydration issues with server-rendered incorrect lang
+    // `language` state is 'es' on SSR/initial client render, then updates from localStorage via useEffect.
+    // This ensures consistent rendering during hydration.
+    const langToUse = language;
     
     const keys = key.split('.');
-    let M_TEXT_VALUE = translationsData[language];
+    let M_TEXT_VALUE = translationsData[langToUse];
     for (const k of keys) {
       if (M_TEXT_VALUE && typeof M_TEXT_VALUE === 'object' && k in M_TEXT_VALUE) {
         M_TEXT_VALUE = M_TEXT_VALUE[k] as string | NestedTranslations;
       } else {
-        // console.warn(`Translation key "${key}" not found for language "${language}".`);
+        // console.warn(`Translation key "${key}" not found for language "${langToUse}".`);
         return key; // Return the key itself if not found
       }
     }
@@ -75,15 +83,19 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       });
     }
     return M_TEXT;
-  }, [language, mounted]);
+  }, [language]);
 
-  if (!mounted) {
-    // Render children without context during SSR or before hydration, or a loader
-    return <>{children}</>;
-  }
-
+  // The LanguageContext.Provider must always be rendered.
+  // The `translate` function handles behavior based on the `language` state,
+  // which correctly transitions from initial to client-side resolved state.
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, translate, toggleLanguage, currentTranslations: translationsData[language] }}>
+    <LanguageContext.Provider value={{ 
+        language, 
+        setLanguage, 
+        translate, 
+        toggleLanguage, 
+        currentTranslations: translationsData[language] 
+    }}>
       {children}
     </LanguageContext.Provider>
   );
