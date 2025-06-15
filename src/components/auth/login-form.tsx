@@ -62,7 +62,11 @@ export default function LoginForm() {
             />
           </div>
           {error && <p className="text-sm font-medium text-destructive text-center">{error}</p>}
-          <Button type="submit" className="w-full font-bold" disabled={isSubmitting}>
+          <Button 
+            type="submit" 
+            className="w-full font-bold bg-sky-500 hover:bg-sky-600 text-white" 
+            disabled={isSubmitting}
+          >
             {isSubmitting ? `${translate('loading')}...` : translate('loginButton')}
           </Button>
         </form>
