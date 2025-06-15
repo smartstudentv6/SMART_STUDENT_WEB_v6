@@ -16,7 +16,7 @@ import { createMindMap } from '@/ai/flows/create-mind-map';
 import { useToast } from "@/hooks/use-toast";
 
 export default function MapaMentalPage() {
-  const { translate } = useLanguage();
+  const { translate, language: currentUiLanguage } = useLanguage();
   const { toast } = useToast();
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
@@ -44,6 +44,7 @@ export default function MapaMentalPage() {
       const result = await createMindMap({
         centralTheme: centralTheme.trim(),
         bookTitle: selectedBook,
+        language: currentUiLanguage,
       });
       setMindMapResult(result.imageDataUri);
     } catch (error) {
@@ -151,14 +152,14 @@ export default function MapaMentalPage() {
         <Card className="w-full max-w-3xl text-left shadow-md">
            <CardHeader>
             <CardTitle className="font-headline text-center">
-              {translate('mindMapResultTitle', {defaultValue: "Generated Mind Map"})} - {currentCentralThemeForDisplay.toUpperCase()}
+              {translate('mindMapResultTitle')} - {currentCentralThemeForDisplay.toUpperCase()}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="mb-6">
               <img 
                 src={mindMapResult} 
-                alt={translate('mindMapResultTitle', {defaultValue: "Generated Mind Map"})} 
+                alt={translate('mindMapResultTitle')} 
                 className="w-full h-auto rounded-md border object-contain"
               />
             </div>

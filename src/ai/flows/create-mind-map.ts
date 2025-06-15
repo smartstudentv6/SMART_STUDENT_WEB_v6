@@ -3,6 +3,9 @@
 
 /**
  * @fileOverview Generates a mind map image from a central theme and book content.
+ * This involves two steps:
+ * 1. Generating a structured representation of the mind map (nodes and sub-nodes).
+ * 2. Rendering this structured data as a mind map image.
  *
  * - createMindMap - A function that generates a mind map image.
  * - CreateMindMapInput - The input type for the createMindMap function.
@@ -12,16 +15,105 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
+// Input for the entire flow
 const CreateMindMapInputSchema = z.object({
   centralTheme: z.string().describe('The central theme of the mind map.'),
   bookTitle: z.string().describe('The title of the book to provide context for the mind map content.'),
+  language: z.enum(['es', 'en']).describe('The language for the node labels (e.g., "es" for Spanish, "en" for English).')
 });
 export type CreateMindMapInput = z.infer<typeof CreateMindMapInputSchema>;
 
+// Output for the entire flow
 const CreateMindMapOutputSchema = z.object({
   imageDataUri: z.string().describe('The generated mind map image as a data URI.'),
 });
 export type CreateMindMapOutput = z.infer<typeof CreateMindMapOutputSchema>;
+
+
+// Schema for the structured mind map data
+const MindMapNodeSchema = z.object({
+  label: z.string().describe('The text label for this node.'),
+  children: z.array(z.lazy(() => MindMapNodeSchema)).optional().describe('Optional child nodes, forming sub-topics.'),
+});
+export type MindMapNode = z.infer<typeof MindMapNodeSchema>;
+
+const MindMapStructureSchema = z.object({
+  centralThemeLabel: z.string().describe('The label for the central theme, confirmed or refined by the AI.'),
+  mainBranches: z.array(MindMapNodeSchema).describe('An array of main ideas branching from the central theme. Aim for 3-5 main branches for clarity. Each main branch can have 2-3 sub-topics.'),
+});
+export type MindMapStructure = z.infer<typeof MindMapStructureSchema>;
+
+
+// Prompt to generate the mind map's textual structure
+const generateMindMapStructurePrompt = ai.definePrompt({
+  name: 'generateMindMapStructurePrompt',
+  input: { schema: CreateMindMapInputSchema }, 
+  output: { schema: MindMapStructureSchema }, 
+  prompt: `You are an expert in instructional design and content organization.
+Based on the book titled "{{bookTitle}}", generate a hierarchical structure for a conceptual map.
+The central theme is: "{{centralTheme}}".
+The language for all node labels must be: {{language}}.
+
+Your task is to:
+1.  Confirm or slightly refine the central theme label if necessary for clarity, ensuring it's concise.
+2.  Identify 3 to 5 main concepts or topics directly related to this central theme, as found in the book. These will be the main branches.
+3.  For each main branch, identify 2 to 3 key sub-topics or supporting details from the book.
+4.  Ensure all labels (central theme, main branches, sub-topics) are concise, clear, and in the specified language ({{language}}).
+5.  Structure the output according to the MindMapStructureSchema.
+
+Example of desired output structure (conceptual):
+{
+  "centralThemeLabel": "Photosynthesis (FOTOSÍNTESIS)",
+  "mainBranches": [
+    { "label": "Inputs (Entradas)", "children": [{ "label": "Light (Luz)" }, { "label": "Water (Agua)" }, { "label": "CO2" }] },
+    { "label": "Process (Proceso)", "children": [{ "label": "Light Reactions (Reacciones Luminosas)" }, { "label": "Calvin Cycle (Ciclo de Calvin)" }] },
+    { "label": "Outputs (Salidas)", "children": [{ "label": "Glucose (Glucosa)" }, { "label": "Oxygen (Oxígeno)" }] }
+  ]
+}
+Focus on accuracy and relevance to the book content.
+`,
+});
+
+// This internal prompt definition is used to render the structured data into a string for the image model.
+const renderMindMapImageHandlebarsPrompt = ai.definePrompt({
+  name: 'renderMindMapImageHandlebarsPrompt',
+  input: { schema: MindMapStructureSchema },
+  prompt: `You are an expert at creating clear, visually appealing, and informative conceptual map IMAGES.
+Generate a conceptual map IMAGE based on the EXACT structure provided below.
+Do NOT generate text output, only the IMAGE.
+
+The absolute MOST IMPORTANT requirement is that ALL TEXT in EVERY NODE must be perfectly clear, easily readable, and large enough to be distinguished. Use a simple, legible font style. Avoid small, blurry, or distorted characters. Ensure good contrast between the text and its node background.
+
+Central Theme (Main, Central Node): "{{centralThemeLabel}}"
+
+Main Ideas branching from the Central Theme:
+{{#each mainBranches}}
+- Main Idea Node: "{{label}}"
+  {{#if children.length}}
+  Sub-topics/concepts branching from "{{label}}":
+    {{#each children}}
+    - Sub-topic Node: "{{this.label}}"
+      {{#if this.children.length}}
+      Further sub-topics for "{{this.label}}":
+        {{#each this.children}}
+        - Sub-sub-topic Node: "{{this.label}}"
+        {{/each}}
+      {{/if}}
+    {{/each}}
+  {{/if}}
+{{/each}}
+
+Strict Requirements for the IMAGE:
+1.  **Legible Text in ALL Nodes**: Re-iterating, this is paramount. The text for each node is GIVEN to you above. You MUST render this text clearly. If you cannot render perfectly clear text for ALL provided labels, the image is a failure.
+2.  **Clear Hierarchy**: The central theme ("{{centralThemeLabel}}") must be the main, central node. The main ideas (labels from mainBranches) must clearly branch from it. Sub-topics (labels from children) must clearly branch from their respective parent nodes. Use clear visual connectors (lines, arrows).
+3.  **Professional Appearance**: The overall map should be visually organized, clean, and professional. Use distinct shapes or colors for different levels if it enhances clarity, but prioritize text legibility.
+4.  **Accurate Representation**: The image must accurately represent the provided hierarchical structure and labels. Do not add, omit, or change any text from the provided labels. Render them exactly as given.
+
+Prioritize the clarity of the text and the logical structure of the conceptual relationships above all else.
+If you cannot generate an image with clearly legible text in the nodes that accurately represents the provided conceptual map structure, please try your best to make the text as clear as possible given your capabilities.
+`,
+});
+
 
 export async function createMindMap(input: CreateMindMapInput): Promise<CreateMindMapOutput> {
   return createMindMapFlow(input);
@@ -34,34 +126,29 @@ const createMindMapFlow = ai.defineFlow(
     outputSchema: CreateMindMapOutputSchema,
   },
   async (input: CreateMindMapInput): Promise<CreateMindMapOutput> => {
-    const generationPrompt = `You are an expert at creating clear, visually appealing, and informative conceptual map images.
-Generate a conceptual map image, NOT just text.
-The central theme of this conceptual map is: "${input.centralTheme}".
-The information and context for this map should be drawn as if from the book titled: "${input.bookTitle}".
+    // Step 1: Generate the structured mind map data
+    const structureResponse = await generateMindMapStructurePrompt(input);
+    const mindMapStructure = structureResponse.output;
 
-The conceptual map image MUST adhere to the following strict requirements:
-1.  **Clear Hierarchy**: The central theme ("${input.centralTheme}") must be the main, central node. Main ideas directly related to the theme should branch out from it. Sub-topics or related concepts should branch from these main ideas. Ensure clear visual connections between related nodes.
-2.  **Legible Text in Nodes**: ALL text within EVERY node MUST be perfectly clear, easily readable, and large enough to be distinguished. Use a simple, legible font style. Avoid small, blurry, or distorted characters. Ensure good contrast between the text and its node background.
-3.  **Relevant Content**: ALL concepts, terms, and phrases used in the nodes MUST be directly and solely relevant to the central theme "${input.centralTheme}", drawing information as if from the book "${input.bookTitle}". Do not include extraneous information.
-4.  **Concise Node Text**: Text within each node should be brief and to the point, using keywords or very short phrases.
-5.  **Professional Appearance**: The overall map should be visually organized, clean, and professional, suitable as an effective study tool.
+    if (!mindMapStructure) {
+      throw new Error('Failed to generate mind map structure.');
+    }
 
-Prioritize the clarity of the text and the logical structure of the conceptual relationships above all else.
-If you cannot generate an image with clearly legible text in the nodes that accurately represents the conceptual map based on the theme and book, indicate failure.`;
-
+    // Step 2: Render the structured data as an image
+    // We get the string representation of the prompt using .render()
+    const imagePromptString = await renderMindMapImageHandlebarsPrompt.render(mindMapStructure);
+    
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-exp', // Specific model for image generation
-      prompt: generationPrompt,
+      model: 'googleai/gemini-2.0-flash-exp', 
+      prompt: imagePromptString, // Pass the rendered string
       config: {
-        responseModalities: ['TEXT', 'IMAGE'], // Must include IMAGE
+        responseModalities: ['TEXT', 'IMAGE'], 
       },
     });
 
     if (!media?.url) {
       throw new Error('Image generation failed or no image was returned by the model.');
     }
-    // The URL from Gemini for generated images is a data URI (e.g., "data:image/png;base64,...")
     return { imageDataUri: media.url };
   }
 );
-
