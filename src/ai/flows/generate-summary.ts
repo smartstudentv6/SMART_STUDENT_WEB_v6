@@ -16,6 +16,7 @@ const GenerateSummaryInputSchema = z.object({
   bookTitle: z.string().describe('The title of the book to summarize from.'),
   topic: z.string().describe('The specific topic to summarize.'),
   includeKeywords: z.boolean().optional().describe('Whether to include key points in the summary.'),
+  bookContent: z.string().optional().describe('Optional content from the book to focus the generation. This should be plain text.'),
 });
 
 export type GenerateSummaryInput = z.infer<typeof GenerateSummaryInputSchema>;
@@ -40,16 +41,19 @@ const generateSummaryPrompt = ai.definePrompt({
     schema: GenerateSummaryOutputSchema,
   },
   prompt: `You are an AI assistant that generates summaries of specific topics from books.
+{{#if bookContent}}
+Use the following content from the book as the primary source for the summary:
+{{{bookContent}}}
+{{/if}}
+Book Title: {{{bookTitle}}}
+Topic: {{{topic}}}
 
-  Book Title: {{{bookTitle}}}
-  Topic: {{{topic}}}
+Instructions: Generate a concise and informative summary of the specified topic from the given book. The summary should be easy to understand and highlight the key concepts related to the topic.
+{{#if includeKeywords}}
+Also, include key points related to the topic.
+{{/if}}
 
-  Instructions: Generate a concise and informative summary of the specified topic from the given book. The summary should be easy to understand and highlight the key concepts related to the topic.
-  {{#if includeKeywords}}
-  Also, include key points related to the topic.
-  {{/if}}
-
-  Summary:`, // Ensure the summary is returned as a string
+Summary:`,
 });
 
 const generateSummaryFlow = ai.defineFlow(
