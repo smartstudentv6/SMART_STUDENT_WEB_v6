@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Newspaper, Sparkles, Download, Network, FileQuestion, ClipboardList } from 'lucide-react';
+import { Newspaper, Download, Network, FileQuestion, ClipboardList } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateSummary, type GenerateSummaryInput } from '@/ai/flows/generate-summary';
 import { useToast } from "@/hooks/use-toast";
@@ -230,13 +230,12 @@ export default function ResumenPage() {
           <Button
             onClick={handleGenerateSummary}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm bg-primary hover:bg-primary/90"
+            className="w-full font-semibold py-3 text-base md:text-sm home-card-button-blue"
           >
             {isLoading ? (
               <>{translate('loading')}...</>
             ) : (
               <>
-                <Sparkles className="w-5 h-5 mr-2" />
                 {translate('summaryGenerateBtn')}
               </>
             )}
