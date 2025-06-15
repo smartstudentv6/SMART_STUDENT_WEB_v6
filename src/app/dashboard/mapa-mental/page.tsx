@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from 'react';
+import Image from 'next/image'; // Import next/image
 import { useLanguage } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,7 +21,7 @@ export default function MapaMentalPage() {
   const [selectedBook, setSelectedBook] = useState('');
   const [centralTheme, setCentralTheme] = useState('');
   const [isHorizontal, setIsHorizontal] = useState(false); // This option is UI only, AI doesn't use it
-  const [mindMapResult, setMindMapResult] = useState('');
+  const [mindMapResult, setMindMapResult] = useState<string | null>(null); // Will store image data URI
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGenerateMap = async () => {
@@ -34,20 +35,17 @@ export default function MapaMentalPage() {
     }
 
     setIsLoading(true);
-    setMindMapResult('');
+    setMindMapResult(null); 
     try {
-      // For mind map, bookContent could be fetched or a placeholder.
-      // The AI flow expects 'bookContent'. We'll send a placeholder or selectedBook title.
       const result = await createMindMap({
         centralTheme: centralTheme,
-        bookContent: `Content from the book: ${selectedBook}. Focus on the theme: ${centralTheme}.`, // Simplified input
+        bookContent: `Content from the book: ${selectedBook}. Focus on the theme: ${centralTheme}.`,
       });
-      // Mind map is text based, format for display
-      setMindMapResult(`<pre class="whitespace-pre-wrap">${result.mindMap}</pre>`);
+      setMindMapResult(result.imageDataUri);
     } catch (error) {
       console.error("Error generating mind map:", error);
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
-      setMindMapResult(`<p class="text-destructive">${translate('errorGenerating')}</p>`);
+      setMindMapResult(null); 
     } finally {
       setIsLoading(false);
     }
@@ -104,20 +102,24 @@ export default function MapaMentalPage() {
         </CardContent>
       </Card>
 
-      {/* Removed loading text paragraph from here */}
-
       {mindMapResult && !isLoading && (
         <Card className="mt-6 w-full max-w-lg text-left shadow-md">
            <CardHeader>
             <CardTitle className="font-headline">{translate('mindMapResultTitle', {defaultValue: "Generated Mind Map"})}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div dangerouslySetInnerHTML={{ __html: mindMapResult }} className="prose dark:prose-invert max-w-none text-sm" />
+            {/* Using standard img tag for data URI. Next/Image requires width/height or fill for data URIs. */}
+            {/* For simplicity and variable image sizes from AI, standard img is used. */}
+            {/* If optimization is critical and dimensions can be predicted/handled, next/image could be configured. */}
+            <img 
+              src={mindMapResult} 
+              alt={translate('mindMapResultTitle', {defaultValue: "Generated Mind Map"})} 
+              className="w-full h-auto rounded-md border object-contain"
+              style={{ maxHeight: '600px' }} // Optional: constrain max height
+            />
           </CardContent>
         </Card>
       )}
     </div>
   );
 }
-
-    
