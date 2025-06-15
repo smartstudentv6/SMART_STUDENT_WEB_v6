@@ -26,7 +26,7 @@ body {
     --destructive-foreground: 0 0% 98%;
     --border: 220 13% 91%; /* Tailwind gray-200 for borders */
     --input: 220 13% 91%;
-    --ring: 243 75% 59%; /* Default Indigo for rings */
+    --ring: 220 13% 91%; /* Changed from default Indigo to match border/input color */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -66,7 +66,7 @@ body {
     --destructive-foreground: 0 0% 98%;
     --border: 215 28% 23%; /* Darker border #374151 */
     --input: 215 28% 23%;
-    --ring: 243 80% 69%; /* Default Lighter Indigo for rings in dark */
+    --ring: 215 28% 23%; /* Changed from default Lighter Indigo to match border/input color in dark */
 
     /* Custom color HSL values for dark mode (mostly reusing light ones for background, text will be the dark variant) */
     --custom-green-100: 145 75% 90%; 
@@ -102,57 +102,59 @@ body {
 }
 
 /* Light Mode Theme-specific primary, accent, and ring colors */
+/* Note: --ring definitions are removed from these theme blocks */
 html.theme-accent-blue { 
   --primary: hsl(var(--custom-blue-100)); --primary-foreground: hsl(var(--custom-blue-800)); 
   --accent: hsl(var(--custom-blue-100)); --accent-foreground: hsl(var(--custom-blue-800));
-  --ring: hsl(var(--custom-blue-800));
+  /* --ring removed */
 }
 html.theme-accent-green {
   --primary: hsl(var(--custom-green-100)); --primary-foreground: hsl(var(--custom-green-800));
   --accent: hsl(var(--custom-green-100)); --accent-foreground: hsl(var(--custom-green-800));
-  --ring: hsl(var(--custom-green-800));
+  /* --ring removed */
 }
 html.theme-accent-yellow {
   --primary: hsl(var(--custom-yellow-100)); --primary-foreground: hsl(var(--custom-yellow-800));
   --accent: hsl(var(--custom-yellow-100)); --accent-foreground: hsl(var(--custom-yellow-800));
-  --ring: hsl(var(--custom-yellow-800));
+  /* --ring removed */
 }
 html.theme-accent-cyan {
   --primary: hsl(var(--custom-cyan-100)); --primary-foreground: hsl(var(--custom-cyan-800));
   --accent: hsl(var(--custom-cyan-100)); --accent-foreground: hsl(var(--custom-cyan-800));
-  --ring: hsl(var(--custom-cyan-800));
+  /* --ring removed */
 }
 html.theme-accent-purple {
   --primary: hsl(var(--custom-purple-100)); --primary-foreground: hsl(var(--custom-purple-800));
   --accent: hsl(var(--custom-purple-100)); --accent-foreground: hsl(var(--custom-purple-800));
-  --ring: hsl(var(--custom-purple-800));
+  /* --ring removed */
 }
 
 /* Dark Mode Theme-specific primary, accent, and ring colors */
+/* Note: --ring definitions are removed from these theme blocks */
 html.dark.theme-accent-blue {
   --primary: hsl(var(--custom-blue-100)); --primary-foreground: hsl(var(--custom-blue-800));
   --accent: hsl(var(--custom-blue-100)); --accent-foreground: hsl(var(--custom-blue-800));
-  --ring: hsl(var(--custom-blue-100));
+  /* --ring removed */
 }
 html.dark.theme-accent-green {
   --primary: hsl(var(--custom-green-100)); --primary-foreground: hsl(var(--custom-green-800));
   --accent: hsl(var(--custom-green-100)); --accent-foreground: hsl(var(--custom-green-800));
-  --ring: hsl(var(--custom-green-100));
+  /* --ring removed */
 }
 html.dark.theme-accent-yellow {
   --primary: hsl(var(--custom-yellow-100)); --primary-foreground: hsl(var(--custom-yellow-800));
   --accent: hsl(var(--custom-yellow-100)); --accent-foreground: hsl(var(--custom-yellow-800));
-  --ring: hsl(var(--custom-yellow-100));
+  /* --ring removed */
 }
 html.dark.theme-accent-cyan {
   --primary: hsl(var(--custom-cyan-100)); --primary-foreground: hsl(var(--custom-cyan-800));
   --accent: hsl(var(--custom-cyan-100)); --accent-foreground: hsl(var(--custom-cyan-800));
-  --ring: hsl(var(--custom-cyan-100));
+  /* --ring removed */
 }
 html.dark.theme-accent-purple {
   --primary: hsl(var(--custom-purple-100)); --primary-foreground: hsl(var(--custom-purple-800));
   --accent: hsl(var(--custom-purple-100)); --accent-foreground: hsl(var(--custom-purple-800));
-  --ring: hsl(var(--custom-purple-100));
+  /* --ring removed */
 }
 
 
