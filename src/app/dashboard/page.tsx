@@ -79,12 +79,16 @@ export default function DashboardHomePage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-3 sm:gap-4">
-        <h2 className="text-2xl sm:text-3xl font-semibold font-headline text-foreground">
-          {translate('welcomeMessage')}
-        </h2>
-        <Logo className="w-7 h-7 sm:w-8 sm:h-8 text-foreground" />
+      {/* Adjusted title and logo section */}
+      <div className="mb-4">
+        <div className="flex items-center justify-start gap-3"> {/* Aligns logo and text-block (title + slogan) */}
+          <h1 className="text-3xl font-bold text-foreground font-headline">SMART STUDENT</h1>
+          <Logo className="w-8 h-8 text-foreground" />
+        </div>
+        {/* Slogan is centered relative to "SMART STUDENT" due to text-left on parent and specific alignment */}
+        <p className="text-muted-foreground text-left ml-0.5">{translate('appSlogan')}</p>
       </div>
+
       <p className="text-md text-muted-foreground">
         {translate('welcomeSubMessage')}
       </p>
