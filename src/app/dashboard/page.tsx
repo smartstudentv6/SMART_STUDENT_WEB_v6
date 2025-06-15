@@ -104,7 +104,7 @@ export default function DashboardHomePage() {
               <CardDescription className="text-sm mb-4 flex-grow">
                 {translate(card.descKey)}
               </CardDescription>
-              <Button asChild className={`home-card-button ${getButtonColorClass(card.colorClass)}`}>
+              <Button asChild variant="secondary" className={`home-card-button ${getButtonColorClass(card.colorClass)}`}>
                 <Link href={card.targetPage}>{translate(card.btnKey)}</Link>
               </Button>
             </CardContent>
