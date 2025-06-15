@@ -14,7 +14,7 @@ import { generateSummary } from '@/ai/flows/generate-summary';
 import { useToast } from "@/hooks/use-toast";
 
 export default function ResumenPage() {
-  const { translate } = useLanguage();
+  const { translate, language: currentUiLanguage } = useLanguage();
   const { toast } = useToast();
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
@@ -46,6 +46,7 @@ export default function ResumenPage() {
         bookTitle: selectedBook,
         topic: topicForSummary,
         includeKeyPoints: includeKeyPoints,
+        language: currentUiLanguage, // Pass the current UI language
       });
       setSummaryResult({
         summary: result.summary.replace(/\n/g, '<br />'),
@@ -98,7 +99,7 @@ export default function ResumenPage() {
               onCheckedChange={(checked) => setIncludeKeyPoints(Boolean(checked))}
             />
             <Label htmlFor="include-key-points" className="text-sm font-medium">
-              {translate('summaryIncludeKeyPoints')}
+              {translate('summaryIncludeKeyPointsShort')}
             </Label>
           </div>
           <Button
