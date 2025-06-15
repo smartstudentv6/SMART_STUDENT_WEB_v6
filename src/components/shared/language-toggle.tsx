@@ -10,10 +10,9 @@ export default function LanguageToggle() {
 
   return (
     <Button
-      variant="outline"
       size="sm"
       onClick={toggleLanguage}
-      className="w-10 px-0"
+      className="w-10 px-0 bg-sky-500 text-white hover:bg-sky-600"
       aria-label={language === 'es' ? "Switch to English" : "Cambiar a Español"}
     >
       {language.toUpperCase()}
