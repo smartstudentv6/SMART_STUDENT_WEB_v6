@@ -94,6 +94,8 @@ export default function DashboardLayout({
                 activeStyle = 'bg-custom-yellow-100 text-custom-yellow-800 font-semibold';
               } else if (item.labelKey === 'navQuiz') {
                 activeStyle = 'bg-custom-cyan-100 text-custom-cyan-800 font-semibold';
+              } else if (item.labelKey === 'navEvaluation') {
+                activeStyle = 'bg-custom-purple-100 text-custom-purple-800 font-semibold';
               }
               
               return (
@@ -143,8 +145,10 @@ export default function DashboardLayout({
                   mobileActiveClasses = 'bg-custom-yellow-100/50 text-custom-yellow-800 font-semibold';
                 } else if (item.labelKey === 'navQuiz') {
                   mobileActiveClasses = 'bg-custom-cyan-100/50 text-custom-cyan-800 font-semibold';
+                } else if (item.labelKey === 'navEvaluation') {
+                  mobileActiveClasses = 'bg-custom-purple-100/50 text-custom-purple-800 font-semibold';
                 } else {
-                  // For Home, Profile, Help, Evaluation
+                  // For Home, Profile, Help
                   mobileActiveClasses = 'bg-muted text-foreground font-semibold';
                 }
               }
