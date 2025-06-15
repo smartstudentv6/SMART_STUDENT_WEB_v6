@@ -79,10 +79,12 @@ const renderMindMapImageHandlebarsPrompt = ai.definePrompt({
   name: 'renderMindMapImageHandlebarsPrompt',
   input: { schema: MindMapStructureSchema },
   prompt: `You are an expert at creating clear, visually appealing, and informative conceptual map IMAGES.
-Generate a conceptual map IMAGE based on the EXACT structure provided below.
-Do NOT generate text output, only the IMAGE.
+Generate a conceptual map IMAGE based on the EXACT structure and text provided below.
+Do NOT generate text output, only the IMAGE. The image should be a clean, diagrammatic conceptual map. Avoid artistic or overly stylized renderings. The background should be simple and not interfere with text legibility.
 
-The absolute MOST IMPORTANT requirement is that ALL TEXT in EVERY NODE must be perfectly clear, easily readable, and large enough to be distinguished. Use a simple, legible font style. Avoid small, blurry, or distorted characters. Ensure good contrast between the text and its node background. The text for each node is provided to you explicitly in the structure below; you MUST use this exact text.
+The absolute MOST IMPORTANT requirement is that ALL TEXT in EVERY NODE must be perfectly clear, easily readable, and large enough to be distinguished. Use a simple, legible sans-serif font. Ensure good contrast between the text and its node background. Each text label you are given MUST be rendered as a distinct, clearly readable text element within its own node in the image.
+
+The textual content for each node is GIVEN to you below. You MUST use this exact text.
 
 Central Theme (Main, Central Node): "{{centralThemeLabel}}"
 
@@ -114,7 +116,7 @@ Strict Requirements for the IMAGE:
 3.  **PROFESSIONAL APPEARANCE**: The map should be visually organized, uncluttered, and professional. Use distinct shapes or colors for different levels if it enhances clarity, BUT text legibility and accuracy are more important than aesthetics.
 4.  **NO HALLUCINATED CONTENT**: Do not add any nodes, text, or visual elements that are not explicitly defined by the structure provided above. Your task is to visualize the given data, not to add to it.
 
-If you are unable to generate an image where all provided text labels are perfectly clear and accurately rendered as given, the result is not acceptable. Prioritize text clarity and faithfulness to the provided content above all other considerations.
+If any text is distorted, unreadable, or omitted, or if any text is added that was not in the provided structure, the image is considered a failure. Prioritize text clarity and faithfulness to the provided content above all other considerations.
 `,
 });
 
