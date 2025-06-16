@@ -80,7 +80,7 @@ export default function EvaluacionPage() {
           <Button
             onClick={handleCreateEvaluation}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm bg-purple-500 hover:bg-purple-600 dark:bg-custom-purple-800 dark:text-custom-purple-100 dark:hover:bg-purple-700"
+            className="w-full font-semibold py-3 text-base md:text-sm bg-custom-purple-100 text-custom-purple-800 hover:bg-custom-purple-100/80"
           >
             {isLoading ? (
               <>{translate('loading')}...</>
