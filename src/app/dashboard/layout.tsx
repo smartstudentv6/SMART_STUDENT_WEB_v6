@@ -130,7 +130,7 @@ export default function DashboardLayout({
           <div className="hidden md:flex items-center justify-center space-x-1 lg:space-x-2 overflow-x-auto">
             {navItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-              let activeStyle = 'bg-muted text-foreground font-semibold'; // Default active style (light gray)
+              let activeStyle = 'bg-muted text-foreground font-semibold border-2 border-transparent dark:border-white dark:bg-transparent'; // Default active style with white border in dark mode
               
               if (item.labelKey === 'navSummary') {
                 activeStyle = 'bg-custom-blue-100 text-custom-blue-800 font-semibold';
@@ -198,7 +198,7 @@ export default function DashboardLayout({
                   mobileActiveClasses = 'bg-custom-purple-100/50 text-custom-purple-800 font-semibold';
                 } else {
                   // For Home, Profile, Help
-                  mobileActiveClasses = 'bg-muted text-foreground font-semibold';
+                  mobileActiveClasses = 'bg-muted text-foreground font-semibold border-2 border-transparent dark:border-white dark:bg-transparent';
                 }
               }
               
