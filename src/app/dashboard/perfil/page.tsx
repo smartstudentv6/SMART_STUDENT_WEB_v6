@@ -30,10 +30,10 @@ const userProfileData: UserProfile = {
 
 // Template for learning stats structure with specific subject colors (now gradients)
 const learningStatsTemplate: SubjectProgress[] = [
-  { nameKey: "subjectMath", progress: 0, colorClass: "bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" },
-  { nameKey: "subjectScience", progress: 0, colorClass: "bg-gradient-to-r from-green-400 via-green-500 to-green-600" },
-  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600" }, 
-  { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-gradient-to-r from-red-400 via-red-500 to-red-600" },
+  { nameKey: "subjectMath", progress: 0, colorClass: "bg-gradient-to-r from-blue-300 via-blue-400 to-blue-600" },
+  { nameKey: "subjectScience", progress: 0, colorClass: "bg-gradient-to-r from-green-300 via-green-400 to-green-600" },
+  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-600" }, 
+  { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-gradient-to-r from-red-300 via-red-400 to-red-600" },
 ];
 
 // Template for profile stats cards
@@ -450,4 +450,5 @@ export default function PerfilPage() {
     
 
     
+
 
