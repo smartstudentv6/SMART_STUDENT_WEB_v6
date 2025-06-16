@@ -12,7 +12,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GenerateEvaluationInputSchema = z.object({
+const GenerateEvaluationInputSchema = z.object({
   topic: z.string().describe('The specific topic for the evaluation.'),
   bookTitle: z.string().describe('The title of the book to base the evaluation on.'),
   // courseName: z.string().optional().describe('The name of the course for context.'), // Optional for now
@@ -36,10 +36,10 @@ const MultipleChoiceQuestionSchema = z.object({
   explanation: z.string().describe('A brief explanation for the correct answer.'),
 });
 
-export const EvaluationQuestionSchema = z.union([TrueFalseQuestionSchema, MultipleChoiceQuestionSchema]);
+const EvaluationQuestionSchema = z.union([TrueFalseQuestionSchema, MultipleChoiceQuestionSchema]);
 export type EvaluationQuestion = z.infer<typeof EvaluationQuestionSchema>;
 
-export const GenerateEvaluationOutputSchema = z.object({
+const GenerateEvaluationOutputSchema = z.object({
   evaluationTitle: z.string().describe('The title of the evaluation, formatted as "EVALUACIÓN - [TOPIC_NAME_IN_UPPERCASE]".'),
   questions: z.array(EvaluationQuestionSchema).length(15).describe('An array of exactly 15 evaluation questions, with a mix of types.'),
 });
@@ -121,3 +121,4 @@ const generateEvaluationFlow = ai.defineFlow(
     return output;
   }
 );
+
