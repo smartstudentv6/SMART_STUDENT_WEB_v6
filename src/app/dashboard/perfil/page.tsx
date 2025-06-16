@@ -8,43 +8,48 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { UserCircle, BarChart3, History as HistoryIcon, Download, Trash2, Edit3 } from 'lucide-react';
 import type { UserProfile, SubjectProgress, EvaluationHistoryItem } from '@/lib/types';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation'; // For "Repasar" button
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 
-// Mock Data - This would typically come from a backend or state management
+// Mock Data - UserProfile remains mock for now
 const userProfileData: UserProfile = {
   name: "Felipe",
-  levelKey: "profileLevelValue", // "Estudiante Avanzado"
-  activeCoursesKey: "profileCoursesValue", // "Nivel Básico"
+  levelKey: "profileLevelValue",
+  activeCoursesKey: "profileCoursesValue",
   subjects: [
     { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
     { tag: "CIEN", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
     { tag: "HIST", nameKey: "subjectHistory", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
   ],
-  evaluationsCompleted: 33, 
+  evaluationsCompleted: 0, // This will be updated by history length
 };
 
-const learningStatsData: SubjectProgress[] = [
+// Template for learning stats structure
+const learningStatsTemplate: SubjectProgress[] = [
   { nameKey: "subjectMath", progress: 0, colorClass: "bg-primary/30" },
-  { nameKey: "subjectScience", progress: 47, colorClass: "bg-green-500" },
+  { nameKey: "subjectScience", progress: 0, colorClass: "bg-primary/30" },
   { nameKey: "subjectHistory", progress: 0, colorClass: "bg-primary/30" },
   { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-primary/30" },
 ];
 
-const profileStatsCardsData = [
-    { value: "33", labelKey: "statEvals", colorClass: "bg-blue-500 dark:bg-blue-600" }, 
-    { value: "47.0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" }, 
-    { value: "2", labelKey: "statGoals", colorClass: "bg-yellow-500 dark:bg-yellow-600" },
-    { value: "28", labelKey: "statSummaries", colorClass: "bg-purple-500 dark:bg-purple-600" },
+// Template for profile stats cards
+const profileStatsCardsTemplate = [
+    { value: "0", labelKey: "statEvals", colorClass: "bg-blue-500 dark:bg-blue-600" }, 
+    { value: "0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" }, 
+    { value: "2", labelKey: "statGoals", colorClass: "bg-yellow-500 dark:bg-yellow-600" }, // Mock
+    { value: "28", labelKey: "statSummaries", colorClass: "bg-purple-500 dark:bg-purple-600" }, // Mock
 ];
 
 
 export default function PerfilPage() {
-  const { translate } = useLanguage();
+  const { translate, language } = useLanguage();
   const router = useRouter();
   const [evaluationHistory, setEvaluationHistory] = useState<EvaluationHistoryItem[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const [dynamicLearningStats, setDynamicLearningStats] = useState<SubjectProgress[]>(learningStatsTemplate);
+  const [dynamicProfileCards, setDynamicProfileCards] = useState(profileStatsCardsTemplate);
 
   useEffect(() => {
     const storedHistoryString = localStorage.getItem('evaluationHistory');
@@ -59,23 +64,66 @@ export default function PerfilPage() {
     }
   }, []);
 
+  useEffect(() => {
+    // Calculate dynamic learning stats (progress by subject)
+    const newLearningStats = learningStatsTemplate.map(statTemplate => {
+      const translatedSubjectName = translate(statTemplate.nameKey);
+      const subjectEvaluations = evaluationHistory.filter(
+        histItem => histItem.bookTitle === translatedSubjectName
+      );
+
+      let maxPercentage = 0;
+      if (subjectEvaluations.length > 0) {
+        subjectEvaluations.forEach(ev => {
+          const percentage = ev.totalQuestions > 0 ? (ev.score / ev.totalQuestions) * 100 : 0;
+          if (percentage > maxPercentage) {
+            maxPercentage = percentage;
+          }
+        });
+      }
+      return {
+        ...statTemplate,
+        progress: Math.round(maxPercentage),
+        colorClass: maxPercentage > 0 ? "bg-green-500" : "bg-primary/30",
+      };
+    });
+    setDynamicLearningStats(newLearningStats);
+
+    // Calculate dynamic profile cards
+    let totalScoreSum = 0;
+    let totalPossibleScoreSum = 0;
+    evaluationHistory.forEach(item => {
+      totalScoreSum += item.score;
+      totalPossibleScoreSum += item.totalQuestions;
+    });
+    const averageScorePercentage = totalPossibleScoreSum > 0 
+      ? Math.round((totalScoreSum / totalPossibleScoreSum) * 100) 
+      : 0;
+
+    const newProfileCards = profileStatsCardsTemplate.map(card => {
+      if (card.labelKey === "statEvals") {
+        return { ...card, value: evaluationHistory.length.toString() };
+      }
+      if (card.labelKey === "statAvgScore") {
+        return { ...card, value: `${averageScorePercentage}%` };
+      }
+      return card;
+    });
+    setDynamicProfileCards(newProfileCards);
+
+  }, [evaluationHistory, language, translate]);
+
+
   const handleDeleteHistory = () => {
     localStorage.removeItem('evaluationHistory');
     setEvaluationHistory([]);
-    setCurrentPage(1); // Reset to first page after deleting
+    setCurrentPage(1); 
   };
 
   const handleRepasar = (item: EvaluationHistoryItem) => {
     router.push(`/dashboard/evaluacion?course=${encodeURIComponent(item.courseName)}&book=${encodeURIComponent(item.bookTitle)}&topic=${encodeURIComponent(item.topic)}`);
   };
-
-  const dynamicProfileStatsCardsData = profileStatsCardsData.map(stat => {
-    if (stat.labelKey === "statEvals") {
-      return { ...stat, value: evaluationHistory.length.toString() };
-    }
-    return stat;
-  });
-
+  
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -142,10 +190,10 @@ export default function PerfilPage() {
         <CardContent>
           <h3 className="font-semibold mb-4 text-lg font-headline">{translate('profileProgressBySub')}</h3 >
           <div className="space-y-4 text-sm">
-            {learningStatsData.map(stat => (
+            {dynamicLearningStats.map(stat => (
               <div key={stat.nameKey} className="flex items-center gap-4">
                 <span className="w-28 shrink-0">{translate(stat.nameKey)}</span>
-                <Progress value={stat.progress} className="w-full h-3 [&>div]:bg-green-500" indicatorClassName={stat.colorClass} />
+                <Progress value={stat.progress} className="w-full h-3" indicatorClassName={stat.colorClass} />
                 <span className="w-12 text-right">{stat.progress}%</span>
               </div>
             ))}
@@ -154,7 +202,7 @@ export default function PerfilPage() {
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          {dynamicProfileStatsCardsData.map(stat => ( 
+          {dynamicProfileCards.map(stat => ( 
             <Card key={stat.labelKey} className={`${stat.colorClass} text-primary-foreground shadow-md`}>
                 <CardContent className="p-4">
                     <div className="text-3xl font-bold">{stat.value}</div>
