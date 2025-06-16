@@ -35,11 +35,11 @@ const learningStatsTemplate: SubjectProgress[] = [
   { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-red-500" },
 ];
 
-// Template for profile stats cards - Goals and Summaries now start at "0"
+// Template for profile stats cards
 const profileStatsCardsTemplate = [
     { value: "0", labelKey: "statEvals", colorClass: "bg-blue-500 dark:bg-blue-600" }, 
     { value: "0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" }, 
-    { value: "0", labelKey: "statGoals", colorClass: "bg-yellow-500 dark:bg-yellow-600" },
+    { value: "0", labelKey: "statMaps", colorClass: "bg-yellow-500 dark:bg-yellow-600" }, // Changed from statGoals
     { value: "0", labelKey: "statSummaries", colorClass: "bg-purple-500 dark:bg-purple-600" },
 ];
 
@@ -66,6 +66,16 @@ export default function PerfilPage() {
         setEvaluationHistory([]); 
       }
     }
+     // Load counts for summaries and maps
+    const summariesCount = localStorage.getItem('summariesCreatedCount') || '0';
+    const mapsCount = localStorage.getItem('mapsCreatedCount') || '0';
+
+    setDynamicProfileCards(prevCards => prevCards.map(card => {
+        if (card.labelKey === "statSummaries") return { ...card, value: summariesCount };
+        if (card.labelKey === "statMaps") return { ...card, value: mapsCount }; // Updated key
+        return card;
+    }));
+
   }, []);
 
   useEffect(() => {
@@ -132,6 +142,10 @@ export default function PerfilPage() {
     const averageScorePercentage = totalPossibleScoreSum > 0 
       ? Math.round((totalScoreSum / totalPossibleScoreSum) * 100) 
       : 0;
+    
+    const summariesCount = localStorage.getItem('summariesCreatedCount') || '0';
+    const mapsCount = localStorage.getItem('mapsCreatedCount') || '0';
+
 
     const newProfileCards = profileStatsCardsTemplate.map(card => {
       if (card.labelKey === "statEvals") {
@@ -139,6 +153,12 @@ export default function PerfilPage() {
       }
       if (card.labelKey === "statAvgScore") {
         return { ...card, value: `${averageScorePercentage}%` };
+      }
+      if (card.labelKey === "statSummaries") {
+        return { ...card, value: summariesCount };
+      }
+      if (card.labelKey === "statMaps") { // Updated key
+        return { ...card, value: mapsCount };
       }
       return card; 
     });
@@ -149,8 +169,20 @@ export default function PerfilPage() {
 
   const handleDeleteHistory = () => {
     localStorage.removeItem('evaluationHistory');
+    localStorage.removeItem('summariesCreatedCount'); // Reset summary count
+    localStorage.removeItem('mapsCreatedCount'); // Reset map count
     setEvaluationHistory([]); 
     setCurrentPage(1);
+
+    // Update profile cards immediately
+    setDynamicProfileCards(prevCards => prevCards.map(card => {
+        if (card.labelKey === "statEvals") return { ...card, value: "0" };
+        if (card.labelKey === "statAvgScore") return { ...card, value: "0%" };
+        if (card.labelKey === "statSummaries") return { ...card, value: "0" };
+        if (card.labelKey === "statMaps") return { ...card, value: "0" };
+        return card;
+    }));
+
     toast({ 
         title: translate('historyDeletedTitle'), 
         description: translate('historyDeletedDesc') 
@@ -177,21 +209,20 @@ export default function PerfilPage() {
     ];
 
     const dataForSheet = evaluationHistory.map(item => {
-        const gradePercentage = item.totalQuestions > 0 ? Math.round((item.score / item.totalQuestions) * 100) : 0; // Ensure this is a number
+        const gradePercentage = item.totalQuestions > 0 ? Math.round((item.score / item.totalQuestions) * 100) : 0;
         const points = `${item.score}/${item.totalQuestions}`;
         return [
             item.date,
             item.courseName,
             item.bookTitle,
             item.topic,
-            gradePercentage, // This should be a number for Excel to treat it as such
+            gradePercentage, 
             points
         ];
     });
 
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dataForSheet]);
     
-    // Set column widths (optional, but good for readability)
     const columnWidths = [
       {wch: 20}, // Date
       {wch: 20}, // Course
@@ -385,6 +416,8 @@ export default function PerfilPage() {
     </div>
   );
 }
+    
+
     
 
     

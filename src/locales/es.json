@@ -103,7 +103,6 @@
     "profileLevel": "Nivel:",
     "profileLevelValue": "Estudiante Avanzado",
     "profileCourses": "Cursos Activos:",
-    "profileCoursesValue": "Nivel Básico",
     "profileCourse8thGrade": "8vo Básico",
     "profileSubjects": "Asignaturas:",
     "profileEvalsCompleted": "Evaluaciones Completadas:",
@@ -118,7 +117,7 @@
     "subjectLanguage": "Lenguaje",
     "statEvals": "Evaluaciones Completadas",
     "statAvgScore": "Promedio Puntuación",
-    "statGoals": "Metas Creadas",
+    "statMaps": "Mapas Creados",
     "statSummaries": "Resúmenes Generados",
     "historyTitle": "Historial de evaluaciones",
     "historySub": "¡Mira tu progreso! Cada evaluación te hace más fuerte 🔥",
@@ -177,3 +176,5 @@
     "historyDeletedTitle": "Historial Eliminado",
     "historyDeletedDesc": "Tu historial de evaluaciones y estadísticas relacionadas han sido borrados."
 }
+
+    

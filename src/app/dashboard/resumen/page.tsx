@@ -112,6 +112,9 @@ export default function ResumenPage() {
         summary: result.summary, 
         keyPoints: result.keyPoints
       });
+      // Increment summaries count
+      const currentCount = parseInt(localStorage.getItem('summariesCreatedCount') || '0', 10);
+      localStorage.setItem('summariesCreatedCount', (currentCount + 1).toString());
     } catch (error) {
       console.error("Error generating summary:", error);
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
@@ -302,4 +305,6 @@ export default function ResumenPage() {
     </div>
   );
 }
+    
+
     

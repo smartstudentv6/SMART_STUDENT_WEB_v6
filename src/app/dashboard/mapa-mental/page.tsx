@@ -48,6 +48,9 @@ export default function MapaMentalPage() {
         isHorizontal: isHorizontal,
       });
       setMindMapResult(result.imageDataUri);
+      // Increment maps count
+      const currentCount = parseInt(localStorage.getItem('mapsCreatedCount') || '0', 10);
+      localStorage.setItem('mapsCreatedCount', (currentCount + 1).toString());
     } catch (error) {
       console.error("Error generating mind map:", error);
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
@@ -195,3 +198,5 @@ export default function MapaMentalPage() {
   );
 }
 
+
+    
