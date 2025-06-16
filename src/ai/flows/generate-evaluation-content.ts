@@ -15,9 +15,8 @@ import {z} from 'genkit';
 const GenerateEvaluationInputSchema = z.object({
   topic: z.string().describe('The specific topic for the evaluation.'),
   bookTitle: z.string().describe('The title of the book to base the evaluation on.'),
-  // courseName: z.string().optional().describe('The name of the course for context.'), // Optional for now
 });
-export type GenerateEvaluationInput = z.infer<typeof GenerateEvaluationInputSchema>;
+type GenerateEvaluationInput = z.infer<typeof GenerateEvaluationInputSchema>;
 
 const TrueFalseQuestionSchema = z.object({
   id: z.string().describe('Unique ID for the question.'),
@@ -37,13 +36,13 @@ const MultipleChoiceQuestionSchema = z.object({
 });
 
 const EvaluationQuestionSchema = z.union([TrueFalseQuestionSchema, MultipleChoiceQuestionSchema]);
-export type EvaluationQuestion = z.infer<typeof EvaluationQuestionSchema>;
+type EvaluationQuestion = z.infer<typeof EvaluationQuestionSchema>;
 
 const GenerateEvaluationOutputSchema = z.object({
   evaluationTitle: z.string().describe('The title of the evaluation, formatted as "EVALUACIÓN - [TOPIC_NAME_IN_UPPERCASE]".'),
   questions: z.array(EvaluationQuestionSchema).describe('An array of evaluation questions, with a mix of types. The prompt requests 3 questions total (1 True/False, 2 Multiple Choice).'),
 });
-export type GenerateEvaluationOutput = z.infer<typeof GenerateEvaluationOutputSchema>;
+type GenerateEvaluationOutput = z.infer<typeof GenerateEvaluationOutputSchema>;
 
 
 export async function generateEvaluationContent(input: GenerateEvaluationInput): Promise<GenerateEvaluationOutput> {
@@ -63,7 +62,7 @@ The language for all content MUST be Spanish.
 
 The evaluation must adhere to the following structure:
 1.  **Evaluation Title**: The title must be "EVALUACIÓN - {{topic_uppercase}}".
-2.  **Total Questions**: Generate exactly 3 unique questions. Strive to generate a unique set of questions each time, even if the topic and book are repeated from a previous request. Avoid repetition.
+2.  **Total Questions**: Generate exactly 3 unique questions. It is CRITICAL that you generate a COMPLETELY NEW and UNIQUE set of questions for this topic from this book, different from any set you might have generated previously for the same inputs. Do not repeat questions or question structures you may have used before for this specific topic and book. Avoid repetition.
 3.  **Question Types**:
     *   Generate exactly 1 True/False question.
     *   Generate exactly 2 Multiple Choice questions.
@@ -117,7 +116,6 @@ const generateEvaluationFlow = ai.defineFlow(
 
     if (!output || !output.questions || output.questions.length !== 3) {
       console.error('AI response:', JSON.stringify(output, null, 2));
-      // Log the actual number of questions if output and output.questions exist
       if (output && output.questions) {
         console.error(`Expected 3 questions, but received ${output.questions.length}.`);
       }
@@ -125,9 +123,6 @@ const generateEvaluationFlow = ai.defineFlow(
         `AI failed to generate the required 3 evaluation questions or the format is incorrect. Expected 3, got ${output?.questions?.length || 0}.`
       );
     }
-    // Ensure IDs are unique if AI doesn't do it reliably, though prompt asks for it.
-    // For now, trust the prompt's instruction for unique IDs.
     return output;
   }
 );
-
