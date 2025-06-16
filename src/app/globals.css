@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -36,7 +37,7 @@ body {
 
     /* Custom color HSL values */
     --custom-green-100: 145 75% 90%;
-    --custom-green-100-hover: 145 75% 83%; /* Kept for potential other uses, but buttons will use base color on hover */
+    --custom-green-100-hover: 145 75% 83%; 
     --custom-green-800: 150 65% 30%;
     --custom-green-solid-bg-light: 145 60% 45%;
     --custom-green-solid-fg-light: 0 0% 100%;
@@ -80,26 +81,21 @@ body {
     --ring: hsl(var(--border));
 
     /* Custom color HSL values for dark mode */
-    --custom-green-100: 145 75% 90%;
-    --custom-green-100-hover: 145 75% 83%;
-    --custom-green-800: 150 65% 30%;
+    --custom-green-100: 145 75% 90%; /* Retain for consistency if used elsewhere */
+    --custom-green-800: 150 65% 30%; /* Base for dark mode bg */
     --custom-green-solid-bg-dark: 145 55% 55%;
     --custom-green-solid-fg-dark: 0 0% 100%;
 
-    --custom-blue-100: 220 100% 95%;
-    --custom-blue-100-hover: 220 100% 90%;
-    --custom-blue-800: 220 70% 40%;
+    --custom-blue-100: 220 100% 95%; /* Text color in dark mode */
+    --custom-blue-800: 220 70% 40%; /* BG color in dark mode */
 
     --custom-yellow-100: 45 100% 95%;
-    --custom-yellow-100-hover: 45 100% 90%;
     --custom-yellow-800: 45 85% 40%;
 
     --custom-cyan-100: 185 100% 95%;
-    --custom-cyan-100-hover: 185 100% 90%;
     --custom-cyan-800: 185 75% 35%;
 
     --custom-purple-100: 260 100% 95%;
-    --custom-purple-100-hover: 260 100% 90%;
     --custom-purple-800: 260 70% 50%;
   }
 }
@@ -216,52 +212,52 @@ html.dark.theme-accent-purple {
 
 /* For buttons on home cards and main action buttons on feature pages */
 .home-card-button {
-  @apply w-full font-semibold py-2 px-6 rounded-lg transition-colors; /* General styles for all home card buttons */
+  @apply w-full font-semibold py-2 px-6 rounded-lg transition-colors border-transparent hover:border-transparent; 
 }
 
 .home-card-button-green {
-  @apply bg-[hsl(var(--custom-green-100))] text-[hsl(var(--custom-green-800))]
-         hover:bg-[hsl(var(--custom-green-100))] hover:text-[hsl(var(--custom-green-800))];
+  @apply border-transparent bg-[hsl(var(--custom-green-100))] text-[hsl(var(--custom-green-800))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-green-100))] hover:text-[hsl(var(--custom-green-800))];
 }
 .dark .home-card-button-green {
-  @apply bg-[hsl(var(--custom-green-800))] text-[hsl(var(--custom-green-100))]
-         hover:bg-[hsl(var(--custom-green-800))] hover:text-[hsl(var(--custom-green-100))];
+  @apply border-transparent bg-[hsl(var(--custom-green-800))] text-[hsl(var(--custom-green-100))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-green-800))] hover:text-[hsl(var(--custom-green-100))];
 }
 
 .home-card-button-blue {
-  @apply bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))]
-         hover:bg-[hsl(var(--custom-blue-100))] hover:text-[hsl(var(--custom-blue-800))];
+  @apply border-transparent bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-blue-100))] hover:text-[hsl(var(--custom-blue-800))];
 }
 .dark .home-card-button-blue {
-  @apply bg-[hsl(var(--custom-blue-800))] text-[hsl(var(--custom-blue-100))]
-         hover:bg-[hsl(var(--custom-blue-800))] hover:text-[hsl(var(--custom-blue-100))];
+  @apply border-transparent bg-[hsl(var(--custom-blue-800))] text-[hsl(var(--custom-blue-100))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-blue-800))] hover:text-[hsl(var(--custom-blue-100))];
 }
 
 .home-card-button-yellow {
-  @apply bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))]
-         hover:bg-[hsl(var(--custom-yellow-100))] hover:text-[hsl(var(--custom-yellow-800))];
+  @apply border-transparent bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-yellow-100))] hover:text-[hsl(var(--custom-yellow-800))];
 }
 .dark .home-card-button-yellow {
-  @apply bg-[hsl(var(--custom-yellow-800))] text-[hsl(var(--custom-yellow-100))]
-         hover:bg-[hsl(var(--custom-yellow-800))] hover:text-[hsl(var(--custom-yellow-100))];
+  @apply border-transparent bg-[hsl(var(--custom-yellow-800))] text-[hsl(var(--custom-yellow-100))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-yellow-800))] hover:text-[hsl(var(--custom-yellow-100))];
 }
 
 .home-card-button-cyan {
-  @apply bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))]
-         hover:bg-[hsl(var(--custom-cyan-100))] hover:text-[hsl(var(--custom-cyan-800))];
+  @apply border-transparent bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-cyan-100))] hover:text-[hsl(var(--custom-cyan-800))];
 }
 .dark .home-card-button-cyan {
-  @apply bg-[hsl(var(--custom-cyan-800))] text-[hsl(var(--custom-cyan-100))]
-         hover:bg-[hsl(var(--custom-cyan-800))] hover:text-[hsl(var(--custom-cyan-100))];
+  @apply border-transparent bg-[hsl(var(--custom-cyan-800))] text-[hsl(var(--custom-cyan-100))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-cyan-800))] hover:text-[hsl(var(--custom-cyan-100))];
 }
 
 .home-card-button-purple {
-  @apply bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))]
-         hover:bg-[hsl(var(--custom-purple-100))] hover:text-[hsl(var(--custom-purple-800))];
+  @apply border-transparent bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-purple-100))] hover:text-[hsl(var(--custom-purple-800))];
 }
 .dark .home-card-button-purple {
-  @apply bg-[hsl(var(--custom-purple-800))] text-[hsl(var(--custom-purple-100))]
-         hover:bg-[hsl(var(--custom-purple-800))] hover:text-[hsl(var(--custom-purple-100))];
+  @apply border-transparent bg-[hsl(var(--custom-purple-800))] text-[hsl(var(--custom-purple-100))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-purple-800))] hover:text-[hsl(var(--custom-purple-100))];
 }
 
 
@@ -312,3 +308,4 @@ input:-webkit-autofill:active {
   transform: translateY(-20px);
   transition: opacity 300ms, transform 300ms;
 }
+

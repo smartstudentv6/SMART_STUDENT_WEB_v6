@@ -62,7 +62,7 @@ export default function DashboardHomePage() {
       case 'yellow': return 'home-card-button-yellow';
       case 'cyan': return 'home-card-button-cyan';
       case 'purple': return 'home-card-button-purple';
-      default: return 'bg-muted text-muted-foreground hover:bg-muted/80';
+      default: return ''; // Return empty or a very basic non-themed class
     }
   };
   
@@ -100,12 +100,13 @@ export default function DashboardHomePage() {
               <CardDescription className="text-sm mb-4 flex-grow">
                 {translate(card.descKey)}
               </CardDescription>
-              <Button 
+              <Button
+                variant="outline" // Use outline variant as a base
                 asChild 
                 className={cn(
                   "home-card-button", 
                   getButtonColorClass(card.colorClass),
-                  "hover:shadow-lg hover:scale-105 transition-all duration-200" 
+                  "hover:shadow-lg hover:scale-105 transition-all duration-200"
                 )}
               >
                 <Link href={card.targetPage}>{translate(card.btnKey)}</Link>
