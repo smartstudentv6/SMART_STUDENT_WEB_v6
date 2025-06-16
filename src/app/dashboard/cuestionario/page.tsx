@@ -36,13 +36,11 @@ export default function CuestionarioPage() {
     try {
       const result = await generateQuiz({
         bookTitle: selectedBook,
-        topic: topic,
-        courseName: selectedCourse || "General",
+        topic: topic.trim(),
+        courseName: selectedCourse || "General", 
       });
-      let formattedQuiz = result.quiz.replace(/\n\n/g, '<hr class="my-4 border-border" /><br />'); 
-      formattedQuiz = formattedQuiz.replace(/\n/g, '<br />');
-      
-      setQuizResult(formattedQuiz);
+      // The result.quiz is now pre-formatted HTML from the flow
+      setQuizResult(result.quiz);
     } catch (error) {
       console.error("Error generating quiz:", error);
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
@@ -56,7 +54,7 @@ export default function CuestionarioPage() {
     <div className="flex flex-col items-center text-center">
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="items-center">
-          <FileQuestion className="w-10 h-10 text-cyan-500 dark:text-cyan-400 mb-3" />
+          <FileQuestion className="w-10 h-10 text-custom-cyan-800 dark:text-custom-cyan-100 mb-3" />
           <CardTitle className="text-3xl font-bold font-headline">{translate('quizPageTitle')}</CardTitle>
           <CardDescription className="mt-2 text-muted-foreground max-w-2xl">
             {translate('quizPageSub')}
@@ -99,10 +97,7 @@ export default function CuestionarioPage() {
 
       {quizResult && !isLoading && (
         <Card className="mt-6 w-full max-w-lg text-left shadow-md">
-          <CardHeader>
-             <CardTitle className="font-headline">{translate('quizResultTitle', {defaultValue: "Generated Quiz"})}</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6"> {/* Added pt-6 for padding since CardHeader is removed */}
             <div dangerouslySetInnerHTML={{ __html: quizResult }} className="prose dark:prose-invert max-w-none text-sm leading-relaxed" />
           </CardContent>
         </Card>
