@@ -15,6 +15,7 @@ import {z} from 'genkit';
 const GenerateEvaluationInputSchema = z.object({
   topic: z.string().describe('The specific topic for the evaluation.'),
   bookTitle: z.string().describe('The title of the book to base the evaluation on.'),
+  language: z.enum(['es', 'en']).describe('The language for the evaluation content (e.g., "es" for Spanish, "en" for English).'),
 });
 type GenerateEvaluationInput = z.infer<typeof GenerateEvaluationInputSchema>;
 
@@ -39,7 +40,7 @@ const EvaluationQuestionSchema = z.union([TrueFalseQuestionSchema, MultipleChoic
 type EvaluationQuestion = z.infer<typeof EvaluationQuestionSchema>;
 
 const GenerateEvaluationOutputSchema = z.object({
-  evaluationTitle: z.string().describe('The title of the evaluation, formatted as "EVALUACIÓN - [TOPIC_NAME_IN_UPPERCASE]".'),
+  evaluationTitle: z.string().describe('The title of the evaluation, formatted as "EVALUACIÓN - [TOPIC_NAME_IN_UPPERCASE]" if language is "es", or "EVALUATION - [TOPIC_NAME_IN_UPPERCASE]" if language is "en".'),
   questions: z.array(EvaluationQuestionSchema).describe('An array of evaluation questions, with a mix of types. The prompt requests 3 questions total (1 True/False, 2 Multiple Choice).'),
 });
 type GenerateEvaluationOutput = z.infer<typeof GenerateEvaluationOutputSchema>;
@@ -51,17 +52,17 @@ export async function generateEvaluationContent(input: GenerateEvaluationInput):
 
 const generateEvaluationPrompt = ai.definePrompt({
   name: 'generateEvaluationPrompt',
-  input: {schema: GenerateEvaluationInputSchema.extend({ topic_uppercase: z.string() })},
+  input: {schema: GenerateEvaluationInputSchema.extend({ topic_uppercase: z.string(), title_prefix: z.string() })},
   output: {schema: GenerateEvaluationOutputSchema},
   config: { 
     temperature: 0.7, // Increased temperature for more varied output
   },
   prompt: `You are an expert educator creating an evaluation.
 Based on the book titled "{{bookTitle}}", generate an evaluation for the topic "{{topic}}".
-The language for all content MUST be Spanish.
+The language for all content (title, questions, options, explanations) MUST be {{{language}}}.
 
 The evaluation must adhere to the following structure:
-1.  **Evaluation Title**: The title must be "EVALUACIÓN - {{topic_uppercase}}".
+1.  **Evaluation Title**: The title must be "{{title_prefix}} - {{topic_uppercase}}".
 2.  **Total Questions**: Generate exactly 3 unique questions. It is CRITICAL that you generate a COMPLETELY NEW and UNIQUE set of questions for this topic from this book, different from any set you might have generated previously for the same inputs. Do not repeat questions or question structures you may have used before for this specific topic and book. Avoid repetition.
 3.  **Question Types**:
     *   Generate exactly 1 True/False question.
@@ -77,7 +78,7 @@ The evaluation must adhere to the following structure:
     *   \`options\`: An array of exactly 4 distinct string options. Label them implicitly as A, B, C, D for the user, but just provide the string array.
     *   \`correctAnswerIndex\`: A number from 0 to 3 indicating the index of the correct option in the 'options' array.
 
-Example of a True/False question structure:
+Example of a True/False question structure (if language is "es"):
 {
   "id": "q1",
   "type": "TRUE_FALSE",
@@ -86,7 +87,7 @@ Example of a True/False question structure:
   "explanation": "La tierra gira alrededor del sol, según el modelo heliocéntrico."
 }
 
-Example of a Multiple Choice question structure:
+Example of a Multiple Choice question structure (if language is "es"):
 {
   "id": "q2",
   "type": "MULTIPLE_CHOICE",
@@ -108,9 +109,11 @@ const generateEvaluationFlow = ai.defineFlow(
     outputSchema: GenerateEvaluationOutputSchema,
   },
   async (input: GenerateEvaluationInput): Promise<GenerateEvaluationOutput> => {
+    const titlePrefix = input.language === 'es' ? 'EVALUACIÓN' : 'EVALUATION';
     const promptInput = {
       ...input,
       topic_uppercase: input.topic.toUpperCase(),
+      title_prefix: titlePrefix,
     };
     const {output} = await generateEvaluationPrompt(promptInput);
 

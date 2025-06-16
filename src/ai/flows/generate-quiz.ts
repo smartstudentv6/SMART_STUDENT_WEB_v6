@@ -18,6 +18,7 @@ const GenerateQuizInputSchema = z.object({
   topic: z.string().describe('The topic for the quiz.'),
   bookTitle: z.string().describe('The title of the book.'),
   courseName: z.string().describe('The name of the course (used for context if needed).'),
+  language: z.enum(['es', 'en']).describe('The language for the quiz content (e.g., "es" for Spanish, "en" for English).'),
 });
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 
@@ -28,7 +29,7 @@ const QuestionSchema = z.object({
 });
 
 const AiPromptOutputSchema = z.object({
-  quizTitle: z.string().describe('The title of the quiz, formatted as "CUESTIONARIO - [TOPIC_NAME_IN_UPPERCASE]".'),
+  quizTitle: z.string().describe('The title of the quiz, formatted as "CUESTIONARIO - [TOPIC_NAME_IN_UPPERCASE]" if language is "es", or "QUIZ - [TOPIC_NAME_IN_UPPERCASE]" if language is "en".'),
   questions: z.array(QuestionSchema).length(15).describe('An array of exactly 15 open-ended quiz questions.'),
 });
 
@@ -45,18 +46,18 @@ export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQu
 
 const generateQuizPrompt = ai.definePrompt({
   name: 'generateQuizPrompt',
-  input: {schema: GenerateQuizInputSchema.extend({ topic_uppercase: z.string() })}, 
+  input: {schema: GenerateQuizInputSchema.extend({ topic_uppercase: z.string(), title_prefix: z.string() })}, 
   output: {schema: AiPromptOutputSchema},
   prompt: `You are an expert educator and curriculum designer. Your task is to generate a comprehensive quiz based on your knowledge of the book titled "{{bookTitle}}", focusing on the specific topic "{{topic}}".
 
 The quiz MUST adhere to the following structure:
-1.  **Quiz Title**: The title must be exactly "CUESTIONARIO - {{topic_uppercase}}".
+1.  **Quiz Title**: The title must be exactly "{{title_prefix}} - {{topic_uppercase}}".
 2.  **Number of Questions**: Generate exactly 15 unique open-ended questions.
 3.  **For each question, provide**:
     *   \`questionText\`: The clear and concise text of the open-ended question.
     *   \`expectedAnswer\`: A comprehensive ideal answer to the question, referencing concepts from the book "{{bookTitle}}" where possible. This answer should be detailed and clear, suitable for study and understanding.
 
-All content (questions, answers) should be directly relevant to the topic "{{topic}}" as covered in the book "{{bookTitle}}". Ensure the language of the quiz is Spanish.
+All content (title, questions, answers) should be directly relevant to the topic "{{topic}}" as covered in the book "{{bookTitle}}". Ensure the language of all generated content is {{{language}}}.
   `,
 });
 
@@ -67,9 +68,11 @@ const generateQuizFlow = ai.defineFlow(
     outputSchema: GenerateQuizOutputSchema, // Flow returns the HTML string
   },
   async (input: GenerateQuizInput) => {
+    const titlePrefix = input.language === 'es' ? 'CUESTIONARIO' : 'QUIZ';
     const promptInput = {
       ...input,
       topic_uppercase: input.topic.toUpperCase(),
+      title_prefix: titlePrefix,
     };
     const {output} = await generateQuizPrompt(promptInput);
 
@@ -80,7 +83,8 @@ const generateQuizFlow = ai.defineFlow(
     let formattedQuizHtml = `<h2>${output.quizTitle}</h2><br />`;
     output.questions.forEach((q, index) => {
       formattedQuizHtml += `<p><strong>${index + 1}. ${q.questionText}</strong></p>`;
-      formattedQuizHtml += `<p style="margin-top: 0.5em;"><strong>Respuesta Esperada:</strong></p>`;
+      const answerLabel = input.language === 'es' ? 'Respuesta Esperada' : 'Expected Answer';
+      formattedQuizHtml += `<p style="margin-top: 0.5em;"><strong>${answerLabel}:</strong></p>`;
       // Format the expected answer for better readability, e.g., convert newlines to <br>
       const formattedAnswer = q.expectedAnswer.replace(/\n/g, '<br />');
       formattedQuizHtml += `<p style="margin-top: 0.25em; margin-bottom: 1em; text-align: justify;">${formattedAnswer}</p>`;
@@ -93,4 +97,3 @@ const generateQuizFlow = ai.defineFlow(
     return { quiz: formattedQuizHtml };
   }
 );
-

@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Label } from '@/components/ui/label';
 
 export default function CuestionarioPage() {
-  const { translate } = useLanguage();
+  const { translate, language: currentUiLanguage } = useLanguage();
   const { toast } = useToast();
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
@@ -42,6 +42,7 @@ export default function CuestionarioPage() {
         bookTitle: selectedBook,
         topic: currentTopic,
         courseName: selectedCourse || "General", 
+        language: currentUiLanguage,
       });
       setQuizResult(result.quiz);
       // Increment quizzes count
@@ -59,7 +60,8 @@ export default function CuestionarioPage() {
   const handleDownloadQuizPdf = () => {
     if (!quizResult || !currentTopicForDisplay) return;
 
-    const title = `${translate('quizTitlePrefix')} - ${currentTopicForDisplay.toUpperCase()}`;
+    const titlePrefix = currentUiLanguage === 'es' ? translate('quizTitlePrefix', {defaultValue: 'CUESTIONARIO'}) : translate('quizTitlePrefix', {defaultValue: 'QUIZ'});
+    const title = `${titlePrefix} - ${currentTopicForDisplay.toUpperCase()}`;
     
     // quizResult is already formatted HTML from the flow
     const contentHtml = `
@@ -180,4 +182,3 @@ export default function CuestionarioPage() {
     </div>
   );
 }
-

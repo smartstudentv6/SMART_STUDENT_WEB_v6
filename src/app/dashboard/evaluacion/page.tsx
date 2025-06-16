@@ -14,9 +14,9 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import type { EvaluationHistoryItem } from '@/lib/types';
-import { useSearchParams } from 'next/navigation'; // Added for query params
+import { useSearchParams } from 'next/navigation'; 
 
-type UserAnswer = boolean | number | null; // boolean for T/F, number for MC index
+type UserAnswer = boolean | number | null; 
 
 // Fisher-Yates shuffle function
 function shuffleArray<T>(array: T[]): T[] {
@@ -31,9 +31,9 @@ function shuffleArray<T>(array: T[]): T[] {
 const INITIAL_TIME_LIMIT = 120; // 2 minutes in seconds
 
 export default function EvaluacionPage() {
-  const { translate } = useLanguage();
+  const { translate, language: currentUiLanguage } = useLanguage();
   const { toast } = useToast();
-  const searchParams = useSearchParams(); // For reading query parameters
+  const searchParams = useSearchParams(); 
 
   // Setup state
   const [selectedCourse, setSelectedCourse] = useState('');
@@ -105,8 +105,8 @@ export default function EvaluacionPage() {
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-      }) + ' hrs',
-      courseName: selectedCourse, // Store course name
+      }) + (currentUiLanguage === 'es' ? ' hrs' : ''), // Append 'hrs' only for Spanish
+      courseName: selectedCourse, 
       bookTitle: selectedBook,
       topic: currentTopicForDisplay,
       score: finalScore,
@@ -126,7 +126,7 @@ export default function EvaluacionPage() {
         variant: 'destructive',
       });
     }
-  }, [selectedCourse, selectedBook, currentTopicForDisplay, toast, translate]);
+  }, [selectedCourse, selectedBook, currentTopicForDisplay, toast, translate, currentUiLanguage]);
 
   const handleFinishEvaluation = useCallback(() => {
     const finalScore = calculateScore();
@@ -209,6 +209,7 @@ export default function EvaluacionPage() {
       const result = await generateEvaluationContent({
         bookTitle: selectedBook,
         topic: trimmedTopic,
+        language: currentUiLanguage,
       });
       if (result && result.questions && result.questions.length === 3) {
         setEvaluationTitle(result.evaluationTitle);
@@ -267,7 +268,6 @@ export default function EvaluacionPage() {
     setUserAnswers([]);
     setScore(0);
     setMotivationalMessageKey('');
-    // Reset fields that might have been pre-filled by query params
     setTopic('');
     setSelectedCourse(''); 
     setSelectedBook(''); 
