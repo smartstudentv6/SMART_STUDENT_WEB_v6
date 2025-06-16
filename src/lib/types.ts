@@ -29,6 +29,7 @@ export interface SubjectProgress {
 export interface EvaluationHistoryItem {
   id: string; // Unique ID, e.g., ISO timestamp of completion
   date: string; // Formatted date and time string
+  courseName: string; // Added to store the course name
   bookTitle: string;
   topic: string;
   score: number; // Number of correct answers

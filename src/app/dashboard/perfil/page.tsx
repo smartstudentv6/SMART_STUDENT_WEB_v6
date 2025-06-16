@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { UserCircle, BarChart3, History as HistoryIcon, Download, Trash2, Edit3 } from 'lucide-react';
 import type { UserProfile, SubjectProgress, EvaluationHistoryItem } from '@/lib/types';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation'; // For "Repasar" button
 
 // Mock Data - This would typically come from a backend or state management
 const userProfileData: UserProfile = {
@@ -20,7 +21,7 @@ const userProfileData: UserProfile = {
     { tag: "CIEN", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
     { tag: "HIST", nameKey: "subjectHistory", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
   ],
-  evaluationsCompleted: 33, // This will be dynamically updated later if needed
+  evaluationsCompleted: 33, 
 };
 
 const learningStatsData: SubjectProgress[] = [
@@ -31,8 +32,8 @@ const learningStatsData: SubjectProgress[] = [
 ];
 
 const profileStatsCardsData = [
-    { value: "33", labelKey: "statEvals", colorClass: "bg-blue-500 dark:bg-blue-600" }, // This value could be history.length
-    { value: "47.0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" }, // This would need calculation
+    { value: "33", labelKey: "statEvals", colorClass: "bg-blue-500 dark:bg-blue-600" }, 
+    { value: "47.0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" }, 
     { value: "2", labelKey: "statGoals", colorClass: "bg-yellow-500 dark:bg-yellow-600" },
     { value: "28", labelKey: "statSummaries", colorClass: "bg-purple-500 dark:bg-purple-600" },
 ];
@@ -40,7 +41,10 @@ const profileStatsCardsData = [
 
 export default function PerfilPage() {
   const { translate } = useLanguage();
+  const router = useRouter();
   const [evaluationHistory, setEvaluationHistory] = useState<EvaluationHistoryItem[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     const storedHistoryString = localStorage.getItem('evaluationHistory');
@@ -50,7 +54,7 @@ export default function PerfilPage() {
         setEvaluationHistory(storedHistory);
       } catch (error) {
         console.error("Failed to parse evaluation history from localStorage:", error);
-        setEvaluationHistory([]); // Default to empty if parsing fails
+        setEvaluationHistory([]); 
       }
     }
   }, []);
@@ -58,22 +62,29 @@ export default function PerfilPage() {
   const handleDeleteHistory = () => {
     localStorage.removeItem('evaluationHistory');
     setEvaluationHistory([]);
-    // Potentially show a toast message
+    setCurrentPage(1); // Reset to first page after deleting
   };
 
-  // Update profileStatsCardsData based on history if needed, e.g., for "Completed Evaluations"
+  const handleRepasar = (item: EvaluationHistoryItem) => {
+    router.push(`/dashboard/evaluacion?course=${encodeURIComponent(item.courseName)}&book=${encodeURIComponent(item.bookTitle)}&topic=${encodeURIComponent(item.topic)}`);
+  };
+
   const dynamicProfileStatsCardsData = profileStatsCardsData.map(stat => {
     if (stat.labelKey === "statEvals") {
       return { ...stat, value: evaluationHistory.length.toString() };
     }
-    // Add calculation for 'statAvgScore' if desired
     return stat;
   });
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = evaluationHistory.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(evaluationHistory.length / itemsPerPage);
 
 
   return (
     <div className="space-y-8">
-      {/* Personal Profile Section */}
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-4 mb-2">
@@ -121,7 +132,6 @@ export default function PerfilPage() {
         </CardContent>
       </Card>
 
-      {/* Learning Statistics Section */}
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-4 mb-2">
@@ -130,7 +140,7 @@ export default function PerfilPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <h3 className="font-semibold mb-4 text-lg font-headline">{translate('profileProgressBySub')}</h3>
+          <h3 className="font-semibold mb-4 text-lg font-headline">{translate('profileProgressBySub')}</h3 >
           <div className="space-y-4 text-sm">
             {learningStatsData.map(stat => (
               <div key={stat.nameKey} className="flex items-center gap-4">
@@ -143,9 +153,8 @@ export default function PerfilPage() {
         </CardContent>
       </Card>
 
-      {/* Stats Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          {dynamicProfileStatsCardsData.map(stat => ( // Use dynamicProfileStatsCardsData here
+          {dynamicProfileStatsCardsData.map(stat => ( 
             <Card key={stat.labelKey} className={`${stat.colorClass} text-primary-foreground shadow-md`}>
                 <CardContent className="p-4">
                     <div className="text-3xl font-bold">{stat.value}</div>
@@ -155,8 +164,6 @@ export default function PerfilPage() {
           ))}
       </div>
 
-
-      {/* Evaluation History Section */}
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-4 mb-2">
@@ -171,6 +178,7 @@ export default function PerfilPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{translate('tableDate')}</TableHead>
+                  <TableHead>{translate('tableCourse')}</TableHead>
                   <TableHead>{translate('tableBook')}</TableHead>
                   <TableHead>{translate('tableTopic')}</TableHead>
                   <TableHead>{translate('tableGrade')}</TableHead>
@@ -179,10 +187,11 @@ export default function PerfilPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {evaluationHistory.length > 0 ? (
-                  evaluationHistory.map(item => (
+                {currentItems.length > 0 ? (
+                  currentItems.map(item => (
                     <TableRow key={item.id}>
                       <TableCell>{item.date}</TableCell>
+                      <TableCell>{item.courseName}</TableCell>
                       <TableCell>{item.bookTitle}</TableCell>
                       <TableCell>{item.topic}</TableCell>
                       <TableCell>
@@ -194,13 +203,13 @@ export default function PerfilPage() {
                         {`${item.score}/${item.totalQuestions}`}
                       </TableCell>
                       <TableCell>
-                        <Button variant="link" size="sm" className="p-0 h-auto text-primary">{translate('tableReview')}</Button>
+                        <Button variant="link" size="sm" className="p-0 h-auto text-primary" onClick={() => handleRepasar(item)}>{translate('tableReview')}</Button>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       {translate('historyNoData', { defaultValue: "No evaluation history yet."})}
                     </TableCell>
                   </TableRow>
@@ -208,10 +217,32 @@ export default function PerfilPage() {
               </TableBody>
             </Table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-4 mt-6">
+              <Button 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                disabled={currentPage === 1}
+                variant="outline"
+                size="sm"
+              >
+                {translate('paginationPrevious', { defaultValue: 'Previous' })}
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {translate('paginationPageInfo', { currentPage: currentPage, totalPages: totalPages, defaultValue: `Page ${currentPage} of ${totalPages}` })}
+              </span>
+              <Button 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                disabled={currentPage === totalPages}
+                variant="outline"
+                size="sm"
+              >
+                {translate('paginationNext', { defaultValue: 'Next' })}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
-
     

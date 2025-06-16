@@ -11,22 +11,39 @@ interface BookCourseSelectorProps {
   onBookChange: (book: string) => void;
   selectedCourse: string;
   selectedBook: string;
+  initialBookNameToSelect?: string; // New optional prop
 }
 
-export function BookCourseSelector({ onCourseChange, onBookChange, selectedCourse, selectedBook }: BookCourseSelectorProps) {
+export function BookCourseSelector({ 
+  onCourseChange, 
+  onBookChange, 
+  selectedCourse, 
+  selectedBook, 
+  initialBookNameToSelect 
+}: BookCourseSelectorProps) {
   const { translate, language } = useLanguage();
   const { courses } = useAppData();
   const [booksForCourse, setBooksForCourse] = useState<string[]>([]);
 
   useEffect(() => {
     if (selectedCourse && courses[selectedCourse]) {
-      setBooksForCourse(courses[selectedCourse][language] || []);
-      onBookChange(''); // Reset book when course changes
+      const newBooks = courses[selectedCourse][language] || [];
+      setBooksForCourse(newBooks);
+      if (initialBookNameToSelect && newBooks.includes(initialBookNameToSelect)) {
+        onBookChange(initialBookNameToSelect);
+      } else {
+        // Only reset if not trying to set an initial book or if course itself changed significantly
+        // This condition might need refinement if initialBookNameToSelect should persist across course changes that still contain it
+        if (!initialBookNameToSelect || selectedBook && !newBooks.includes(selectedBook) ) {
+             onBookChange('');
+        }
+      }
     } else {
       setBooksForCourse([]);
+      onBookChange(''); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCourse, language, courses]); // onBookChange dependency removed to prevent infinite loop
+  }, [selectedCourse, language, courses, initialBookNameToSelect]); // onBookChange removed, initialBookNameToSelect added
 
   return (
     <>
@@ -58,5 +75,4 @@ export function BookCourseSelector({ onCourseChange, onBookChange, selectedCours
     </>
   );
 }
-
     

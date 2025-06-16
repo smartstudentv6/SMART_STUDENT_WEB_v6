@@ -122,6 +122,7 @@
     "historyTitle": "Evaluation History",
     "historySub": "See your progress! Every evaluation makes you stronger 🔥",
     "tableDate": "Date",
+    "tableCourse": "Course",
     "tableBook": "Book",
     "tableTopic": "Topic",
     "tableGrade": "Grade",
@@ -166,5 +167,8 @@
     "mapActionCreateSummary": "Create Summary",
     "mapActionCreateQuiz": "Create Quiz",
     "mapActionCreateEval": "Create Evaluation",
-    "mapDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings."
+    "mapDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings.",
+    "paginationPrevious": "Previous",
+    "paginationNext": "Next",
+    "paginationPageInfo": "Page {{currentPage}} of {{totalPages}}"
 }

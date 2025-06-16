@@ -122,6 +122,7 @@
     "historyTitle": "Historial de evaluaciones",
     "historySub": "¡Mira tu progreso! Cada evaluación te hace más fuerte 🔥",
     "tableDate": "Fecha",
+    "tableCourse": "Curso",
     "tableBook": "Libro",
     "tableTopic": "Tema",
     "tableGrade": "Nota",
@@ -147,7 +148,7 @@
     "faq7_a": "Las funcionalidades colaborativas están en nuestros planes futuros. ¡Mantente atento a las actualizaciones!",
     "faq8_q": "¿Qué funciones ofrece la aplicación para aprender?",
     "faq8_a": "SMART STUDENT ofrece resúmenes inteligentes, cuestionarios autogenerados, mapas mentales, evaluaciones y un perfil para seguir tu progreso.",
-    "faqNotFound": "¿No encontraste lo que buscabas?",
+    "faqNotFound": "No encontraste lo que buscabas?",
     "faqContactUs": "Contáctanos",
     "loading": "Generando...",
     "generatingQuiz": "Generando cuestionario...",
@@ -166,5 +167,8 @@
     "mapActionCreateSummary": "Crear Resumen",
     "mapActionCreateQuiz": "Crear Cuestionario",
     "mapActionCreateEval": "Crear Evaluación",
-    "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes."
+    "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes.",
+    "paginationPrevious": "Anterior",
+    "paginationNext": "Siguiente",
+    "paginationPageInfo": "Página {{currentPage}} de {{totalPages}}"
 }

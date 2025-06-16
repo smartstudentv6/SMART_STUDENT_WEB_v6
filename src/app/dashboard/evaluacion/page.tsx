@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import type { EvaluationHistoryItem } from '@/lib/types';
+import { useSearchParams } from 'next/navigation'; // Added for query params
 
 type UserAnswer = boolean | number | null; // boolean for T/F, number for MC index
 
@@ -32,6 +33,7 @@ const INITIAL_TIME_LIMIT = 120; // 2 minutes in seconds
 export default function EvaluacionPage() {
   const { translate } = useLanguage();
   const { toast } = useToast();
+  const searchParams = useSearchParams(); // For reading query parameters
 
   // Setup state
   const [selectedCourse, setSelectedCourse] = useState('');
@@ -57,6 +59,28 @@ export default function EvaluacionPage() {
   const [timeLeft, setTimeLeft] = useState(INITIAL_TIME_LIMIT);
   const [timerActive, setTimerActive] = useState(false);
 
+  // For pre-filling from query params
+  const [initialBookFromQuery, setInitialBookFromQuery] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const courseFromQuery = searchParams.get('course');
+    const bookFromQueryParam = searchParams.get('book');
+    const topicFromQuery = searchParams.get('topic');
+
+    if (courseFromQuery) {
+      setSelectedCourse(decodeURIComponent(courseFromQuery));
+    }
+    if (bookFromQueryParam) {
+      setInitialBookFromQuery(decodeURIComponent(bookFromQueryParam));
+    } else {
+      setInitialBookFromQuery(undefined);
+    }
+    if (topicFromQuery) {
+      setTopic(decodeURIComponent(topicFromQuery));
+    }
+  }, [searchParams]);
+
+
   const calculateScore = useCallback(() => {
     let correctAnswers = 0;
     evaluationQuestions.forEach((q, index) => {
@@ -71,17 +95,18 @@ export default function EvaluacionPage() {
   }, [evaluationQuestions, userAnswers]);
 
   const saveEvaluationToHistory = useCallback((finalScore: number, totalQuestions: number) => {
-    if (!selectedBook || !currentTopicForDisplay) return;
+    if (!selectedBook || !currentTopicForDisplay || !selectedCourse) return;
 
     const newHistoryItem: EvaluationHistoryItem = {
       id: new Date().toISOString(),
-      date: new Date().toLocaleString(translate('evalDateFormatLocale', {defaultValue: 'es-CL'}), { // Example: 'es-CL' or 'en-US'
+      date: new Date().toLocaleString(translate('evalDateFormatLocale', {defaultValue: 'es-CL'}), { 
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
       }) + ' hrs',
+      courseName: selectedCourse, // Store course name
       bookTitle: selectedBook,
       topic: currentTopicForDisplay,
       score: finalScore,
@@ -91,7 +116,7 @@ export default function EvaluacionPage() {
     try {
       const existingHistoryString = localStorage.getItem('evaluationHistory');
       const existingHistory: EvaluationHistoryItem[] = existingHistoryString ? JSON.parse(existingHistoryString) : [];
-      const updatedHistory = [newHistoryItem, ...existingHistory]; // Add new item to the beginning
+      const updatedHistory = [newHistoryItem, ...existingHistory]; 
       localStorage.setItem('evaluationHistory', JSON.stringify(updatedHistory));
     } catch (error) {
       console.error("Failed to save evaluation history:", error);
@@ -101,7 +126,7 @@ export default function EvaluacionPage() {
         variant: 'destructive',
       });
     }
-  }, [selectedBook, currentTopicForDisplay, toast, translate]);
+  }, [selectedCourse, selectedBook, currentTopicForDisplay, toast, translate]);
 
   const handleFinishEvaluation = useCallback(() => {
     const finalScore = calculateScore();
@@ -118,15 +143,14 @@ export default function EvaluacionPage() {
       setMotivationalMessageKey('evalMotivationalImprovement');
     }
     
-    setTimerActive(false); // Stop the timer
+    setTimerActive(false); 
     setEvaluationFinished(true);
     setShowResultDialog(true);
-    if (totalQuestions > 0) { // Only save if there were questions
+    if (totalQuestions > 0) { 
         saveEvaluationToHistory(finalScore, totalQuestions);
     }
   }, [calculateScore, evaluationQuestions.length, saveEvaluationToHistory]);
 
-  // Timer Effect
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
 
@@ -135,7 +159,7 @@ export default function EvaluacionPage() {
         intervalId = setInterval(() => {
           setTimeLeft((prevTime) => prevTime - 1);
         }, 1000);
-      } else { // timeLeft is 0 or less
+      } else { 
         setTimerActive(false); 
         toast({
           title: translate('evalTimeUpTitle'),
@@ -243,7 +267,11 @@ export default function EvaluacionPage() {
     setUserAnswers([]);
     setScore(0);
     setMotivationalMessageKey('');
+    // Reset fields that might have been pre-filled by query params
     setTopic('');
+    setSelectedCourse(''); 
+    setSelectedBook(''); 
+    setInitialBookFromQuery(undefined);
     setCurrentTopicForDisplay('');
     setShowResultDialog(false); 
     setTimeLeft(INITIAL_TIME_LIMIT);
@@ -252,8 +280,6 @@ export default function EvaluacionPage() {
 
   const handleCloseDialogAndShowReview = () => {
     setShowResultDialog(false);
-    // setEvaluationFinished(true) is already called in handleFinishEvaluation
-    // This will make the review screen visible
   };
 
   const formatTime = (seconds: number) => {
@@ -281,6 +307,7 @@ export default function EvaluacionPage() {
               selectedBook={selectedBook}
               onCourseChange={setSelectedCourse}
               onBookChange={setSelectedBook}
+              initialBookNameToSelect={initialBookFromQuery}
             />
             <div className="space-y-2">
               <Label htmlFor="eval-topic-input" className="text-left block">{translate('evalTopicPlaceholder')}</Label>
@@ -331,7 +358,6 @@ export default function EvaluacionPage() {
   }
 
   if (evaluationFinished && !showResultDialog) {
-    // This is the Review Screen
     return (
       <Card className="w-full max-w-2xl mx-auto shadow-xl">
         <CardHeader className="text-center border-b pb-4">
@@ -376,7 +402,6 @@ export default function EvaluacionPage() {
     );
   }
 
-  // This is the Active Evaluation Screen
   return (
     <>
       <Card className="w-full max-w-2xl mx-auto shadow-xl">
