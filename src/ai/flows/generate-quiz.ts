@@ -83,7 +83,7 @@ const generateQuizFlow = ai.defineFlow(
       formattedQuizHtml += `<p style="margin-top: 0.5em;"><strong>Respuesta Esperada:</strong></p>`;
       // Format the expected answer for better readability, e.g., convert newlines to <br>
       const formattedAnswer = q.expectedAnswer.replace(/\n/g, '<br />');
-      formattedQuizHtml += `<p style="margin-top: 0.25em; margin-bottom: 1em;">${formattedAnswer}</p>`;
+      formattedQuizHtml += `<p style="margin-top: 0.25em; margin-bottom: 1em; text-align: justify;">${formattedAnswer}</p>`;
       
       if (index < output.questions.length - 1) {
         formattedQuizHtml += '<hr style="margin-top: 1rem; margin-bottom: 1rem; border-top: 1px solid #e5e7eb;" /><br />';
