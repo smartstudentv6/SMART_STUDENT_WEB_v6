@@ -138,7 +138,7 @@ export default function MapaMentalPage() {
           <Button
             onClick={handleGenerateMap}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm bg-custom-yellow-100 text-custom-yellow-800 hover:bg-custom-yellow-100/80" // Updated button classes
+            className="w-full font-semibold py-3 text-base md:text-sm bg-custom-yellow-100 text-custom-yellow-800 hover:bg-custom-yellow-100/80 dark:bg-custom-yellow-800 dark:text-custom-yellow-100 dark:hover:bg-custom-yellow-800/90"
           >
             {isLoading ? (
               <>{translate('loading')}...</>
