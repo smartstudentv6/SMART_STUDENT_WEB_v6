@@ -18,7 +18,6 @@ export default function CuestionarioPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [topic, setTopic] = useState('');
-  const [bookContentInput, setBookContentInput] = useState('');
   const [quizResult, setQuizResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -39,7 +38,6 @@ export default function CuestionarioPage() {
         bookTitle: selectedBook,
         topic: topic,
         courseName: selectedCourse || "General",
-        bookContent: bookContentInput.trim() || undefined,
       });
       let formattedQuiz = result.quiz.replace(/\n\n/g, '<hr class="my-4 border-border" /><br />'); 
       formattedQuiz = formattedQuiz.replace(/\n/g, '<br />');
@@ -82,21 +80,10 @@ export default function CuestionarioPage() {
               className="text-base md:text-sm"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="quiz-book-content-input" className="text-left block">{translate('quizBookContentPlaceholder')}</Label>
-            <Textarea
-              id="quiz-book-content-input"
-              rows={5}
-              value={bookContentInput}
-              onChange={(e) => setBookContentInput(e.target.value)}
-              placeholder={translate('quizBookContentPlaceholderOptional')}
-              className="text-base md:text-sm"
-            />
-          </div>
           <Button
             onClick={handleGenerateQuiz}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm bg-cyan-500 hover:bg-cyan-600 dark:bg-custom-cyan-800 dark:text-custom-cyan-100 dark:hover:bg-cyan-700"
+            className="w-full font-semibold py-3 text-base md:text-sm bg-custom-cyan-100 text-custom-cyan-800 hover:bg-custom-cyan-100/80 dark:bg-custom-cyan-800 dark:text-custom-cyan-100 dark:hover:bg-custom-cyan-800/90"
           >
             {isLoading ? (
               <>{translate('loading')}...</>

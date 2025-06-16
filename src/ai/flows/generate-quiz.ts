@@ -16,7 +16,6 @@ const GenerateQuizInputSchema = z.object({
   topic: z.string().describe('The topic for the quiz.'),
   bookTitle: z.string().describe('The title of the book.'),
   courseName: z.string().describe('The name of the course.'),
-  bookContent: z.string().optional().describe('Optional content from the book to focus the generation. This should be plain text.'),
 });
 export type GenerateQuizInput = z.infer<typeof GenerateQuizInputSchema>;
 
@@ -34,10 +33,6 @@ const generateQuizPrompt = ai.definePrompt({
   input: {schema: GenerateQuizInputSchema},
   output: {schema: GenerateQuizOutputSchema},
   prompt: `You are an expert educator. Generate a quiz with 5 questions and their respective answers (A, B, C, D) for each question. Indicate the correct answer.
-{{#if bookContent}}
-Base the quiz on the following content from the book:
-{{{bookContent}}}
-{{/if}}
 Topic: {{{topic}}}
 Book Title: {{{bookTitle}}}
 Course Name: {{{courseName}}}
