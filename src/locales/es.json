@@ -133,5 +133,11 @@
     "mapActionCreateSummary": "Crear Resumen",
     "mapActionCreateQuiz": "Crear Cuestionario",
     "mapActionCreateEval": "Crear Evaluación",
-    "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes."
+    "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes.",
+    "quizActionDownloadPdf": "Descargar Cuestionario PDF",
+    "quizActionCreateSummary": "Crear Resumen del Tema",
+    "quizActionCreateMap": "Crear Mapa Mental del Tema",
+    "quizActionCreateEval": "Crear Evaluación del Tema",
+    "quizTitlePrefix": "CUESTIONARIO"
 }
+
