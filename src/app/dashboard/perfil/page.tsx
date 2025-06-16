@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { UserCircle, BarChart3, History as HistoryIcon, Download, Trash2, Edit3 } from 'lucide-react';
+import { UserCircle, BarChart3, History as HistoryIcon, Download, Trash2, Edit3, Award, Percent, Newspaper, Network, FileQuestion } from 'lucide-react';
 import type { UserProfile, SubjectProgress, EvaluationHistoryItem } from '@/lib/types';
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -18,12 +18,12 @@ import { cn } from '@/lib/utils';
 const userProfileData: UserProfile = {
   name: "Felipe",
   levelKey: "profileLevelValue",
-  activeCoursesKey: "profileCourse8thGradeValue", // Updated key
+  activeCoursesKey: "profileCourse8thGradeValue", 
   subjects: [
     { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
     { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
-    { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, // Updated color class
-    { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, // Added Language
+    { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
+    { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, 
   ],
   evaluationsCompleted: 0, // This will be updated by history length
 };
@@ -32,17 +32,17 @@ const userProfileData: UserProfile = {
 const learningStatsTemplate: SubjectProgress[] = [
   { nameKey: "subjectMath", progress: 0, colorClass: "bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" },
   { nameKey: "subjectScience", progress: 0, colorClass: "bg-gradient-to-r from-green-400 via-green-500 to-green-600" },
-  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600" }, // Using amber for brownish
+  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600" }, 
   { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-gradient-to-r from-red-400 via-red-500 to-red-600" },
 ];
 
 // Template for profile stats cards
 const profileStatsCardsTemplate = [
-    { value: "0", labelKey: "statEvals", colorClass: "bg-purple-500 dark:bg-purple-600" }, 
-    { value: "0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" }, 
-    { value: "0", labelKey: "statSummaries", colorClass: "bg-blue-500 dark:bg-blue-600" },
-    { value: "0", labelKey: "statMaps", colorClass: "bg-yellow-500 dark:bg-yellow-600" },
-    { value: "0", labelKey: "statQuizzes", colorClass: "bg-cyan-500 dark:bg-cyan-600" },
+    { value: "0", labelKey: "statEvals", colorClass: "bg-purple-500 dark:bg-purple-600", icon: Award }, 
+    { value: "0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600", icon: Percent }, 
+    { value: "0", labelKey: "statSummaries", colorClass: "bg-blue-500 dark:bg-blue-600", icon: Newspaper },
+    { value: "0", labelKey: "statMaps", colorClass: "bg-yellow-500 dark:bg-yellow-600", icon: Network },
+    { value: "0", labelKey: "statQuizzes", colorClass: "bg-cyan-500 dark:bg-cyan-600", icon: FileQuestion },
 ];
 
 
@@ -336,15 +336,18 @@ export default function PerfilPage() {
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
-          {dynamicProfileCards.map(stat => ( 
+          {dynamicProfileCards.map(stat => {
+            const IconComponent = stat.icon;
+            return (
             <Card 
               key={stat.labelKey} 
               className={cn(
                 stat.colorClass, 
-                "text-card-foreground", // Changed from text-primary-foreground
+                "text-card-foreground", 
                 "shadow-md", 
                 "hover:shadow-lg", 
-                "hover:brightness-110", 
+                "hover:brightness-110",
+                "hover:scale-105", 
                 "transition-all", 
                 "duration-200",
                 "cursor-pointer"
@@ -352,10 +355,13 @@ export default function PerfilPage() {
             >
                 <CardContent className="p-4">
                     <div className="text-3xl font-bold">{stat.value}</div>
-                    <div className="text-sm opacity-90">{translate(stat.labelKey)}</div>
+                    <div className="text-sm opacity-90 flex items-center justify-center gap-1.5">
+                      {IconComponent && <IconComponent className="w-4 h-4" />}
+                      {translate(stat.labelKey)}
+                    </div>
                 </CardContent>
             </Card>
-          ))}
+          )})}
       </div>
 
       <Card className="shadow-lg">
@@ -444,3 +450,4 @@ export default function PerfilPage() {
     
 
     
+
