@@ -24,6 +24,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  transpilePackages: ['genkit', 'dotprompt'],
 };
 
 export default nextConfig;
