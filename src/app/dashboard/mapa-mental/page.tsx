@@ -125,7 +125,7 @@ export default function MapaMentalPage() {
             placeholder={translate('mapCentralThemePlaceholder')}
             className="text-base md:text-sm"
           />
-          <div className="flex items-center space-x-2 justify-start"> {/* Changed justify-center to justify-start */}
+          <div className="flex items-center space-x-2 justify-start"> 
             <Checkbox
               id="horizontal-orientation"
               checked={isHorizontal}
@@ -138,7 +138,7 @@ export default function MapaMentalPage() {
           <Button
             onClick={handleGenerateMap}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm bg-custom-yellow-100 text-custom-yellow-800 hover:bg-custom-yellow-100/80 dark:bg-custom-yellow-800 dark:text-custom-yellow-100 dark:hover:bg-custom-yellow-800/90"
+            className="w-full font-semibold py-3 text-base md:text-sm home-card-button-yellow"
           >
             {isLoading ? (
               <>{translate('loading')}...</>
@@ -197,6 +197,3 @@ export default function MapaMentalPage() {
     </div>
   );
 }
-
-
-    

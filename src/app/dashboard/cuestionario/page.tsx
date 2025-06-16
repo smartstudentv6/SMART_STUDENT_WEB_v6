@@ -134,7 +134,7 @@ export default function CuestionarioPage() {
           <Button
             onClick={handleGenerateQuiz}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm bg-custom-cyan-100 text-custom-cyan-800 hover:bg-custom-cyan-100/80 dark:bg-custom-cyan-800 dark:text-custom-cyan-100 dark:hover:bg-custom-cyan-800/90"
+            className="w-full font-semibold py-3 text-base md:text-sm home-card-button-cyan"
           >
             {isLoading ? (
               <>{translate('loading')}...</>
