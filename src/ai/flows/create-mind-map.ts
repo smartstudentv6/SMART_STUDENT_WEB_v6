@@ -70,7 +70,7 @@ Example of desired output structure (conceptual):
     { "label": "Outputs (Salidas)", "children": [{ "label": "Glucose (Glucosa)" }, { "label": "Oxygen (Oxígeno)" }] }
   ]
 }
-Focus on accuracy and relevance to the book content.
+Focus on accuracy and relevance to the book content. Ensure a clear hierarchical structure suitable for a top-down conceptual map.
 `,
 });
 
@@ -78,8 +78,8 @@ Focus on accuracy and relevance to the book content.
 const renderMindMapImageHandlebarsPrompt = ai.definePrompt({
   name: 'renderMindMapImageHandlebarsPrompt',
   input: { schema: MindMapStructureSchema },
-  prompt: `You are an expert at creating clear, visually appealing, and informative conceptual map IMAGES.
-Generate a conceptual map IMAGE based on the EXACT structure and text provided below.
+  prompt: `You are an expert at creating clear, visually appealing, and informative conceptual map IMAGES in a diagrammatic style.
+Generate a conceptual map IMAGE based on the EXACT structure, text, and styling cues provided below.
 Do NOT generate text output, only the IMAGE. The image should be a clean, diagrammatic conceptual map. Avoid artistic or overly stylized renderings. The background should be simple and not interfere with text legibility.
 
 The absolute MOST IMPORTANT requirement is that ALL TEXT in EVERY NODE must be perfectly clear, easily readable, and large enough to be distinguished. Use a simple, legible sans-serif font. Ensure good contrast between the text and its node background. Each text label you are given MUST be rendered as a distinct, clearly readable text element within its own node in the image.
@@ -112,11 +112,17 @@ Strict Requirements for the IMAGE:
     *   Use a SIMPLE, SANS-SERIF FONT.
     *   Have EXCELLENT CONTRAST against the node's background.
     *   DO NOT ABBREVIATE, CHANGE, OMIT, OR ADD ANY TEXT to the labels provided.
-2.  **CLEAR HIERARCHY**: The central theme ("{{centralThemeLabel}}") must be the most prominent, central node. The main ideas (labels from \`mainBranches\`) must clearly branch from it. Sub-topics (labels from \`children\`) must clearly branch from their respective parent nodes. Use clear visual connectors (lines or arrows).
-3.  **PROFESSIONAL APPEARANCE**: The map should be visually organized, uncluttered, and professional. Use distinct shapes or colors for different levels if it enhances clarity, BUT text legibility and accuracy are more important than aesthetics.
-4.  **NO HALLUCINATED CONTENT**: Do not add any nodes, text, or visual elements that are not explicitly defined by the structure provided above. Your task is to visualize the given data, not to add to it.
+2.  **CLEAR HIERARCHY AND NODE STYLES (Vertical/Default Layout)**:
+    *   **Layout**: The map should follow a top-down hierarchical structure. The central theme ("{{centralThemeLabel}}") must be the most prominent node, positioned at the top. Main ideas (labels from \`mainBranches\`) must clearly branch downwards or outwards from it. Sub-topics (labels from \`children\` of main ideas) must clearly branch from their respective parent main idea nodes. Use clear visual connectors (lines or simple arrows). DO NOT write text (like "Conector") on the connector lines themselves; they should be purely visual.
+    *   **Node Shapes**:
+        *   The Central Theme node containing "{{centralThemeLabel}}" must be a **rectangle**.
+        *   Nodes representing Main Ideas (the direct children of the central theme, i.e., items in \`mainBranches\`) must be **rectangles**.
+        *   Nodes representing Sub-topics (children of Main Ideas) must be **circles**.
+        *   If there are further levels of sub-topics (children of children), they should also be **circles**.
+3.  **PROFESSIONAL APPEARANCE**: The map should be visually organized, uncluttered, and professional. Use distinct shapes as specified. A simple, consistent color scheme (e.g., light-colored nodes like pale yellow with dark text, or a scheme that ensures high contrast and readability) is preferred. Text legibility, correct shapes, and accurate content are more important than complex aesthetics.
+4.  **NO HALLUCINATED CONTENT**: Do not add any nodes, text, shapes, or visual elements that are not explicitly defined by the structure provided above. Your task is to visualize the given data, not to add to it.
 
-If any text is distorted, unreadable, or omitted, or if any text is added that was not in the provided structure, the image is considered a failure. Prioritize text clarity and faithfulness to the provided content above all other considerations.
+If any text is distorted, unreadable, or omitted, or if any text is added that was not in the provided structure, or if the node shapes are incorrect, the image is considered a failure. Prioritize text clarity, faithfulness to the provided content, and correct node styling above all other considerations.
 `,
 });
 
