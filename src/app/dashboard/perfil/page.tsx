@@ -15,11 +15,11 @@ import { useRouter } from 'next/navigation';
 const userProfileData: UserProfile = {
   name: "Felipe",
   levelKey: "profileLevelValue",
-  activeCoursesKey: "profileCourse8thGrade", // Updated Key
+  activeCoursesKey: "profileCourse8thGrade",
   subjects: [
     { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
-    { tag: "CIEN", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
-    { tag: "HIST", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+    { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+    { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
     { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
   ],
   evaluationsCompleted: 0, // This will be updated by history length
@@ -27,10 +27,10 @@ const userProfileData: UserProfile = {
 
 // Template for learning stats structure with specific subject colors
 const learningStatsTemplate: SubjectProgress[] = [
-  { nameKey: "subjectMath", progress: 0, colorClass: "bg-blue-500" },      // Azul
-  { nameKey: "subjectScience", progress: 0, colorClass: "bg-green-500" },   // Verde
-  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-amber-600" },  // Café (Amber as brown)
-  { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-red-500" },    // Rojo
+  { nameKey: "subjectMath", progress: 0, colorClass: "bg-blue-500" },
+  { nameKey: "subjectScience", progress: 0, colorClass: "bg-green-500" },
+  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-amber-600" },
+  { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-red-500" },
 ];
 
 // Template for profile stats cards
@@ -93,7 +93,7 @@ export default function PerfilPage() {
         const titlesToMatch = [
           ...subjectMappings[categoryKey].es,
           ...subjectMappings[categoryKey].en
-        ].map(title => title.toLowerCase()); // Normalize to lowercase for matching
+        ].map(title => title.toLowerCase()); 
 
         subjectEvaluations = evaluationHistory.filter(histItem => 
           titlesToMatch.includes(histItem.bookTitle.toLowerCase())
@@ -110,7 +110,7 @@ export default function PerfilPage() {
         });
       }
       return {
-        ...statTemplate, // This includes the predefined colorClass from the template
+        ...statTemplate, 
         progress: Math.round(maxPercentage),
       };
     });
