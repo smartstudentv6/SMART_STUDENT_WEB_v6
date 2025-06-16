@@ -57,7 +57,6 @@
     "quizPageTitle": "Challenge Your Knowledge with Quizzes!",
     "quizPageSub": "Generate personalized tests to evaluate your understanding and reinforce learning.",
     "quizTopicPlaceholder": "Write the topic for the quiz",
-    "quizBookContentPlaceholderOptional": "Paste relevant book text here (optional for more specific quiz)",
     "quizGenerateBtn": "Generate Quiz",
     "quizResultTitle": "Generated Quiz",
     "evalPageTitle": "Knowledge Assessment",
@@ -134,10 +133,10 @@
     "mapActionCreateQuiz": "Create Quiz",
     "mapActionCreateEval": "Create Evaluation",
     "mapDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings.",
-    "quizActionDownloadPdf": "Download Quiz PDF",
-    "quizActionCreateSummary": "Create Topic Summary",
-    "quizActionCreateMap": "Create Topic Mind Map",
-    "quizActionCreateEval": "Create Topic Evaluation",
+    "quizActionDownloadPdf": "Download PDF",
+    "quizActionCreateSummary": "Create Summary",
+    "quizActionCreateMap": "Create Mind Map",
+    "quizActionCreateEval": "Create Evaluation",
     "quizTitlePrefix": "QUIZ"
 }
 

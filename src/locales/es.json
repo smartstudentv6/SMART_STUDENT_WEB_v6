@@ -57,7 +57,6 @@
     "quizPageTitle": "¡Desafía tu Conocimiento con Cuestionarios!",
     "quizPageSub": "Genera pruebas personalizadas para evaluar tu comprensión y reforzar el aprendizaje.",
     "quizTopicPlaceholder": "Escribe el tema para el cuestionario",
-    "quizBookContentPlaceholderOptional": "Pega aquí el texto relevante del libro (opcional para un cuestionario más específico)",
     "quizGenerateBtn": "Generar Cuestionario",
     "quizResultTitle": "Cuestionario Generado",
     "evalPageTitle": "Evaluación de Conocimientos",
@@ -134,10 +133,10 @@
     "mapActionCreateQuiz": "Crear Cuestionario",
     "mapActionCreateEval": "Crear Evaluación",
     "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes.",
-    "quizActionDownloadPdf": "Descargar Cuestionario PDF",
-    "quizActionCreateSummary": "Crear Resumen del Tema",
-    "quizActionCreateMap": "Crear Mapa Mental del Tema",
-    "quizActionCreateEval": "Crear Evaluación del Tema",
+    "quizActionDownloadPdf": "Descargar PDF",
+    "quizActionCreateSummary": "Crear Resumen",
+    "quizActionCreateMap": "Crear Mapa Mental",
+    "quizActionCreateEval": "Crear Evaluación",
     "quizTitlePrefix": "CUESTIONARIO"
 }
 
