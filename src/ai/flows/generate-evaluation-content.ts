@@ -54,8 +54,8 @@ const generateEvaluationPrompt = ai.definePrompt({
   name: 'generateEvaluationPrompt',
   input: {schema: GenerateEvaluationInputSchema.extend({ topic_uppercase: z.string() })},
   output: {schema: GenerateEvaluationOutputSchema},
-  config: { // Added temperature for more varied output
-    temperature: 0.7,
+  config: { 
+    temperature: 0.7, // Increased temperature for more varied output
   },
   prompt: `You are an expert educator creating an evaluation.
 Based on the book titled "{{bookTitle}}", generate an evaluation for the topic "{{topic}}".
@@ -63,7 +63,7 @@ The language for all content MUST be Spanish.
 
 The evaluation must adhere to the following structure:
 1.  **Evaluation Title**: The title must be "EVALUACIÓN - {{topic_uppercase}}".
-2.  **Total Questions**: Generate exactly 3 unique questions.
+2.  **Total Questions**: Generate exactly 3 unique questions. Strive to generate a unique set of questions each time, even if the topic and book are repeated from a previous request. Avoid repetition.
 3.  **Question Types**:
     *   Generate exactly 1 True/False question.
     *   Generate exactly 2 Multiple Choice questions.

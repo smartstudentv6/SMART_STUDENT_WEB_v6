@@ -16,6 +16,16 @@ import { Label } from '@/components/ui/label';
 
 type UserAnswer = boolean | number | null; // boolean for T/F, number for MC index
 
+// Fisher-Yates shuffle function
+function shuffleArray<T>(array: T[]): T[] {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+}
+
 export default function EvaluacionPage() {
   const { translate } = useLanguage();
   const { toast } = useToast();
@@ -70,7 +80,7 @@ export default function EvaluacionPage() {
       });
       if (result && result.questions && result.questions.length === 3) {
         setEvaluationTitle(result.evaluationTitle);
-        setEvaluationQuestions(result.questions);
+        setEvaluationQuestions(shuffleArray(result.questions)); // Shuffle questions here
         setEvaluationStarted(true);
       } else {
         throw new Error(translate('evalErrorGenerationFormat', {defaultValue: "AI did not return the requested number of questions in the expected format."}));
@@ -144,6 +154,7 @@ export default function EvaluacionPage() {
 
   const handleCloseDialog = () => {
     setShowResultDialog(false);
+    // After closing the dialog, the review screen will be shown because evaluationFinished is true
   };
 
   const currentQuestion = evaluationQuestions[currentQuestionIndex];
@@ -215,6 +226,7 @@ export default function EvaluacionPage() {
   }
 
   if (evaluationFinished && !showResultDialog) {
+    // This is the Review Screen
     return (
       <Card className="w-full max-w-2xl mx-auto shadow-xl">
         <CardHeader className="text-center border-b pb-4">
@@ -259,6 +271,7 @@ export default function EvaluacionPage() {
     );
   }
 
+  // This is the Active Evaluation Screen
   return (
     <>
       <Card className="w-full max-w-2xl mx-auto shadow-xl">
@@ -279,8 +292,8 @@ export default function EvaluacionPage() {
                     className={cn(
                         "py-3 text-base w-full",
                         userAnswers[currentQuestionIndex] === true ?
-                        'home-card-button-purple' :
-                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
+                        'home-card-button-purple' : // Selected style
+                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' // Unselected style
                     )}
                     onClick={() => handleAnswerSelect(true)}
                   >
@@ -291,8 +304,8 @@ export default function EvaluacionPage() {
                      className={cn(
                         "py-3 text-base w-full",
                         userAnswers[currentQuestionIndex] === false ?
-                        'home-card-button-purple' :
-                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
+                        'home-card-button-purple' : // Selected style
+                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' // Unselected style
                     )}
                     onClick={() => handleAnswerSelect(false)}
                   >
@@ -309,8 +322,8 @@ export default function EvaluacionPage() {
                       className={cn(
                         "py-3 text-base justify-start text-left h-auto whitespace-normal w-full",
                         userAnswers[currentQuestionIndex] === index ?
-                           'home-card-button-purple' :
-                           'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
+                           'home-card-button-purple' : // Selected style
+                           'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' // Unselected style
                       )}
                       onClick={() => handleAnswerSelect(index)}
                     >
