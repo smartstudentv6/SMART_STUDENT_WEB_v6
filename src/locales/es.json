@@ -171,5 +171,9 @@
     "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes.",
     "paginationPrevious": "Anterior",
     "paginationNext": "Siguiente",
-    "paginationPageInfo": "Página {{currentPage}} de {{totalPages}}"
+    "paginationPageInfo": "Página {{currentPage}} de {{totalPages}}",
+    "historyEmptyTitle": "Historial Vacío",
+    "historyEmptyDesc": "No hay historial de evaluaciones para descargar.",
+    "historyDeletedTitle": "Historial Eliminado",
+    "historyDeletedDesc": "Tu historial de evaluaciones y estadísticas relacionadas han sido borrados."
 }
