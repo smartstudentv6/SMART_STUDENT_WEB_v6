@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Award } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
-import { generateEvaluationContent, type EvaluationQuestion } from '@/ai/flows/generate-evaluation-content';
+import { generateEvaluationContent } from '@/ai/flows/generate-evaluation-content';
+import type { EvaluationQuestion } from '@/ai/flows/generate-evaluation-content';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -382,7 +383,7 @@ export default function EvaluacionPage() {
               {translate('evalYourScore', { score: score, totalPoints: evaluationQuestions.length })}
             </AlertDialogDescription>
             {motivationalMessageKey && (
-              <p className="mt-3 text-sm text-foreground">
+              <p className="mt-3 text-sm text-foreground text-center">
                 {translate(motivationalMessageKey)}
               </p>
             )}
