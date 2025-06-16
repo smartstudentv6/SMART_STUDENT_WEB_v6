@@ -6,8 +6,8 @@ import { useLanguage } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Award, AlertCircle } from 'lucide-react';
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Award } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateEvaluationContent, type EvaluationQuestion } from '@/ai/flows/generate-evaluation-content';
 import { useToast } from "@/hooks/use-toast";
@@ -139,7 +139,7 @@ export default function EvaluacionPage() {
     setUserAnswers([]);
     setScore(0);
     setTopic('');
-    setShowResultDialog(false); // Ensure dialog is closed for new evaluation
+    setShowResultDialog(false); 
   };
 
   const handleCloseDialog = () => {
@@ -275,22 +275,24 @@ export default function EvaluacionPage() {
               {currentQuestion.type === 'TRUE_FALSE' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Button
-                    variant={userAnswers[currentQuestionIndex] === true ? 'default': 'outline'}
+                    variant="ghost"
                     className={cn(
-                        "py-3 text-base",
-                        userAnswers[currentQuestionIndex] !== true && // Only apply these if NOT selected
-                          'border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
+                        "py-3 text-base w-full",
+                        userAnswers[currentQuestionIndex] === true ?
+                        'home-card-button-purple' :
+                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
                     )}
                     onClick={() => handleAnswerSelect(true)}
                   >
                     {translate('evalTrue')}
                   </Button>
                   <Button
-                    variant={userAnswers[currentQuestionIndex] === false ? 'default': 'outline'}
+                    variant="ghost"
                      className={cn(
-                        "py-3 text-base",
-                        userAnswers[currentQuestionIndex] !== false && // Only apply these if NOT selected
-                          'border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
+                        "py-3 text-base w-full",
+                        userAnswers[currentQuestionIndex] === false ?
+                        'home-card-button-purple' :
+                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
                     )}
                     onClick={() => handleAnswerSelect(false)}
                   >
@@ -303,11 +305,12 @@ export default function EvaluacionPage() {
                   {currentQuestion.options.map((option, index) => (
                     <Button
                       key={index}
-                      variant={userAnswers[currentQuestionIndex] === index ? 'default' : 'outline'}
+                      variant="ghost"
                       className={cn(
-                        "py-3 text-base justify-start text-left h-auto whitespace-normal",
-                        userAnswers[currentQuestionIndex] !== index && // Only apply these if NOT selected
-                           'border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
+                        "py-3 text-base justify-start text-left h-auto whitespace-normal w-full",
+                        userAnswers[currentQuestionIndex] === index ?
+                           'home-card-button-purple' :
+                           'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
                       )}
                       onClick={() => handleAnswerSelect(index)}
                     >
