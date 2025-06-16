@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Award, AlertCircle } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
-import { generateEvaluationContent, type EvaluationQuestion, type GenerateEvaluationInput } from '@/ai/flows/generate-evaluation-content'; 
+import { generateEvaluationContent, type EvaluationQuestion } from '@/ai/flows/generate-evaluation-content';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -68,12 +68,12 @@ export default function EvaluacionPage() {
         bookTitle: selectedBook,
         topic: trimmedTopic,
       });
-      if (result && result.questions && result.questions.length === 3) { // Updated to 3 questions
+      if (result && result.questions && result.questions.length === 3) {
         setEvaluationTitle(result.evaluationTitle);
         setEvaluationQuestions(result.questions);
         setEvaluationStarted(true);
       } else {
-        throw new Error(translate('evalErrorGenerationFormat', {defaultValue: "AI did not return the 3 questions in the expected format."})); // Updated default value
+        throw new Error(translate('evalErrorGenerationFormat', {defaultValue: "AI did not return the requested number of questions in the expected format."}));
       }
     } catch (error) {
       console.error("Error generating evaluation:", error);
@@ -98,7 +98,7 @@ export default function EvaluacionPage() {
 
   const handlePreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setCurrentQuestionIndex(currentQuestionIndex - 1); // Corrected bug here
     }
   };
 
@@ -125,21 +125,28 @@ export default function EvaluacionPage() {
   const handleRepeatEvaluation = () => {
     setCurrentQuestionIndex(0);
     setUserAnswers(Array(evaluationQuestions.length).fill(null));
-    setEvaluationFinished(false);
+    setEvaluationFinished(false); // Allows starting the question flow again
     setShowResultDialog(false);
     setScore(0);
-    // Optional: re-enable the evaluation setup to generate new questions
-    // setEvaluationStarted(false); 
-    // setEvaluationQuestions([]);
+    setEvaluationStarted(true); // Ensure we go back to question view
+  };
+
+  const handleStartNewEvaluation = () => {
+    setEvaluationStarted(false);
+    setEvaluationFinished(false);
+    setEvaluationQuestions([]);
+    setCurrentQuestionIndex(0);
+    setUserAnswers([]);
+    setScore(0);
+    setTopic('');
+    // Optionally reset selectedBook and selectedCourse if desired
+    // setSelectedBook('');
+    // setSelectedCourse('');
   };
 
   const handleCloseDialog = () => {
     setShowResultDialog(false);
-    // User can review their answers if they close.
-    // To reset completely:
-    // setEvaluationStarted(false);
-    // setEvaluationQuestions([]);
-    // setTopic(''); // if desired
+    // Now, if evaluationFinished is true, the review screen will show
   };
 
   const currentQuestion = evaluationQuestions[currentQuestionIndex];
@@ -210,7 +217,6 @@ export default function EvaluacionPage() {
     );
   }
 
-
   if (evaluationFinished && !showResultDialog) {
     // Show review mode after closing dialog
     return (
@@ -218,38 +224,44 @@ export default function EvaluacionPage() {
         <CardHeader className="text-center border-b pb-4">
           <CardTitle className="text-2xl font-bold font-headline">{evaluationTitle}</CardTitle>
           <CardDescription>
-            {translate('evalReviewYourAnswers', { defaultValue: "Review your answers. Score:" })} {score} / {evaluationQuestions.length}
+            {translate('evalReviewYourAnswers', { defaultValue: "Review your answers. Final Score:" })} {score} / {evaluationQuestions.length}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6 space-y-6">
           {evaluationQuestions.map((q, idx) => (
-            <div key={q.id} className="p-4 border rounded-lg bg-card">
-              <p className="font-semibold mb-2">
-                {translate('evalQuestionLabel', { current: idx + 1, total: evaluationQuestions.length })}: {q.questionText}
+            <div key={q.id} className="p-4 border rounded-lg bg-card shadow">
+              <p className="font-semibold mb-3 text-lg">
+                {translate('evalQuestionLabel', { current: idx + 1, total: evaluationQuestions.length, defaultValue:"Question {{current}}/{{total}}" })}: {q.questionText}
               </p>
               {q.type === 'TRUE_FALSE' && (
-                <div className="space-y-1 text-sm">
-                  <p>{translate('evalYourAnswer')}: <span className={cn(userAnswers[idx] === q.correctAnswer ? "text-green-600" : "text-destructive")}>{userAnswers[idx] ? translate('evalTrue') : translate('evalFalse')}</span></p>
-                  <p>{translate('evalCorrectAnswer')}: <span className="font-medium">{q.correctAnswer ? translate('evalTrue') : translate('evalFalse')}</span></p>
+                <div className="space-y-2 text-sm">
+                  <p>{translate('evalYourAnswer', {defaultValue:"Your answer"})}: <span className={cn("font-medium", userAnswers[idx] === q.correctAnswer ? "text-green-600 dark:text-green-400" : "text-destructive")}>{userAnswers[idx] === null ? translate('evalNoAnswer', {defaultValue:"Not answered"}) : (userAnswers[idx] ? translate('evalTrue') : translate('evalFalse'))}</span></p>
+                  <p>{translate('evalCorrectAnswer', {defaultValue:"Correct answer"})}: <span className="font-medium text-green-600 dark:text-green-400">{q.correctAnswer ? translate('evalTrue') : translate('evalFalse')}</span></p>
                 </div>
               )}
               {q.type === 'MULTIPLE_CHOICE' && (
-                <div className="space-y-1 text-sm">
-                   <p>{translate('evalYourAnswer')}: <span className={cn(userAnswers[idx] === q.correctAnswerIndex ? "text-green-600" : "text-destructive")}>{q.options[userAnswers[idx] as number] || translate('evalNoAnswer')}</span></p>
-                   <p>{translate('evalCorrectAnswer')}: <span className="font-medium">{q.options[q.correctAnswerIndex]}</span></p>
-                  <p className="mt-1 text-xs text-muted-foreground">{translate('evalExplanation')}: {q.explanation}</p>
+                <div className="space-y-2 text-sm">
+                   <p>{translate('evalYourAnswer', {defaultValue:"Your answer"})}: <span className={cn("font-medium", userAnswers[idx] === q.correctAnswerIndex ? "text-green-600 dark:text-green-400" : "text-destructive")}>
+                     {userAnswers[idx] === null ? translate('evalNoAnswer', {defaultValue:"Not answered"}) : q.options[userAnswers[idx] as number]}
+                    </span></p>
+                   <p>{translate('evalCorrectAnswer', {defaultValue:"Correct answer"})}: <span className="font-medium text-green-600 dark:text-green-400">{q.options[q.correctAnswerIndex]}</span></p>
                 </div>
               )}
+              <p className="mt-3 text-xs text-muted-foreground italic">{translate('evalExplanation', {defaultValue:"Explanation"})}: {q.explanation}</p>
             </div>
           ))}
-           <Button onClick={handleRepeatEvaluation} className="w-full mt-6 home-card-button-purple">
-              {translate('evalRetakeButton', {defaultValue: "Retake Evaluation"})}
-          </Button>
+           <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row gap-3 justify-center">
+            <Button onClick={handleRepeatEvaluation} className="w-full sm:w-auto home-card-button-purple">
+                {translate('evalRetakeButton', {defaultValue: "Retake Evaluation"})}
+            </Button>
+            <Button onClick={handleStartNewEvaluation} variant="outline" className="w-full sm:w-auto">
+                {translate('evalNewEvaluationButton', {defaultValue: "New Evaluation"})}
+            </Button>
+           </div>
         </CardContent>
       </Card>
     );
   }
-
 
   return (
     <>
@@ -270,7 +282,9 @@ export default function EvaluacionPage() {
                     variant={userAnswers[currentQuestionIndex] === true ? 'default': 'outline'}
                     className={cn(
                         "py-3 text-base",
-                        userAnswers[currentQuestionIndex] === true ? 'bg-primary text-primary-foreground' : 'border-primary text-primary hover:bg-primary/10'
+                        userAnswers[currentQuestionIndex] === true ? 
+                          'bg-primary text-primary-foreground' : 
+                          'border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
                     )}
                     onClick={() => handleAnswerSelect(true)}
                   >
@@ -280,7 +294,9 @@ export default function EvaluacionPage() {
                     variant={userAnswers[currentQuestionIndex] === false ? 'default': 'outline'}
                      className={cn(
                         "py-3 text-base",
-                        userAnswers[currentQuestionIndex] === false ? 'bg-primary text-primary-foreground' : 'border-primary text-primary hover:bg-primary/10'
+                        userAnswers[currentQuestionIndex] === false ? 
+                          'bg-primary text-primary-foreground' : 
+                          'border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
                     )}
                     onClick={() => handleAnswerSelect(false)}
                   >
@@ -296,7 +312,9 @@ export default function EvaluacionPage() {
                       variant={userAnswers[currentQuestionIndex] === index ? 'default' : 'outline'}
                       className={cn(
                         "py-3 text-base justify-start text-left h-auto whitespace-normal",
-                         userAnswers[currentQuestionIndex] === index ? 'bg-primary text-primary-foreground' : 'border-primary text-primary hover:bg-primary/10'
+                         userAnswers[currentQuestionIndex] === index ? 
+                           'bg-primary text-primary-foreground' : 
+                           'border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
                       )}
                       onClick={() => handleAnswerSelect(index)}
                     >
@@ -342,7 +360,7 @@ export default function EvaluacionPage() {
               {translate('evalMotivationalMessage1')}
             </p>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-6 grid grid-cols-2 gap-3">
+          <AlertDialogFooter className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Button onClick={handleRepeatEvaluation} className="w-full home-card-button-purple">
                 {translate('evalRepeatButton')}
             </Button>
