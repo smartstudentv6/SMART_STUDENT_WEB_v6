@@ -80,7 +80,7 @@
     "evalRepeatButton": "Repetir",
     "evalCloseButton": "Cerrar",
     "evalGeneratingTitle": "Generando Evaluación...",
-    "evalErrorGenerationFormat": "La IA no devolvió las preguntas en el formato esperado.",
+    "evalErrorGenerationFormat": "La IA no devolvió el número de preguntas solicitado o en el formato esperado.",
     "evalQuestionLabel": "Pregunta {{current}}/{{total}}",
     "evalYourAnswer": "Tu respuesta",
     "evalCorrectAnswer": "Respuesta correcta",
@@ -158,3 +158,4 @@
     "mapActionCreateEval": "Crear Evaluación",
     "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes."
 }
+

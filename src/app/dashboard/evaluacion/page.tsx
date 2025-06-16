@@ -68,12 +68,12 @@ export default function EvaluacionPage() {
         bookTitle: selectedBook,
         topic: trimmedTopic,
       });
-      if (result && result.questions && result.questions.length === 15) {
+      if (result && result.questions && result.questions.length === 3) { // Updated to 3 questions
         setEvaluationTitle(result.evaluationTitle);
         setEvaluationQuestions(result.questions);
         setEvaluationStarted(true);
       } else {
-        throw new Error(translate('evalErrorGenerationFormat', {defaultValue: "AI did not return the questions in the expected format."}));
+        throw new Error(translate('evalErrorGenerationFormat', {defaultValue: "AI did not return the 3 questions in the expected format."})); // Updated default value
       }
     } catch (error) {
       console.error("Error generating evaluation:", error);
@@ -98,7 +98,7 @@ export default function EvaluacionPage() {
 
   const handlePreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
   };
 
@@ -355,3 +355,4 @@ export default function EvaluacionPage() {
     </>
   );
 }
+

@@ -80,7 +80,7 @@
     "evalRepeatButton": "Repeat",
     "evalCloseButton": "Close",
     "evalGeneratingTitle": "Generating Evaluation...",
-    "evalErrorGenerationFormat": "The AI did not return questions in the expected format.",
+    "evalErrorGenerationFormat": "The AI did not return the requested number of questions or in the expected format.",
     "evalQuestionLabel": "Question {{current}}/{{total}}",
     "evalYourAnswer": "Your answer",
     "evalCorrectAnswer": "Correct answer",
@@ -158,3 +158,4 @@
     "mapActionCreateEval": "Create Evaluation",
     "mapDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings."
 }
+

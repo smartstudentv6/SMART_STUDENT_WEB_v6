@@ -41,7 +41,7 @@ export type EvaluationQuestion = z.infer<typeof EvaluationQuestionSchema>;
 
 const GenerateEvaluationOutputSchema = z.object({
   evaluationTitle: z.string().describe('The title of the evaluation, formatted as "EVALUACIÓN - [TOPIC_NAME_IN_UPPERCASE]".'),
-  questions: z.array(EvaluationQuestionSchema).describe('An array of evaluation questions, with a mix of types. The prompt requests 15 questions total (5 True/False, 10 Multiple Choice).'),
+  questions: z.array(EvaluationQuestionSchema).describe('An array of evaluation questions, with a mix of types. The prompt requests 3 questions total (1 True/False, 2 Multiple Choice).'),
 });
 export type GenerateEvaluationOutput = z.infer<typeof GenerateEvaluationOutputSchema>;
 
@@ -60,12 +60,12 @@ The language for all content MUST be Spanish.
 
 The evaluation must adhere to the following structure:
 1.  **Evaluation Title**: The title must be "EVALUACIÓN - {{topic_uppercase}}".
-2.  **Total Questions**: Generate exactly 15 unique questions.
+2.  **Total Questions**: Generate exactly 3 unique questions.
 3.  **Question Types**:
-    *   Generate exactly 5 True/False questions.
-    *   Generate exactly 10 Multiple Choice questions.
+    *   Generate exactly 1 True/False question.
+    *   Generate exactly 2 Multiple Choice questions.
 4.  **For each question, ensure you provide**:
-    *   \`id\`: A unique string identifier for the question (e.g., "q1", "q2", ... "q15").
+    *   \`id\`: A unique string identifier for the question (e.g., "q1", "q2", "q3").
     *   \`type\`: Set to "TRUE_FALSE" for true/false questions, or "MULTIPLE_CHOICE" for multiple-choice questions.
     *   \`questionText\`: The clear and concise text of the question.
     *   \`explanation\`: A brief and clear explanation for why the correct answer is correct, referencing concepts from the book "{{bookTitle}}" if possible.
@@ -112,9 +112,9 @@ const generateEvaluationFlow = ai.defineFlow(
     };
     const {output} = await generateEvaluationPrompt(promptInput);
 
-    if (!output || !output.questions || output.questions.length !== 15) {
+    if (!output || !output.questions || output.questions.length !== 3) {
       console.error('AI response:', JSON.stringify(output, null, 2));
-      throw new Error('AI failed to generate the required 15 evaluation questions or the format is incorrect.');
+      throw new Error('AI failed to generate the required 3 evaluation questions or the format is incorrect.');
     }
     // Ensure IDs are unique if AI doesn't do it reliably, though prompt asks for it.
     // For now, trust the prompt's instruction for unique IDs.
