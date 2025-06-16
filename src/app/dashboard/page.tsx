@@ -102,7 +102,6 @@ export default function DashboardHomePage() {
               </CardDescription>
               <Button 
                 asChild 
-                variant="secondary" 
                 className={cn(
                   "home-card-button", 
                   getButtonColorClass(card.colorClass),

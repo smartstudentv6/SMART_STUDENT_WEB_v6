@@ -36,7 +36,7 @@ body {
 
     /* Custom color HSL values */
     --custom-green-100: 145 75% 90%;
-    --custom-green-100-hover: 145 75% 83%;
+    --custom-green-100-hover: 145 75% 83%; /* Kept for potential other uses, but buttons will use base color on hover */
     --custom-green-800: 150 65% 30%;
     --custom-green-solid-bg-light: 145 60% 45%;
     --custom-green-solid-fg-light: 0 0% 100%;
@@ -193,9 +193,6 @@ html.dark.theme-accent-purple {
 
 
 /* Specific styles for color pairings from proposal (used for nav items, etc.) */
-/* These use the --custom-COLOR-100 for BG and --custom-COLOR-800 for TEXT in light mode. */
-/* And also in dark mode, but the HSL values for those vars are different in dark mode. */
-/* This is primarily for active nav items, which tend to be lighter in dark mode. */
 .bg-custom-green-100 { @apply bg-[hsl(var(--custom-green-100))]; }
 .text-custom-green-800 { @apply text-[hsl(var(--custom-green-800))]; }
 .hover\:bg-custom-green-100\/80:hover { @apply hover:bg-[hsl(var(--custom-green-100-hover))]; }
@@ -224,7 +221,7 @@ html.dark.theme-accent-purple {
 
 .home-card-button-green {
   @apply bg-[hsl(var(--custom-green-100))] text-[hsl(var(--custom-green-800))]
-         hover:bg-[hsl(var(--custom-green-100-hover))] hover:text-[hsl(var(--custom-green-800))];
+         hover:bg-[hsl(var(--custom-green-100))] hover:text-[hsl(var(--custom-green-800))];
 }
 .dark .home-card-button-green {
   @apply bg-[hsl(var(--custom-green-800))] text-[hsl(var(--custom-green-100))]
@@ -233,7 +230,7 @@ html.dark.theme-accent-purple {
 
 .home-card-button-blue {
   @apply bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))]
-         hover:bg-[hsl(var(--custom-blue-100-hover))] hover:text-[hsl(var(--custom-blue-800))];
+         hover:bg-[hsl(var(--custom-blue-100))] hover:text-[hsl(var(--custom-blue-800))];
 }
 .dark .home-card-button-blue {
   @apply bg-[hsl(var(--custom-blue-800))] text-[hsl(var(--custom-blue-100))]
@@ -242,7 +239,7 @@ html.dark.theme-accent-purple {
 
 .home-card-button-yellow {
   @apply bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))]
-         hover:bg-[hsl(var(--custom-yellow-100-hover))] hover:text-[hsl(var(--custom-yellow-800))];
+         hover:bg-[hsl(var(--custom-yellow-100))] hover:text-[hsl(var(--custom-yellow-800))];
 }
 .dark .home-card-button-yellow {
   @apply bg-[hsl(var(--custom-yellow-800))] text-[hsl(var(--custom-yellow-100))]
@@ -251,7 +248,7 @@ html.dark.theme-accent-purple {
 
 .home-card-button-cyan {
   @apply bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))]
-         hover:bg-[hsl(var(--custom-cyan-100-hover))] hover:text-[hsl(var(--custom-cyan-800))];
+         hover:bg-[hsl(var(--custom-cyan-100))] hover:text-[hsl(var(--custom-cyan-800))];
 }
 .dark .home-card-button-cyan {
   @apply bg-[hsl(var(--custom-cyan-800))] text-[hsl(var(--custom-cyan-100))]
@@ -260,7 +257,7 @@ html.dark.theme-accent-purple {
 
 .home-card-button-purple {
   @apply bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))]
-         hover:bg-[hsl(var(--custom-purple-100-hover))] hover:text-[hsl(var(--custom-purple-800))];
+         hover:bg-[hsl(var(--custom-purple-100))] hover:text-[hsl(var(--custom-purple-800))];
 }
 .dark .home-card-button-purple {
   @apply bg-[hsl(var(--custom-purple-800))] text-[hsl(var(--custom-purple-100))]
