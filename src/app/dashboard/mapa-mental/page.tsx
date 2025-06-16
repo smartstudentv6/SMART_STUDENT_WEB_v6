@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useLanguage } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
+// Checkbox and Label are no longer needed for horizontal orientation
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Network, Sparkles, Download, Newspaper as SummaryIcon, FileQuestion, ClipboardList } from 'lucide-react'; // Renamed Newspaper to SummaryIcon to avoid conflict
@@ -21,7 +21,7 @@ export default function MapaMentalPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [centralTheme, setCentralTheme] = useState('');
-  const [isHorizontal, setIsHorizontal] = useState(false);
+  // isHorizontal state removed
   const [mindMapResult, setMindMapResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentCentralThemeForDisplay, setCurrentCentralThemeForDisplay] = useState('');
@@ -121,16 +121,7 @@ export default function MapaMentalPage() {
             placeholder={translate('mapCentralThemePlaceholder')}
             className="text-base md:text-sm"
           />
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="horizontal-orientation"
-              checked={isHorizontal}
-              onCheckedChange={(checked) => setIsHorizontal(Boolean(checked))}
-            />
-            <Label htmlFor="horizontal-orientation" className="text-sm font-medium">
-              {translate('mapHorizontalOrientation')}
-            </Label>
-          </div>
+          {/* Horizontal orientation checkbox removed */}
           <Button
             onClick={handleGenerateMap}
             disabled={isLoading}
@@ -193,3 +184,4 @@ export default function MapaMentalPage() {
     </div>
   );
 }
+
