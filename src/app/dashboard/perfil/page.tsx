@@ -65,13 +65,49 @@ export default function PerfilPage() {
   }, []);
 
   useEffect(() => {
-    // Calculate dynamic learning stats (progress by subject)
-    const newLearningStats = learningStatsTemplate.map(statTemplate => {
-      const translatedSubjectName = translate(statTemplate.nameKey);
-      const subjectEvaluations = evaluationHistory.filter(
-        histItem => histItem.bookTitle === translatedSubjectName
-      );
+    // Define mappings for subject categories.
+    // These arrays include known book titles (as stored in history) that fall under each category.
+    // We include both Spanish and English titles as history items might have been saved in either language.
+    const subjectMappings: Record<string, { es: string[], en: string[] }> = {
+      subjectScience: {
+        es: ["Ciencias", "Ciencias Naturales", "Biología", "Física", "Química", "Ciencias para la Ciudadanía"],
+        en: ["Science", "Natural Sciences", "Biology", "Physics", "Chemistry", "Science for Citizenship"]
+      },
+      subjectHistory: {
+        es: ["Historia", "Historia, Geografía y Ciencias Sociales", "Educación Ciudadana", "Filosofía"],
+        en: ["History", "History, Geography and Social Sciences", "Civic Education", "Philosophy"]
+      },
+      subjectLanguage: {
+        es: ["Lenguaje", "Lenguaje y Comunicación", "Lengua y Literatura"],
+        en: ["Language", "Language and Communication", "Language and Literature"]
+      },
+      subjectMath: {
+        es: ["Matemáticas"],
+        en: ["Mathematics"]
+      }
+      // Add other subjects here if needed, e.g., subjectEnglish
+    };
 
+    const newLearningStats = learningStatsTemplate.map(statTemplate => {
+      const categoryKey = statTemplate.nameKey;
+      let subjectEvaluations: EvaluationHistoryItem[] = [];
+
+      if (subjectMappings[categoryKey]) {
+        const titlesToMatch = [
+          ...subjectMappings[categoryKey].es,
+          ...subjectMappings[categoryKey].en
+        ];
+        subjectEvaluations = evaluationHistory.filter(histItem => 
+          titlesToMatch.includes(histItem.bookTitle)
+        );
+      } else {
+        // Fallback for direct match if no specific mapping (e.g. if a subject name matches booktitle directly)
+        const translatedSubjectName = translate(categoryKey);
+        subjectEvaluations = evaluationHistory.filter(
+            histItem => histItem.bookTitle === translatedSubjectName
+        );
+      }
+      
       let maxPercentage = 0;
       if (subjectEvaluations.length > 0) {
         subjectEvaluations.forEach(ev => {
@@ -83,6 +119,7 @@ export default function PerfilPage() {
       }
       return {
         ...statTemplate,
+        nameKey: categoryKey, // Ensure nameKey is preserved for translation
         progress: Math.round(maxPercentage),
         colorClass: maxPercentage > 0 ? "bg-green-500" : "bg-primary/30",
       };
@@ -107,7 +144,7 @@ export default function PerfilPage() {
       if (card.labelKey === "statAvgScore") {
         return { ...card, value: `${averageScorePercentage}%` };
       }
-      return card;
+      return card; // Return other cards (Goals, Summaries) as is (mocked values)
     });
     setDynamicProfileCards(newProfileCards);
 
@@ -293,4 +330,6 @@ export default function PerfilPage() {
     </div>
   );
 }
+    
+
     
