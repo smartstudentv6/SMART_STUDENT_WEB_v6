@@ -47,6 +47,7 @@ export default function EvaluacionPage() {
   const [evaluationFinished, setEvaluationFinished] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [score, setScore] = useState(0);
+  const [motivationalMessageKey, setMotivationalMessageKey] = useState('');
 
   useEffect(() => {
     if (evaluationQuestions.length > 0) {
@@ -72,6 +73,7 @@ export default function EvaluacionPage() {
     setCurrentQuestionIndex(0);
     setUserAnswers([]);
     setScore(0);
+    setMotivationalMessageKey('');
 
     try {
       const result = await generateEvaluationContent({
@@ -128,6 +130,18 @@ export default function EvaluacionPage() {
   const handleFinishEvaluation = () => {
     const finalScore = calculateScore();
     setScore(finalScore);
+    
+    const totalQuestions = evaluationQuestions.length;
+    const percentage = totalQuestions > 0 ? (finalScore / totalQuestions) * 100 : 0;
+
+    if (percentage === 100) {
+      setMotivationalMessageKey('evalMotivationalPerfect');
+    } else if (percentage >= 50) {
+      setMotivationalMessageKey('evalMotivationalGood');
+    } else {
+      setMotivationalMessageKey('evalMotivationalImprovement');
+    }
+
     setEvaluationFinished(true);
     setShowResultDialog(true);
   };
@@ -138,6 +152,7 @@ export default function EvaluacionPage() {
     setEvaluationFinished(false); 
     setShowResultDialog(false);
     setScore(0);
+    setMotivationalMessageKey('');
     setEvaluationStarted(true); 
   };
 
@@ -148,6 +163,7 @@ export default function EvaluacionPage() {
     setCurrentQuestionIndex(0);
     setUserAnswers([]);
     setScore(0);
+    setMotivationalMessageKey('');
     setTopic('');
     setShowResultDialog(false); 
   };
@@ -292,8 +308,8 @@ export default function EvaluacionPage() {
                     className={cn(
                         "py-3 text-base w-full",
                         userAnswers[currentQuestionIndex] === true ?
-                        'home-card-button-purple' : // Selected style
-                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' // Unselected style
+                        'home-card-button-purple' : 
+                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' 
                     )}
                     onClick={() => handleAnswerSelect(true)}
                   >
@@ -304,8 +320,8 @@ export default function EvaluacionPage() {
                      className={cn(
                         "py-3 text-base w-full",
                         userAnswers[currentQuestionIndex] === false ?
-                        'home-card-button-purple' : // Selected style
-                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' // Unselected style
+                        'home-card-button-purple' : 
+                        'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' 
                     )}
                     onClick={() => handleAnswerSelect(false)}
                   >
@@ -322,8 +338,8 @@ export default function EvaluacionPage() {
                       className={cn(
                         "py-3 text-base justify-start text-left h-auto whitespace-normal w-full",
                         userAnswers[currentQuestionIndex] === index ?
-                           'home-card-button-purple' : // Selected style
-                           'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' // Unselected style
+                           'home-card-button-purple' : 
+                           'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' 
                       )}
                       onClick={() => handleAnswerSelect(index)}
                     >
@@ -365,9 +381,11 @@ export default function EvaluacionPage() {
             <AlertDialogDescription className="text-base text-muted-foreground mt-2">
               {translate('evalYourScore', { score: score, totalPoints: evaluationQuestions.length })}
             </AlertDialogDescription>
-            <p className="mt-3 text-sm text-foreground">
-              {translate('evalMotivationalMessage1')}
-            </p>
+            {motivationalMessageKey && (
+              <p className="mt-3 text-sm text-foreground">
+                {translate(motivationalMessageKey)}
+              </p>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Button onClick={handleRepeatEvaluation} className="w-full home-card-button-purple">
