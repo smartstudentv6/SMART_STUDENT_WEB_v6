@@ -97,10 +97,6 @@ export default function CuestionarioPage() {
         </CardContent>
       </Card>
 
-      {isLoading && (
-        <p className="mt-6 text-lg text-muted-foreground animate-pulse">{translate('generatingQuiz')}</p>
-      )}
-
       {quizResult && !isLoading && (
         <Card className="mt-6 w-full max-w-lg text-left shadow-md">
           <CardHeader>
