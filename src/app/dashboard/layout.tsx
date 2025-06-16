@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, Home, Library, FileText, Network, FileQuestion, ClipboardList, UserCircle2, HelpCircle } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', labelKey: 'navHome', icon: Home },
@@ -167,7 +168,10 @@ export default function DashboardLayout({
               size="icon" 
               onClick={logout} 
               title={translate('logoutButtonTitle')}
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className={cn(
+                "text-destructive hover:bg-destructive/10 hover:text-destructive",
+                "border border-destructive/50 hover:border-destructive" 
+              )}
               aria-label={translate('logoutButtonTitle')}
             >
               <LogOut className="w-5 h-5" />
