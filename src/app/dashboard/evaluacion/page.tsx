@@ -295,7 +295,7 @@ export default function EvaluacionPage() {
       <div className="flex flex-col items-center text-center">
         <Card className="w-full max-w-lg shadow-lg">
           <CardHeader className="items-center">
-            <ClipboardList className="w-10 h-10 text-custom-purple-800 dark:text-custom-purple-100 mb-3" />
+            <ClipboardList className="w-10 h-10 text-purple-500 dark:text-purple-400 mb-3" />
             <CardTitle className="text-3xl font-bold font-headline">{translate('evalPageTitle')}</CardTitle>
             <CardDescription className="mt-2 text-muted-foreground max-w-2xl">
               {translate('evalPageSub')}

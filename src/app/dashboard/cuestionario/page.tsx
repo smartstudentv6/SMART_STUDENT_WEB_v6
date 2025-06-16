@@ -45,7 +45,6 @@ export default function CuestionarioPage() {
         language: currentUiLanguage,
       });
       setQuizResult(result.quiz);
-      // Increment quizzes count
       const currentCount = parseInt(localStorage.getItem('quizzesCreatedCount') || '0', 10);
       localStorage.setItem('quizzesCreatedCount', (currentCount + 1).toString());
     } catch (error) {
@@ -63,7 +62,6 @@ export default function CuestionarioPage() {
     const titlePrefix = currentUiLanguage === 'es' ? translate('quizTitlePrefix', {defaultValue: 'CUESTIONARIO'}) : translate('quizTitlePrefix', {defaultValue: 'QUIZ'});
     const title = `${titlePrefix} - ${currentTopicForDisplay.toUpperCase()}`;
     
-    // quizResult is already formatted HTML from the flow
     const contentHtml = `
       <html>
         <head>
@@ -107,7 +105,7 @@ export default function CuestionarioPage() {
     <div className="flex flex-col items-center text-center">
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="items-center">
-          <FileQuestion className="w-10 h-10 text-custom-cyan-800 dark:text-custom-cyan-100 mb-3" />
+          <FileQuestion className="w-10 h-10 text-cyan-500 dark:text-cyan-400 mb-3" />
           <CardTitle className="text-3xl font-bold font-headline">{translate('quizPageTitle')}</CardTitle>
           <CardDescription className="mt-2 text-muted-foreground max-w-2xl">
             {translate('quizPageSub')}
