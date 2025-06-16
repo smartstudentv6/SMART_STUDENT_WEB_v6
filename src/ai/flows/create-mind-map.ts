@@ -57,9 +57,9 @@ The language for all node labels must be: {{language}}.
 Your task is to:
 1.  Confirm or slightly refine the central theme label if necessary for clarity, ensuring it's concise.
 2.  Identify 3 to 5 main concepts or topics directly related to this central theme, as found in the book. These will be the main branches.
-3.  For each main branch, identify 2 to 3 key sub-topics or supporting details from the book.
+3.  For each main branch, identify 2 to 3 key sub-topics or supporting details from the book. These sub-topics form a connected hierarchy under their parent main branch.
 4.  Ensure all labels (central theme, main branches, sub-topics) are concise, clear, and in the specified language ({{language}}).
-5.  Structure the output according to the MindMapStructureSchema.
+5.  Structure the output according to the MindMapStructureSchema. All generated nodes must be part of this connected hierarchy.
 
 Example of desired output structure (conceptual):
 {
@@ -70,7 +70,7 @@ Example of desired output structure (conceptual):
     { "label": "Outputs (Salidas)", "children": [{ "label": "Glucose (Glucosa)" }, { "label": "Oxygen (Oxígeno)" }] }
   ]
 }
-Focus on accuracy and relevance to the book content. Ensure a clear hierarchical structure suitable for a top-down conceptual map.
+Focus on accuracy and relevance to the book content. Ensure a clear hierarchical structure suitable for a top-down conceptual map where all nodes are interconnected.
 `,
 });
 
@@ -112,17 +112,18 @@ Strict Requirements for the IMAGE:
     *   Use a SIMPLE, SANS-SERIF FONT.
     *   Have EXCELLENT CONTRAST against the node's background.
     *   DO NOT ABBREVIATE, CHANGE, OMIT, OR ADD ANY TEXT to the labels provided.
+    *   If you cannot render text clearly and accurately for every single node given, the image is a failure.
 2.  **CLEAR HIERARCHY AND NODE STYLES (Vertical/Default Layout)**:
-    *   **Layout**: The map should follow a top-down hierarchical structure. The central theme ("{{centralThemeLabel}}") must be the most prominent node, positioned at the top. Main ideas (labels from \`mainBranches\`) must clearly branch downwards or outwards from it. Sub-topics (labels from \`children\` of main ideas) must clearly branch from their respective parent main idea nodes. Use clear visual connectors (lines or simple arrows). DO NOT write text (like "Conector") on the connector lines themselves; they should be purely visual.
+    *   **Layout**: The map MUST follow a top-down hierarchical structure. The central theme ("{{centralThemeLabel}}") must be the most prominent node, positioned at the top. Main ideas (labels from \`mainBranches\`) must clearly branch downwards or outwards from it. Sub-topics (labels from \`children\` of main ideas) must clearly branch from their respective parent main idea nodes, reflecting the provided hierarchy. Use clear visual connectors (lines or simple arrows). DO NOT write text (like "Conector") on the connector lines themselves; they should be purely visual.
     *   **Node Shapes**:
         *   The Central Theme node containing "{{centralThemeLabel}}" must be a **rectangle**.
         *   Nodes representing Main Ideas (the direct children of the central theme, i.e., items in \`mainBranches\`) must be **rectangles**.
         *   Nodes representing Sub-topics (children of Main Ideas) must be **circles**.
         *   If there are further levels of sub-topics (children of children), they should also be **circles**.
-3.  **PROFESSIONAL APPEARANCE**: The map should be visually organized, uncluttered, and professional. Use distinct shapes as specified. A simple, consistent color scheme (e.g., light-colored nodes like pale yellow with dark text, or a scheme that ensures high contrast and readability) is preferred. Text legibility, correct shapes, and accurate content are more important than complex aesthetics.
-4.  **NO HALLUCINATED CONTENT**: Do not add any nodes, text, shapes, or visual elements that are not explicitly defined by the structure provided above. Your task is to visualize the given data, not to add to it.
+3.  **PROFESSIONAL APPEARANCE**: The map should be visually organized, uncluttered, and professional. Use distinct shapes as specified. A simple, consistent color scheme (e.g., light-colored nodes like pale yellow with dark text, or a scheme that ensures high contrast and readability) is preferred. Text legibility, correct shapes, accurate content, and faithful representation of the provided hierarchy are more important than complex aesthetics.
+4.  **NO HALLUCINATED CONTENT & STRUCTURAL FIDELITY**: Do not add any nodes, text, shapes, or visual elements that are not explicitly defined by the structure provided above. Your task is to visualize the given data, not to add to it. All nodes in the image must correspond to an item in the provided textual structure, and all connections must reflect the parent-child relationships defined there. No node should appear disconnected or independent unless it is the central theme itself before branching.
 
-If any text is distorted, unreadable, or omitted, or if any text is added that was not in the provided structure, or if the node shapes are incorrect, the image is considered a failure. Prioritize text clarity, faithfulness to the provided content, and correct node styling above all other considerations.
+If any text is distorted, unreadable, or omitted, or if any text is added that was not in the provided structure, or if the node shapes are incorrect, or if the connections do not accurately represent the provided hierarchy, the image is considered a failure. Prioritize text clarity, faithfulness to the provided content and structure, and correct node styling above all other considerations.
 `,
 });
 
