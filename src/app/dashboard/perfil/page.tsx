@@ -12,12 +12,13 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
+import { cn } from '@/lib/utils';
 
 // Mock Data - UserProfile remains mock for now
 const userProfileData: UserProfile = {
   name: "Felipe",
   levelKey: "profileLevelValue",
-  activeCoursesKey: "profileCourse8thGrade",
+  activeCoursesKey: "profileCourse8thGradeValue",
   subjects: [
     { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
     { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
@@ -336,7 +337,19 @@ export default function PerfilPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
           {dynamicProfileCards.map(stat => ( 
-            <Card key={stat.labelKey} className={`${stat.colorClass} text-card-foreground shadow-md`}>
+            <Card 
+              key={stat.labelKey} 
+              className={cn(
+                stat.colorClass, 
+                "text-card-foreground", 
+                "shadow-md", 
+                "hover:shadow-lg", 
+                "hover:brightness-110", 
+                "transition-all", 
+                "duration-200",
+                "cursor-pointer"
+               )}
+            >
                 <CardContent className="p-4">
                     <div className="text-3xl font-bold">{stat.value}</div>
                     <div className="text-sm opacity-90">{translate(stat.labelKey)}</div>
@@ -431,4 +444,5 @@ export default function PerfilPage() {
     
 
     
+
 
