@@ -212,7 +212,7 @@ html.dark.theme-accent-purple {
 
 /* For buttons on home cards and main action buttons on feature pages */
 .home-card-button {
-  @apply w-full font-semibold py-2 px-6 rounded-lg border-transparent hover:border-transparent; 
+  @apply w-full font-semibold py-2 px-6 rounded-lg border-transparent hover:border-transparent !important; 
 }
 
 /* GREEN BUTTON (Digital Library) - Bounce and Glow Effect */
@@ -221,13 +221,13 @@ html.dark.theme-accent-purple {
          hover:border-transparent hover:bg-[hsl(var(--custom-green-800))] hover:text-[hsl(var(--custom-green-100))]
          hover:shadow-2xl hover:shadow-green-500/60 hover:scale-110 hover:-translate-y-1
          hover:brightness-110 hover:saturate-150
-         transition-all duration-300 ease-out;
+         transition-all duration-300 ease-out !important;
 }
 .dark .home-card-button-green {
   @apply border-transparent bg-[hsl(var(--custom-green-800))] text-[hsl(var(--custom-green-100))]
          hover:border-transparent hover:bg-[hsl(var(--custom-green-100))] hover:text-[hsl(var(--custom-green-800))]
          hover:shadow-2xl hover:shadow-green-400/50 hover:scale-110 hover:-translate-y-1
-         transition-all duration-300 ease-out;
+         transition-all duration-300 ease-out !important;
 }
 
 /* BLUE BUTTON (Summaries) - Pulse and Wave Effect */
@@ -236,13 +236,13 @@ html.dark.theme-accent-purple {
          hover:border-transparent hover:bg-[hsl(var(--custom-blue-800))] hover:text-[hsl(var(--custom-blue-100))]
          hover:shadow-2xl hover:shadow-blue-500/60 hover:scale-105
          hover:brightness-110 hover:saturate-150
-         transition-all duration-500 ease-in-out hover:animate-pulse;
+         transition-all duration-500 ease-in-out hover:animate-pulse !important;
 }
 .dark .home-card-button-blue {
   @apply border-transparent bg-[hsl(var(--custom-blue-800))] text-[hsl(var(--custom-blue-100))]
          hover:border-transparent hover:bg-[hsl(var(--custom-blue-100))] hover:text-[hsl(var(--custom-blue-800))]
          hover:shadow-xl hover:shadow-blue-400/40 hover:scale-105
-         transition-all duration-500 ease-in-out hover:animate-pulse;
+         transition-all duration-500 ease-in-out hover:animate-pulse !important;
 }
 
 /* YELLOW BUTTON (Concept Maps) - Rotate and Glow Effect */
@@ -251,13 +251,13 @@ html.dark.theme-accent-purple {
          hover:border-transparent hover:bg-[hsl(var(--custom-yellow-800))] hover:text-[hsl(var(--custom-yellow-100))]
          hover:shadow-2xl hover:shadow-yellow-500/70 hover:scale-105 hover:rotate-1
          hover:brightness-125 hover:saturate-150
-         transition-all duration-300 ease-out;
+         transition-all duration-300 ease-out !important;
 }
 .dark .home-card-button-yellow {
   @apply border-transparent bg-[hsl(var(--custom-yellow-800))] text-[hsl(var(--custom-yellow-100))]
          hover:border-transparent hover:bg-[hsl(var(--custom-yellow-100))] hover:text-[hsl(var(--custom-yellow-800))]
          hover:shadow-2xl hover:shadow-yellow-400/60 hover:scale-105 hover:rotate-1
-         transition-all duration-300 ease-out hover:brightness-110;
+         transition-all duration-300 ease-out hover:brightness-110 !important;
 }
 
 /* CYAN BUTTON (Quizzes) - Skew and Slide Effect */
@@ -266,13 +266,13 @@ html.dark.theme-accent-purple {
          hover:border-transparent hover:bg-[hsl(var(--custom-cyan-800))] hover:text-[hsl(var(--custom-cyan-100))]
          hover:shadow-2xl hover:shadow-cyan-500/60 hover:scale-110 hover:skew-x-2
          hover:brightness-110 hover:saturate-150
-         transition-all duration-300 ease-in-out hover:translate-x-1;
+         transition-all duration-300 ease-in-out hover:translate-x-1 !important;
 }
 .dark .home-card-button-cyan {
   @apply border-transparent bg-[hsl(var(--custom-cyan-800))] text-[hsl(var(--custom-cyan-100))]
          hover:border-transparent hover:bg-[hsl(var(--custom-cyan-100))] hover:text-[hsl(var(--custom-cyan-800))]
          hover:shadow-xl hover:shadow-cyan-400/50 hover:scale-110 hover:skew-x-2
-         transition-all duration-300 ease-in-out hover:translate-x-1;
+         transition-all duration-300 ease-in-out hover:translate-x-1 !important;
 }
 
 /* PURPLE BUTTON (Evaluations) - 3D Flip and Gradient Effect */
@@ -283,7 +283,7 @@ html.dark.theme-accent-purple {
          hover:shadow-2xl hover:shadow-purple-500/80 hover:scale-105
          hover:brightness-115 hover:saturate-150
          transition-all duration-300 ease-out
-         relative overflow-hidden;
+         relative overflow-hidden !important;
 }
 .home-card-button-purple::before {
   @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
@@ -298,7 +298,7 @@ html.dark.theme-accent-purple {
          hover:border-transparent hover:bg-[hsl(var(--custom-purple-100))] hover:text-[hsl(var(--custom-purple-800))]
          hover:shadow-2xl hover:shadow-purple-400/70
          transition-all duration-300 ease-out
-         relative overflow-hidden;
+         relative overflow-hidden !important;
 }
 .dark .home-card-button-purple::before {
   @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
