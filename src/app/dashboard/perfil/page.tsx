@@ -37,10 +37,11 @@ const learningStatsTemplate: SubjectProgress[] = [
 
 // Template for profile stats cards
 const profileStatsCardsTemplate = [
-    { value: "0", labelKey: "statEvals", colorClass: "bg-blue-500 dark:bg-blue-600" }, 
+    { value: "0", labelKey: "statEvals", colorClass: "bg-purple-500 dark:bg-purple-600" }, 
     { value: "0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" }, 
-    { value: "0", labelKey: "statMaps", colorClass: "bg-yellow-500 dark:bg-yellow-600" }, // Changed from statGoals
-    { value: "0", labelKey: "statSummaries", colorClass: "bg-purple-500 dark:bg-purple-600" },
+    { value: "0", labelKey: "statSummaries", colorClass: "bg-blue-500 dark:bg-blue-600" },
+    { value: "0", labelKey: "statMaps", colorClass: "bg-yellow-500 dark:bg-yellow-600" },
+    { value: "0", labelKey: "statQuizzes", colorClass: "bg-cyan-500 dark:bg-cyan-600" },
 ];
 
 
@@ -69,10 +70,13 @@ export default function PerfilPage() {
      // Load counts for summaries and maps
     const summariesCount = localStorage.getItem('summariesCreatedCount') || '0';
     const mapsCount = localStorage.getItem('mapsCreatedCount') || '0';
+    const quizzesCount = localStorage.getItem('quizzesCreatedCount') || '0';
+
 
     setDynamicProfileCards(prevCards => prevCards.map(card => {
         if (card.labelKey === "statSummaries") return { ...card, value: summariesCount };
-        if (card.labelKey === "statMaps") return { ...card, value: mapsCount }; // Updated key
+        if (card.labelKey === "statMaps") return { ...card, value: mapsCount };
+        if (card.labelKey === "statQuizzes") return { ...card, value: quizzesCount };
         return card;
     }));
 
@@ -145,6 +149,7 @@ export default function PerfilPage() {
     
     const summariesCount = localStorage.getItem('summariesCreatedCount') || '0';
     const mapsCount = localStorage.getItem('mapsCreatedCount') || '0';
+    const quizzesCount = localStorage.getItem('quizzesCreatedCount') || '0';
 
 
     const newProfileCards = profileStatsCardsTemplate.map(card => {
@@ -157,8 +162,11 @@ export default function PerfilPage() {
       if (card.labelKey === "statSummaries") {
         return { ...card, value: summariesCount };
       }
-      if (card.labelKey === "statMaps") { // Updated key
+      if (card.labelKey === "statMaps") {
         return { ...card, value: mapsCount };
+      }
+      if (card.labelKey === "statQuizzes") {
+        return { ...card, value: quizzesCount };
       }
       return card; 
     });
@@ -169,8 +177,9 @@ export default function PerfilPage() {
 
   const handleDeleteHistory = () => {
     localStorage.removeItem('evaluationHistory');
-    localStorage.removeItem('summariesCreatedCount'); // Reset summary count
-    localStorage.removeItem('mapsCreatedCount'); // Reset map count
+    localStorage.removeItem('summariesCreatedCount'); 
+    localStorage.removeItem('mapsCreatedCount'); 
+    localStorage.removeItem('quizzesCreatedCount');
     setEvaluationHistory([]); 
     setCurrentPage(1);
 
@@ -180,6 +189,7 @@ export default function PerfilPage() {
         if (card.labelKey === "statAvgScore") return { ...card, value: "0%" };
         if (card.labelKey === "statSummaries") return { ...card, value: "0" };
         if (card.labelKey === "statMaps") return { ...card, value: "0" };
+        if (card.labelKey === "statQuizzes") return { ...card, value: "0" };
         return card;
     }));
 
@@ -324,7 +334,7 @@ export default function PerfilPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
           {dynamicProfileCards.map(stat => ( 
             <Card key={stat.labelKey} className={`${stat.colorClass} text-primary-foreground shadow-md`}>
                 <CardContent className="p-4">

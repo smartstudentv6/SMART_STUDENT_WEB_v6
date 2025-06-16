@@ -44,6 +44,9 @@ export default function CuestionarioPage() {
         courseName: selectedCourse || "General", 
       });
       setQuizResult(result.quiz);
+      // Increment quizzes count
+      const currentCount = parseInt(localStorage.getItem('quizzesCreatedCount') || '0', 10);
+      localStorage.setItem('quizzesCreatedCount', (currentCount + 1).toString());
     } catch (error) {
       console.error("Error generating quiz:", error);
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
