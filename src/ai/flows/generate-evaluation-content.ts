@@ -41,7 +41,7 @@ export type EvaluationQuestion = z.infer<typeof EvaluationQuestionSchema>;
 
 const GenerateEvaluationOutputSchema = z.object({
   evaluationTitle: z.string().describe('The title of the evaluation, formatted as "EVALUACIÓN - [TOPIC_NAME_IN_UPPERCASE]".'),
-  questions: z.array(EvaluationQuestionSchema).length(15).describe('An array of exactly 15 evaluation questions, with a mix of types.'),
+  questions: z.array(EvaluationQuestionSchema).describe('An array of evaluation questions, with a mix of types. The prompt requests 15 questions total (5 True/False, 10 Multiple Choice).'),
 });
 export type GenerateEvaluationOutput = z.infer<typeof GenerateEvaluationOutputSchema>;
 
