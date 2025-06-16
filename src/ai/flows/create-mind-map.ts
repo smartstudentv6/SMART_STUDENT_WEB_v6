@@ -5,7 +5,7 @@
  * @fileOverview Generates a mind map image from a central theme and book content.
  * This involves two steps:
  * 1. Generating a structured representation of the mind map (nodes and sub-nodes).
- * 2. Rendering this structured data as a mind map image.
+ * 2. Rendering this structured data as a mind map image, allowing for horizontal or vertical orientation.
  *
  * - createMindMap - A function that generates a mind map image.
  * - CreateMindMapInput - The input type for the createMindMap function.
@@ -19,7 +19,8 @@ import {z} from 'genkit';
 const CreateMindMapInputSchema = z.object({
   centralTheme: z.string().describe('The central theme of the mind map.'),
   bookTitle: z.string().describe('The title of the book to provide context for the mind map content.'),
-  language: z.enum(['es', 'en']).describe('The language for the node labels (e.g., "es" for Spanish, "en" for English).')
+  language: z.enum(['es', 'en']).describe('The language for the node labels (e.g., "es" for Spanish, "en" for English).'),
+  isHorizontal: z.boolean().optional().describe('Whether the mind map should be rendered horizontally. Defaults to vertical.')
 });
 export type CreateMindMapInput = z.infer<typeof CreateMindMapInputSchema>;
 
@@ -43,10 +44,17 @@ const MindMapStructureSchema = z.object({
 });
 export type MindMapStructure = z.infer<typeof MindMapStructureSchema>;
 
+// Schema for rendering the image (combines structure with orientation preference)
+const RenderImageInputSchema = MindMapStructureSchema.extend({
+  isHorizontal: z.boolean().optional(),
+});
+export type RenderImageInput = z.infer<typeof RenderImageInputSchema>;
+
 
 // Prompt to generate the mind map's textual structure
 const generateMindMapStructurePrompt = ai.definePrompt({
   name: 'generateMindMapStructurePrompt',
+  // Input uses CreateMindMapInputSchema to get language, theme, book
   input: { schema: CreateMindMapInputSchema }, 
   output: { schema: MindMapStructureSchema }, 
   prompt: `You are an expert in instructional design and content organization.
@@ -70,14 +78,14 @@ Example of desired output structure (conceptual):
     { "label": "Outputs (Salidas)", "children": [{ "label": "Glucose (Glucosa)" }, { "label": "Oxygen (Oxígeno)" }] }
   ]
 }
-Focus on accuracy and relevance to the book content. Ensure a clear hierarchical structure suitable for a top-down conceptual map where all nodes are interconnected.
+Focus on accuracy and relevance to the book content. Ensure a clear hierarchical structure suitable for a conceptual map where all nodes are interconnected.
 `,
 });
 
 // This internal prompt definition is used to render the structured data into a string for the image model.
 const renderMindMapImageHandlebarsPrompt = ai.definePrompt({
   name: 'renderMindMapImageHandlebarsPrompt',
-  input: { schema: MindMapStructureSchema },
+  input: { schema: RenderImageInputSchema }, // Uses the combined schema
   prompt: `You are an expert at creating clear, visually appealing, and informative conceptual map IMAGES in a diagrammatic style.
 Generate a conceptual map IMAGE based on the EXACT structure, text, and styling cues provided below.
 Do NOT generate text output, only the IMAGE. The image should be a clean, diagrammatic conceptual map. Avoid artistic or overly stylized renderings. The background should be simple and not interfere with text legibility.
@@ -86,7 +94,7 @@ The absolute MOST IMPORTANT requirement is that ALL TEXT in EVERY NODE must be p
 
 The textual content for each node is GIVEN to you below. You MUST use this exact text.
 
-Central Theme (Main, Central Node): "{{centralThemeLabel}}"
+Central Theme (Main Node): "{{centralThemeLabel}}"
 
 Main Ideas branching from the Central Theme:
 {{#each mainBranches}}
@@ -113,14 +121,22 @@ Strict Requirements for the IMAGE:
     *   Have EXCELLENT CONTRAST against the node's background.
     *   DO NOT ABBREVIATE, CHANGE, OMIT, OR ADD ANY TEXT to the labels provided.
     *   If you cannot render text clearly and accurately for every single node given, the image is a failure.
+
+{{#if isHorizontal}}
+2.  **CLEAR HIERARCHY AND NODE STYLES (HORIZONTAL Layout)**:
+    *   **Layout**: The map MUST follow a **left-to-right horizontal structure**. The central theme ("{{centralThemeLabel}}") must be the most prominent node, positioned on the **far left**. Main ideas (labels from \`mainBranches\`) must clearly branch horizontally to the right from it. Sub-topics (labels from \`children\` of main ideas) must clearly branch horizontally to the right from their respective parent main idea nodes, reflecting the provided hierarchy. Use clear visual connectors (lines or simple arrows). DO NOT write text on the connector lines themselves; they should be purely visual.
+    *   **Node Shapes**: For horizontal maps, **ALL nodes (Central Theme, Main Ideas, Sub-topics, and any further levels) MUST be RECTANGLES**.
+{{else}}
 2.  **CLEAR HIERARCHY AND NODE STYLES (Vertical/Default Layout)**:
-    *   **Layout**: The map MUST follow a top-down hierarchical structure. The central theme ("{{centralThemeLabel}}") must be the most prominent node, positioned at the top. Main ideas (labels from \`mainBranches\`) must clearly branch downwards or outwards from it. Sub-topics (labels from \`children\` of main ideas) must clearly branch from their respective parent main idea nodes, reflecting the provided hierarchy. Use clear visual connectors (lines or simple arrows). DO NOT write text (like "Conector") on the connector lines themselves; they should be purely visual.
+    *   **Layout**: The map MUST follow a **top-down hierarchical structure**. The central theme ("{{centralThemeLabel}}") must be the most prominent node, positioned at the **top**. Main ideas (labels from \`mainBranches\`) must clearly branch downwards or outwards from it. Sub-topics (labels from \`children\` of main ideas) must clearly branch from their respective parent main idea nodes, reflecting the provided hierarchy. Use clear visual connectors (lines or simple arrows). DO NOT write text on the connector lines themselves; they should be purely visual.
     *   **Node Shapes**:
         *   The Central Theme node containing "{{centralThemeLabel}}" must be a **rectangle**.
         *   Nodes representing Main Ideas (the direct children of the central theme, i.e., items in \`mainBranches\`) must be **rectangles**.
         *   Nodes representing Sub-topics (children of Main Ideas) must be **circles**.
         *   If there are further levels of sub-topics (children of children), they should also be **circles**.
-3.  **PROFESSIONAL APPEARANCE**: The map should be visually organized, uncluttered, and professional. Use distinct shapes as specified. A simple, consistent color scheme (e.g., light-colored nodes like pale yellow with dark text, or a scheme that ensures high contrast and readability) is preferred. Text legibility, correct shapes, accurate content, and faithful representation of the provided hierarchy are more important than complex aesthetics.
+{{/if}}
+
+3.  **PROFESSIONAL APPEARANCE**: The map should be visually organized, uncluttered, and professional. Use distinct shapes as specified. A simple, consistent color scheme (e.g., light-colored nodes like pale yellow or light blue with dark text, or a scheme that ensures high contrast and readability) is preferred. Text legibility, correct shapes, accurate content, and faithful representation of the provided hierarchy are more important than complex aesthetics.
 4.  **ABSOLUTE STRUCTURAL FIDELITY AND NO HALLUCINATIONS**:
     *   You are GIVEN a precise textual structure. Your ONLY task is to visually represent THIS EXACT STRUCTURE.
     *   **DO NOT ADD ANY NODES, TEXT, or SHAPES** that are not explicitly defined by the input structure.
@@ -129,7 +145,7 @@ Strict Requirements for the IMAGE:
     *   All visual connections (lines/arrows) in the image MUST accurately reflect the parent-child relationships defined in the provided textual hierarchy.
     *   The final image must be a direct, faithful, and complete visual translation of the provided data structure.
 
-If any text is distorted, unreadable, or omitted, or if any text is added that was not in the provided structure, or if the node shapes are incorrect, or if the connections do not accurately represent the provided hierarchy (e.g., a node is disconnected), the image is considered a failure. Prioritize text clarity, faithfulness to the provided content and structure, and correct node styling above all other considerations.
+If any text is distorted, unreadable, or omitted, or if any text is added that was not in the provided structure, or if the node shapes are incorrect (based on the {{#if isHorizontal}}horizontal{{else}}vertical{{/if}} layout requirement), or if the connections do not accurately represent the provided hierarchy (e.g., a node is disconnected), the image is considered a failure. Prioritize text clarity, faithfulness to the provided content and structure, and correct node styling above all other considerations.
 `,
 });
 
@@ -146,7 +162,8 @@ const createMindMapFlow = ai.defineFlow(
   },
   async (input: CreateMindMapInput): Promise<CreateMindMapOutput> => {
     // Step 1: Generate the structured mind map data
-    const structureResponse = await generateMindMapStructurePrompt(input);
+    // Pass the full input, as generateMindMapStructurePrompt expects centralTheme, bookTitle, and language
+    const structureResponse = await generateMindMapStructurePrompt(input); 
     const mindMapStructure = structureResponse.output;
 
     if (!mindMapStructure) {
@@ -154,7 +171,13 @@ const createMindMapFlow = ai.defineFlow(
     }
 
     // Step 2: Render the structured data as an image
-    const renderOutput = await renderMindMapImageHandlebarsPrompt.render(mindMapStructure);
+    // Prepare the input for the image rendering prompt
+    const renderImageInput: RenderImageInput = {
+      ...mindMapStructure,
+      isHorizontal: input.isHorizontal, // Pass the isHorizontal flag
+    };
+
+    const renderOutput = await renderMindMapImageHandlebarsPrompt.render(renderImageInput);
     const actualPromptText = renderOutput.messages[0]?.content[0]?.text;
 
     if (!actualPromptText) {
@@ -163,7 +186,7 @@ const createMindMapFlow = ai.defineFlow(
     
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-exp', 
-      prompt: actualPromptText, // Pass the extracted text string
+      prompt: actualPromptText, 
       config: {
         responseModalities: ['TEXT', 'IMAGE'], 
       },

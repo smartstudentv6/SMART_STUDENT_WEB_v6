@@ -2,15 +2,15 @@
 "use client";
 
 import { useState } from 'react';
-import Image from 'next/image'; // Import next/image
+import Image from 'next/image'; 
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-// Checkbox and Label are no longer needed for horizontal orientation
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Network, Sparkles, Download, Newspaper as SummaryIcon, FileQuestion, ClipboardList } from 'lucide-react'; // Renamed Newspaper to SummaryIcon to avoid conflict
+import { Network, Sparkles, Download, Newspaper as SummaryIcon, FileQuestion, ClipboardList } from 'lucide-react'; 
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { createMindMap } from '@/ai/flows/create-mind-map';
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +21,7 @@ export default function MapaMentalPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [centralTheme, setCentralTheme] = useState('');
-  // isHorizontal state removed
+  const [isHorizontal, setIsHorizontal] = useState(false); // Re-added state
   const [mindMapResult, setMindMapResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentCentralThemeForDisplay, setCurrentCentralThemeForDisplay] = useState('');
@@ -45,6 +45,7 @@ export default function MapaMentalPage() {
         centralTheme: centralTheme.trim(),
         bookTitle: selectedBook,
         language: currentUiLanguage,
+        isHorizontal: isHorizontal, // Pass isHorizontal state
       });
       setMindMapResult(result.imageDataUri);
     } catch (error) {
@@ -86,7 +87,7 @@ export default function MapaMentalPage() {
       printWindow.focus();
       setTimeout(() => {
           printWindow.print();
-      }, 500); // Timeout to ensure content is loaded
+      }, 500); 
     } else {
        toast({
         title: translate('errorGenerating'),
@@ -121,7 +122,17 @@ export default function MapaMentalPage() {
             placeholder={translate('mapCentralThemePlaceholder')}
             className="text-base md:text-sm"
           />
-          {/* Horizontal orientation checkbox removed */}
+          {/* Re-added Horizontal orientation checkbox */}
+          <div className="flex items-center space-x-2 justify-center">
+            <Checkbox
+              id="horizontal-orientation"
+              checked={isHorizontal}
+              onCheckedChange={(checked) => setIsHorizontal(Boolean(checked))}
+            />
+            <Label htmlFor="horizontal-orientation" className="text-sm font-medium">
+              {translate('mapHorizontalOrientation')}
+            </Label>
+          </div>
           <Button
             onClick={handleGenerateMap}
             disabled={isLoading}
