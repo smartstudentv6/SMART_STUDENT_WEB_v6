@@ -121,9 +121,15 @@ Strict Requirements for the IMAGE:
         *   Nodes representing Sub-topics (children of Main Ideas) must be **circles**.
         *   If there are further levels of sub-topics (children of children), they should also be **circles**.
 3.  **PROFESSIONAL APPEARANCE**: The map should be visually organized, uncluttered, and professional. Use distinct shapes as specified. A simple, consistent color scheme (e.g., light-colored nodes like pale yellow with dark text, or a scheme that ensures high contrast and readability) is preferred. Text legibility, correct shapes, accurate content, and faithful representation of the provided hierarchy are more important than complex aesthetics.
-4.  **NO HALLUCINATED CONTENT & STRUCTURAL FIDELITY**: Do not add any nodes, text, shapes, or visual elements that are not explicitly defined by the structure provided above. Your task is to visualize the given data, not to add to it. All nodes in the image must correspond to an item in the provided textual structure, and all connections must reflect the parent-child relationships defined there. No node should appear disconnected or independent unless it is the central theme itself before branching.
+4.  **ABSOLUTE STRUCTURAL FIDELITY AND NO HALLUCINATIONS**:
+    *   You are GIVEN a precise textual structure. Your ONLY task is to visually represent THIS EXACT STRUCTURE.
+    *   **DO NOT ADD ANY NODES, TEXT, or SHAPES** that are not explicitly defined by the input structure.
+    *   **EVERY NODE MUST BE CONNECTED**: Every Main Idea node MUST be visually connected to the Central Theme. Every Sub-topic node MUST be visually connected to its parent Main Idea. If there are sub-sub-topics, they MUST be connected to their parent sub-topic.
+    *   **NO DISCONNECTED OR FLOATING NODES ARE ALLOWED**, except for the Central Theme node *before* its first branches.
+    *   All visual connections (lines/arrows) in the image MUST accurately reflect the parent-child relationships defined in the provided textual hierarchy.
+    *   The final image must be a direct, faithful, and complete visual translation of the provided data structure.
 
-If any text is distorted, unreadable, or omitted, or if any text is added that was not in the provided structure, or if the node shapes are incorrect, or if the connections do not accurately represent the provided hierarchy, the image is considered a failure. Prioritize text clarity, faithfulness to the provided content and structure, and correct node styling above all other considerations.
+If any text is distorted, unreadable, or omitted, or if any text is added that was not in the provided structure, or if the node shapes are incorrect, or if the connections do not accurately represent the provided hierarchy (e.g., a node is disconnected), the image is considered a failure. Prioritize text clarity, faithfulness to the provided content and structure, and correct node styling above all other considerations.
 `,
 });
 
