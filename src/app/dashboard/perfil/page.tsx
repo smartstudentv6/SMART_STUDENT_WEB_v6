@@ -296,7 +296,7 @@ export default function PerfilPage() {
             <Button 
                 variant="outline" 
                 size="sm" 
-                className="bg-custom-yellow-100 text-custom-yellow-800 hover:bg-custom-yellow-100/80"
+                className="bg-custom-yellow-100 text-custom-yellow-800 hover:bg-custom-yellow-100/80 dark:bg-custom-yellow-800 dark:text-custom-yellow-100"
                 onClick={handleDownloadHistoryXlsx}
             >
               <Download className="mr-2 h-4 w-4" />{translate('profileDownloadHistory')}
@@ -336,7 +336,7 @@ export default function PerfilPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
           {dynamicProfileCards.map(stat => ( 
-            <Card key={stat.labelKey} className={`${stat.colorClass} text-primary-foreground shadow-md`}>
+            <Card key={stat.labelKey} className={`${stat.colorClass} text-card-foreground shadow-md`}>
                 <CardContent className="p-4">
                     <div className="text-3xl font-bold">{stat.value}</div>
                     <div className="text-sm opacity-90">{translate(stat.labelKey)}</div>
@@ -431,3 +431,4 @@ export default function PerfilPage() {
     
 
     
+
