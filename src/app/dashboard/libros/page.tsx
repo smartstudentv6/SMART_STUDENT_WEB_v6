@@ -94,7 +94,8 @@ export default function LibrosPage() {
             className={cn(
               "w-full font-semibold py-3 text-base md:text-sm",
               selectedBook && 
-                "bg-[hsl(var(--custom-green-solid-bg-light))] text-[hsl(var(--custom-green-solid-fg-light))] dark:bg-[hsl(var(--custom-green-solid-bg-dark))] dark:text-[hsl(var(--custom-green-solid-fg-dark))] hover:bg-[hsl(var(--custom-green-solid-bg-light))]/90 dark:hover:bg-[hsl(var(--custom-green-solid-bg-dark))]/90"
+                "bg-[hsl(var(--custom-green-solid-bg-light))] text-[hsl(var(--custom-green-solid-fg-light))] dark:bg-[hsl(var(--custom-green-solid-bg-dark))] dark:text-[hsl(var(--custom-green-solid-fg-dark))] hover:bg-[hsl(var(--custom-green-solid-bg-light))]/90 dark:hover:bg-[hsl(var(--custom-green-solid-bg-dark))]/90",
+              "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
             )}
           >
             {translate('downloadPDF')}

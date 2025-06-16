@@ -6,6 +6,7 @@ import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home } from '
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const featureCards = [
   {
@@ -99,7 +100,15 @@ export default function DashboardHomePage() {
               <CardDescription className="text-sm mb-4 flex-grow">
                 {translate(card.descKey)}
               </CardDescription>
-              <Button asChild variant="secondary" className={`home-card-button ${getButtonColorClass(card.colorClass)}`}>
+              <Button 
+                asChild 
+                variant="secondary" 
+                className={cn(
+                  "home-card-button", 
+                  getButtonColorClass(card.colorClass),
+                  "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+                )}
+              >
                 <Link href={card.targetPage}>{translate(card.btnKey)}</Link>
               </Button>
             </CardContent>

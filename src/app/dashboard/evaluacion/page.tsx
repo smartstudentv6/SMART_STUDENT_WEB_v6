@@ -323,7 +323,10 @@ export default function EvaluacionPage() {
             <Button
               onClick={handleCreateEvaluation}
               disabled={isLoading}
-              className="w-full font-semibold py-3 text-base md:text-sm home-card-button-purple"
+              className={cn(
+                "w-full font-semibold py-3 text-base md:text-sm home-card-button-purple",
+                "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+              )}
             >
               {isLoading ? (
                 <>{translate('loading')}...</>

@@ -295,13 +295,19 @@ export default function PerfilPage() {
           <div className="mt-8 border-t pt-6 flex flex-wrap justify-center gap-3">
             <Button 
               size="sm"
-              className="bg-sky-500 text-white hover:bg-sky-600 dark:bg-sky-700 dark:text-sky-100 dark:hover:bg-sky-800"
+              className={cn(
+                "bg-sky-500 text-white hover:bg-sky-600 dark:bg-sky-700 dark:text-sky-100 dark:hover:bg-sky-800",
+                "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+              )}
             >
                 <Edit3 className="mr-2 h-4 w-4" />{translate('profileChangePass')}
             </Button>
             <Button 
                 size="sm" 
-                className="bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-yellow-100 dark:hover:bg-yellow-700"
+                className={cn(
+                  "bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-yellow-100 dark:hover:bg-yellow-700",
+                  "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+                )}
                 onClick={handleDownloadHistoryXlsx}
             >
               <Download className="mr-2 h-4 w-4" />{translate('profileDownloadHistory')}
@@ -309,7 +315,10 @@ export default function PerfilPage() {
             <Button 
                 variant="destructive" 
                 size="sm" 
-                className="bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:text-red-100 dark:hover:bg-red-700"
+                className={cn(
+                  "bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:text-red-100 dark:hover:bg-red-700",
+                   "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+                )}
                 onClick={handleDeleteHistory}
             >
               <Trash2 className="mr-2 h-4 w-4" />{translate('profileDeleteHistory')}
@@ -347,10 +356,10 @@ export default function PerfilPage() {
               key={stat.labelKey} 
               className={cn(
                 stat.colorClass, 
-                "text-white", // Changed from text-card-foreground to text-white
+                "text-white", 
                 "shadow-md", 
-                "hover:shadow-lg", 
                 "hover:brightness-110",
+                "hover:shadow-lg", 
                 "hover:scale-105", 
                 "transition-all", 
                 "duration-200",
@@ -361,7 +370,7 @@ export default function PerfilPage() {
                     <div className="text-3xl font-bold">{stat.value}</div>
                     <div className="text-sm opacity-90 flex items-center justify-center gap-1.5">
                       {IconComponent && <IconComponent className="w-4 h-4 flex-shrink-0" />}
-                      <span className="whitespace-nowrap">{translate(stat.labelKey)}</span>
+                      <span className="whitespace-nowrap flex-shrink-0">{translate(stat.labelKey)}</span>
                     </div>
                 </CardContent>
             </Card>
@@ -454,6 +463,7 @@ export default function PerfilPage() {
     
 
     
+
 
 
 

@@ -13,6 +13,7 @@ import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateSummary, type GenerateSummaryInput } from '@/ai/flows/generate-summary';
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 // Helper function to convert basic Markdown to HTML for the main summary
 function simpleMarkdownToHtml(mdText: string): string {
@@ -236,7 +237,10 @@ export default function ResumenPage() {
           <Button
             onClick={handleGenerateSummary}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm home-card-button-blue"
+            className={cn(
+              "w-full font-semibold py-3 text-base md:text-sm home-card-button-blue",
+              "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+            )}
           >
             {isLoading ? (
               <>{translate('loading')}...</>

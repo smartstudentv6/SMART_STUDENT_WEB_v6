@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 export default function LoginForm() {
   const [username, setUsername] = useState('');
@@ -64,7 +65,10 @@ export default function LoginForm() {
           {error && <p className="text-sm font-medium text-destructive text-center">{error}</p>}
           <Button 
             type="submit" 
-            className="w-full font-bold bg-sky-500 hover:bg-sky-600 text-white" 
+            className={cn(
+              "w-full font-bold bg-sky-500 hover:bg-sky-600 text-white",
+              "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+            )}
             disabled={isSubmitting}
           >
             {isSubmitting ? `${translate('loading')}...` : translate('loginButton')}
@@ -77,5 +81,4 @@ export default function LoginForm() {
     </Card>
   );
 }
-
     

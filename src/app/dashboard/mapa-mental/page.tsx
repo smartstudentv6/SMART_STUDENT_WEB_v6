@@ -14,6 +14,7 @@ import { Network, Sparkles, Download, Newspaper as SummaryIcon, FileQuestion, Cl
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { createMindMap } from '@/ai/flows/create-mind-map';
 import { useToast } from "@/hooks/use-toast";
+import { cn } from '@/lib/utils';
 
 export default function MapaMentalPage() {
   const { translate, language: currentUiLanguage } = useLanguage();
@@ -138,7 +139,10 @@ export default function MapaMentalPage() {
           <Button
             onClick={handleGenerateMap}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm home-card-button-yellow"
+            className={cn(
+              "w-full font-semibold py-3 text-base md:text-sm home-card-button-yellow",
+              "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+            )}
           >
             {isLoading ? (
               <>{translate('loading')}...</>

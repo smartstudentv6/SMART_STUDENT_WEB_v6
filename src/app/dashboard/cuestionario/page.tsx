@@ -12,6 +12,7 @@ import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateQuiz } from '@/ai/flows/generate-quiz';
 import { useToast } from "@/hooks/use-toast";
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export default function CuestionarioPage() {
   const { translate, language: currentUiLanguage } = useLanguage();
@@ -132,7 +133,10 @@ export default function CuestionarioPage() {
           <Button
             onClick={handleGenerateQuiz}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm home-card-button-cyan"
+            className={cn(
+              "w-full font-semibold py-3 text-base md:text-sm home-card-button-cyan",
+              "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+            )}
           >
             {isLoading ? (
               <>{translate('loading')}...</>
