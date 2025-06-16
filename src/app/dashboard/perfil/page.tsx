@@ -295,13 +295,13 @@ export default function PerfilPage() {
           <div className="mt-8 border-t pt-6 flex flex-wrap justify-center gap-3">
             <Button 
               size="sm"
-              className="bg-sky-500 text-white hover:bg-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-700"
+              className="bg-sky-500 text-white hover:bg-sky-600 dark:bg-sky-700 dark:text-sky-100 dark:hover:bg-sky-800"
             >
                 <Edit3 className="mr-2 h-4 w-4" />{translate('profileChangePass')}
             </Button>
             <Button 
                 size="sm" 
-                className="bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-white dark:hover:bg-yellow-700"
+                className="bg-yellow-500 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-yellow-100 dark:hover:bg-yellow-700"
                 onClick={handleDownloadHistoryXlsx}
             >
               <Download className="mr-2 h-4 w-4" />{translate('profileDownloadHistory')}
@@ -309,7 +309,7 @@ export default function PerfilPage() {
             <Button 
                 variant="destructive" 
                 size="sm" 
-                className="bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:text-white dark:hover:bg-red-700"
+                className="bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:text-red-100 dark:hover:bg-red-700"
                 onClick={handleDeleteHistory}
             >
               <Trash2 className="mr-2 h-4 w-4" />{translate('profileDeleteHistory')}
@@ -347,7 +347,7 @@ export default function PerfilPage() {
               key={stat.labelKey} 
               className={cn(
                 stat.colorClass, 
-                "text-card-foreground", 
+                "text-white", // Changed from text-card-foreground to text-white
                 "shadow-md", 
                 "hover:shadow-lg", 
                 "hover:brightness-110",
@@ -454,6 +454,7 @@ export default function PerfilPage() {
     
 
     
+
 
 
 
