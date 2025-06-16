@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 const userProfileData: UserProfile = {
   name: "Felipe",
   levelKey: "profileLevelValue",
-  activeCoursesKey: "profileCoursesValue",
+  activeCoursesKey: "profileCourse8thGrade", // Updated Key
   subjects: [
     { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
     { tag: "CIEN", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
