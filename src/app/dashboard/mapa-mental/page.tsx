@@ -21,7 +21,7 @@ export default function MapaMentalPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [centralTheme, setCentralTheme] = useState('');
-  const [isHorizontal, setIsHorizontal] = useState(false); // Re-added state
+  const [isHorizontal, setIsHorizontal] = useState(false);
   const [mindMapResult, setMindMapResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentCentralThemeForDisplay, setCurrentCentralThemeForDisplay] = useState('');
@@ -45,7 +45,7 @@ export default function MapaMentalPage() {
         centralTheme: centralTheme.trim(),
         bookTitle: selectedBook,
         language: currentUiLanguage,
-        isHorizontal: isHorizontal, // Pass isHorizontal state
+        isHorizontal: isHorizontal,
       });
       setMindMapResult(result.imageDataUri);
     } catch (error) {
@@ -122,8 +122,7 @@ export default function MapaMentalPage() {
             placeholder={translate('mapCentralThemePlaceholder')}
             className="text-base md:text-sm"
           />
-          {/* Re-added Horizontal orientation checkbox */}
-          <div className="flex items-center space-x-2 justify-center">
+          <div className="flex items-center space-x-2 justify-start"> {/* Changed justify-center to justify-start */}
             <Checkbox
               id="horizontal-orientation"
               checked={isHorizontal}
@@ -136,7 +135,7 @@ export default function MapaMentalPage() {
           <Button
             onClick={handleGenerateMap}
             disabled={isLoading}
-            className="w-full font-semibold py-3 text-base md:text-sm bg-yellow-500 hover:bg-yellow-600 dark:bg-custom-yellow-800 dark:text-custom-yellow-100 dark:hover:bg-yellow-700"
+            className="w-full font-semibold py-3 text-base md:text-sm bg-custom-yellow-100 text-custom-yellow-800 hover:bg-custom-yellow-100/80" // Updated button classes
           >
             {isLoading ? (
               <>{translate('loading')}...</>
