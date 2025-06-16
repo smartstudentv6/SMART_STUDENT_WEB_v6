@@ -21,7 +21,7 @@ export type GenerateEvaluationInput = z.infer<typeof GenerateEvaluationInputSche
 
 const TrueFalseQuestionSchema = z.object({
   id: z.string().describe('Unique ID for the question.'),
-  type: z.literal('TRUE_FALSE').describe('Question type.'),
+  type: z.enum(['TRUE_FALSE']).describe('Question type.'),
   questionText: z.string().describe('The text of the true/false question.'),
   correctAnswer: z.boolean().describe('The correct answer (true or false).'),
   explanation: z.string().describe('A brief explanation for the correct answer.'),
@@ -29,7 +29,7 @@ const TrueFalseQuestionSchema = z.object({
 
 const MultipleChoiceQuestionSchema = z.object({
   id: z.string().describe('Unique ID for the question.'),
-  type: z.literal('MULTIPLE_CHOICE').describe('Question type.'),
+  type: z.enum(['MULTIPLE_CHOICE']).describe('Question type.'),
   questionText: z.string().describe('The text of the multiple-choice question.'),
   options: z.array(z.string()).length(4).describe('An array of exactly 4 string options (A, B, C, D).'),
   correctAnswerIndex: z.number().min(0).max(3).describe('The 0-based index of the correct option in the options array.'),
