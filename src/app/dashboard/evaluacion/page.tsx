@@ -98,7 +98,7 @@ export default function EvaluacionPage() {
 
   const handlePreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1); // Corrected bug here
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
 
@@ -125,10 +125,10 @@ export default function EvaluacionPage() {
   const handleRepeatEvaluation = () => {
     setCurrentQuestionIndex(0);
     setUserAnswers(Array(evaluationQuestions.length).fill(null));
-    setEvaluationFinished(false); // Allows starting the question flow again
+    setEvaluationFinished(false); 
     setShowResultDialog(false);
     setScore(0);
-    setEvaluationStarted(true); // Ensure we go back to question view
+    setEvaluationStarted(true); 
   };
 
   const handleStartNewEvaluation = () => {
@@ -139,14 +139,11 @@ export default function EvaluacionPage() {
     setUserAnswers([]);
     setScore(0);
     setTopic('');
-    // Optionally reset selectedBook and selectedCourse if desired
-    // setSelectedBook('');
-    // setSelectedCourse('');
+    setShowResultDialog(false); // Ensure dialog is closed for new evaluation
   };
 
   const handleCloseDialog = () => {
     setShowResultDialog(false);
-    // Now, if evaluationFinished is true, the review screen will show
   };
 
   const currentQuestion = evaluationQuestions[currentQuestionIndex];
@@ -218,7 +215,6 @@ export default function EvaluacionPage() {
   }
 
   if (evaluationFinished && !showResultDialog) {
-    // Show review mode after closing dialog
     return (
       <Card className="w-full max-w-2xl mx-auto shadow-xl">
         <CardHeader className="text-center border-b pb-4">
@@ -282,8 +278,7 @@ export default function EvaluacionPage() {
                     variant={userAnswers[currentQuestionIndex] === true ? 'default': 'outline'}
                     className={cn(
                         "py-3 text-base",
-                        userAnswers[currentQuestionIndex] === true ? 
-                          'bg-primary text-primary-foreground' : 
+                        userAnswers[currentQuestionIndex] !== true && // Only apply these if NOT selected
                           'border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
                     )}
                     onClick={() => handleAnswerSelect(true)}
@@ -294,8 +289,7 @@ export default function EvaluacionPage() {
                     variant={userAnswers[currentQuestionIndex] === false ? 'default': 'outline'}
                      className={cn(
                         "py-3 text-base",
-                        userAnswers[currentQuestionIndex] === false ? 
-                          'bg-primary text-primary-foreground' : 
+                        userAnswers[currentQuestionIndex] !== false && // Only apply these if NOT selected
                           'border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
                     )}
                     onClick={() => handleAnswerSelect(false)}
@@ -312,8 +306,7 @@ export default function EvaluacionPage() {
                       variant={userAnswers[currentQuestionIndex] === index ? 'default' : 'outline'}
                       className={cn(
                         "py-3 text-base justify-start text-left h-auto whitespace-normal",
-                         userAnswers[currentQuestionIndex] === index ? 
-                           'bg-primary text-primary-foreground' : 
+                        userAnswers[currentQuestionIndex] !== index && // Only apply these if NOT selected
                            'border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
                       )}
                       onClick={() => handleAnswerSelect(index)}
