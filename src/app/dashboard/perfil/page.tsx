@@ -24,12 +24,12 @@ const userProfileData: UserProfile = {
   evaluationsCompleted: 0, // This will be updated by history length
 };
 
-// Template for learning stats structure
+// Template for learning stats structure with specific subject colors
 const learningStatsTemplate: SubjectProgress[] = [
-  { nameKey: "subjectMath", progress: 0, colorClass: "bg-primary/30" },
-  { nameKey: "subjectScience", progress: 0, colorClass: "bg-primary/30" },
-  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-primary/30" },
-  { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-primary/30" },
+  { nameKey: "subjectMath", progress: 0, colorClass: "bg-blue-500" },      // Azul
+  { nameKey: "subjectScience", progress: 0, colorClass: "bg-green-500" },   // Verde
+  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-amber-600" },  // Café (Amber as brown)
+  { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-red-500" },    // Rojo
 ];
 
 // Template for profile stats cards
@@ -65,9 +65,6 @@ export default function PerfilPage() {
   }, []);
 
   useEffect(() => {
-    // Define mappings for subject categories.
-    // These arrays include known book titles (as stored in history) that fall under each category.
-    // We include both Spanish and English titles as history items might have been saved in either language.
     const subjectMappings: Record<string, { es: string[], en: string[] }> = {
       subjectScience: {
         es: ["Ciencias", "Ciencias Naturales", "Biología", "Física", "Química", "Ciencias para la Ciudadanía"],
@@ -85,7 +82,6 @@ export default function PerfilPage() {
         es: ["Matemáticas"],
         en: ["Mathematics"]
       }
-      // Add other subjects here if needed, e.g., subjectEnglish
     };
 
     const newLearningStats = learningStatsTemplate.map(statTemplate => {
@@ -96,15 +92,10 @@ export default function PerfilPage() {
         const titlesToMatch = [
           ...subjectMappings[categoryKey].es,
           ...subjectMappings[categoryKey].en
-        ];
+        ].map(title => title.toLowerCase()); // Normalize to lowercase for matching
+
         subjectEvaluations = evaluationHistory.filter(histItem => 
-          titlesToMatch.includes(histItem.bookTitle)
-        );
-      } else {
-        // Fallback for direct match if no specific mapping (e.g. if a subject name matches booktitle directly)
-        const translatedSubjectName = translate(categoryKey);
-        subjectEvaluations = evaluationHistory.filter(
-            histItem => histItem.bookTitle === translatedSubjectName
+          titlesToMatch.includes(histItem.bookTitle.toLowerCase())
         );
       }
       
@@ -118,10 +109,8 @@ export default function PerfilPage() {
         });
       }
       return {
-        ...statTemplate,
-        nameKey: categoryKey, // Ensure nameKey is preserved for translation
+        ...statTemplate, // This includes the predefined colorClass from the template
         progress: Math.round(maxPercentage),
-        colorClass: maxPercentage > 0 ? "bg-green-500" : "bg-primary/30",
       };
     });
     setDynamicLearningStats(newLearningStats);
@@ -144,7 +133,7 @@ export default function PerfilPage() {
       if (card.labelKey === "statAvgScore") {
         return { ...card, value: `${averageScorePercentage}%` };
       }
-      return card; // Return other cards (Goals, Summaries) as is (mocked values)
+      return card; 
     });
     setDynamicProfileCards(newProfileCards);
 
