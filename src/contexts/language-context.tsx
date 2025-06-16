@@ -36,7 +36,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const storedLang = localStorage.getItem('scholarai-lang') as Language | null;
+    const storedLang = localStorage.getItem('smart-student-lang') as Language | null;
     if (storedLang && (storedLang === 'es' || storedLang === 'en')) {
       setLanguageState(storedLang);
       document.documentElement.lang = storedLang;
@@ -50,7 +50,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('scholarai-lang', lang);
+      localStorage.setItem('smart-student-lang', lang);
       document.documentElement.lang = lang;
     }
   }, []);

@@ -5,8 +5,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { AppProviders } from '@/contexts/app-provider';
 
 export const metadata: Metadata = {
-  title: 'ScholarAI',
-  description: 'Aprende, Crea y Destaca con ScholarAI',
+  title: 'SMART STUDENT',
+  description: 'SMART STUDENT - Aprende, Crea y Destaca',
 };
 
 export default function RootLayout({

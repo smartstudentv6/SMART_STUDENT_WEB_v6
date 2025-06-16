@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check local storage or a cookie for persisted auth state
-    const storedAuth = localStorage.getItem('scholarai-auth');
+    const storedAuth = localStorage.getItem('smart-student-auth');
     if (storedAuth === 'true') {
       setIsAuthenticated(true);
     }
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Mock authentication
     if (username.toLowerCase() === 'felipe' && pass === '1234') {
       setIsAuthenticated(true);
-      localStorage.setItem('scholarai-auth', 'true');
+      localStorage.setItem('smart-student-auth', 'true');
       router.push('/dashboard');
       return true;
     }
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem('scholarai-auth');
+    localStorage.removeItem('smart-student-auth');
     router.push('/login');
   };
 

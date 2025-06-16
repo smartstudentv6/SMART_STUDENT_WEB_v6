@@ -247,7 +247,7 @@ export default function PerfilPage() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Historial Evaluaciones");
 
-    XLSX.writeFile(wb, "historial_evaluaciones_scholarai.xlsx");
+    XLSX.writeFile(wb, "historial_evaluaciones_smart_student.xlsx");
   };
 
   const handleRepasar = (item: EvaluationHistoryItem) => {

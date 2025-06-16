@@ -12,7 +12,43 @@ body {
     --background: 220 17% 98%; /* #F9FAFB */
     --foreground: 222 47% 11%; /* Tailwind gray-800 as base text */
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --/* PURPLE BUTTON (Evaluation) - Horizontal Highlight Effect */
+.home-card-button-purple {
+  @apply border-transparent bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-purple-800))] hover:text-[hsl(var(--custom-purple-100))]
+         hover:shadow-2xl hover:shadow-purple-500/70 
+         transition-all duration-300 ease-out
+         relative overflow-hidden;
+}
+.home-card-button-purple::before {
+  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
+         bg-gradient-to-r from-transparent via-white/20 to-transparent
+         transition-all duration-500 ease-out;
+}
+.home-card-button-purple:hover::before {
+  @apply left-[100%];
+}
+.dark .home-card-button-purple {
+  @apply border-transparent bg-[hsl(var(--custom-purple-800))] text-[hsl(var(--custom-purple-100))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-purple-100))] hover:text-[hsl(var(--custom-purple-800))]
+         hover:shadow-2xl hover:shadow-purple-400/70
+         transition-all duration-300 ease-out
+         relative overflow-hidden;
+}
+.dark .home-card-button-purple::before {
+  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
+         bg-gradient-to-r from-transparent via-white/30 to-transparent
+         transition-all duration-500 ease-out;
+}
+.dark .home-card-button-purple:hover::before {
+  @apply left-[100%];
+}
+
+/* CSS Variables */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
     --primary: 243 75% 59%; /* Indigo #4F46E5 - Default primary */
@@ -272,36 +308,17 @@ html.dark.theme-accent-purple {
 }
 
 /* PURPLE BUTTON (Evaluations) - 3D Flip and Gradient Effect */
-/* PURPLE BUTTON (Books/Evaluation) - Horizontal Highlight Effect */
 .home-card-button-purple {
   @apply border-transparent bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))]
          hover:border-transparent hover:bg-[hsl(var(--custom-purple-800))] hover:text-[hsl(var(--custom-purple-100))]
-         hover:shadow-2xl hover:shadow-purple-500/70 
-         transition-all duration-300 ease-out
-         relative overflow-hidden;
-}
-.home-card-button-purple::before {
-  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
-         bg-gradient-to-r from-transparent via-white/20 to-transparent
-         transition-all duration-500 ease-out;
-}
-.home-card-button-purple:hover::before {
-  @apply left-[100%];
+         hover:shadow-2xl hover:shadow-purple-500/70 hover:scale-110 hover:-rotate-2
+         transition-all duration-500 ease-out hover:brightness-125;
 }
 .dark .home-card-button-purple {
   @apply border-transparent bg-[hsl(var(--custom-purple-800))] text-[hsl(var(--custom-purple-100))]
          hover:border-transparent hover:bg-[hsl(var(--custom-purple-100))] hover:text-[hsl(var(--custom-purple-800))]
-         hover:shadow-2xl hover:shadow-purple-400/70
-         transition-all duration-300 ease-out
-         relative overflow-hidden;
-}
-.dark .home-card-button-purple::before {
-  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
-         bg-gradient-to-r from-transparent via-white/30 to-transparent
-         transition-all duration-500 ease-out;
-}
-.dark .home-card-button-purple:hover::before {
-  @apply left-[100%];
+         hover:shadow-2xl hover:shadow-purple-400/70 hover:scale-110 hover:-rotate-2
+         transition-all duration-500 ease-out hover:brightness-125;
 }
 
 

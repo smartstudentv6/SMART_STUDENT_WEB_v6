@@ -47,7 +47,59 @@ type GenerateEvaluationOutput = z.infer<typeof GenerateEvaluationOutputSchema>;
 
 
 export async function generateEvaluationContent(input: GenerateEvaluationInput): Promise<GenerateEvaluationOutput> {
-  return generateEvaluationFlow(input);
+  try {
+    // Check if API key is available
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'your_google_api_key_here') {
+      // Return mock data for development
+      return {
+        title: `Evaluación - ${input.topic.toUpperCase()}`,
+        questions: [
+          {
+            id: 1,
+            type: 'true_false',
+            question: `¿El tema "${input.topic}" está relacionado con "${input.bookTitle}"?`,
+            options: [],
+            correct_answer: true,
+            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
+          },
+          {
+            id: 2,
+            type: 'multiple_choice',
+            question: `¿Cuál es el concepto principal de "${input.topic}"?`,
+            options: ['Opción A', 'Opción B', 'Opción C', 'Opción D'],
+            correct_answer: 0,
+            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
+          },
+          {
+            id: 3,
+            type: 'multiple_choice',
+            question: `¿Qué aplicación práctica tiene "${input.topic}"?`,
+            options: ['Aplicación 1', 'Aplicación 2', 'Aplicación 3', 'Aplicación 4'],
+            correct_answer: 1,
+            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
+          }
+        ]
+      };
+    }
+    
+    return await generateEvaluationFlow(input);
+  } catch (error) {
+    console.error('Error generating evaluation content:', error);
+    // Return fallback data
+    return {
+      title: `Evaluación - ${input.topic.toUpperCase()}`,
+      questions: [
+        {
+          id: 1,
+          type: 'true_false',
+          question: `¿El tema "${input.topic}" está relacionado con "${input.bookTitle}"?`,
+          options: [],
+          correct_answer: true,
+          explanation: 'Pregunta generada como respaldo debido a un error en la API.'
+        }
+      ]
+    };
+  }
 }
 
 const generateEvaluationPrompt = ai.definePrompt({

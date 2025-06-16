@@ -31,7 +31,33 @@ const GenerateSummaryOutputSchema = z.object({
 export type GenerateSummaryOutput = z.infer<typeof GenerateSummaryOutputSchema>;
 
 export async function generateSummary(input: GenerateSummaryInput): Promise<GenerateSummaryOutput> {
-  return generateSummaryFlow(input);
+  try {
+    // Check if API key is available
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'your_google_api_key_here') {
+      // Return mock data for development
+      return {
+        summary: `# Resumen de ${input.topic}\n\nEste es un resumen de ejemplo para el tema "${input.topic}" del libro "${input.bookTitle}".\n\n## Conceptos principales\n\n- Concepto 1: Explicación detallada\n- Concepto 2: Análisis profundo\n- Concepto 3: Aplicaciones prácticas\n\n## Conclusiones\n\nEste resumen proporciona una visión general del tema mientras se configura la API de IA.`,
+        keyPoints: input.includeKeyPoints ? [
+          `Punto clave 1 sobre ${input.topic}`,
+          `Punto clave 2 relacionado con ${input.bookTitle}`,
+          `Punto clave 3 de aplicación práctica`,
+          `Punto clave 4 de conceptos teóricos`,
+          `Punto clave 5 de ejemplos relevantes`
+        ] : undefined,
+        progress: 'Resumen generado con datos de ejemplo durante la configuración de la API.'
+      };
+    }
+    
+    return await generateSummaryFlow(input);
+  } catch (error) {
+    console.error('Error generating summary:', error);
+    // Return fallback data
+    return {
+      summary: `# Error al generar resumen\n\nNo se pudo generar el resumen para "${input.topic}". Por favor, intenta nuevamente.`,
+      keyPoints: undefined,
+      progress: 'Error en la generación del resumen.'
+    };
+  }
 }
 
 const generateSummaryPrompt = ai.definePrompt({
