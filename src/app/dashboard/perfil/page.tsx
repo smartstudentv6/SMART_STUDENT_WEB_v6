@@ -293,11 +293,15 @@ export default function PerfilPage() {
             </div>
           </div>
           <div className="mt-8 border-t pt-6 flex flex-wrap justify-center gap-3">
-            <Button variant="outline" size="sm"><Edit3 className="mr-2 h-4 w-4" />{translate('profileChangePass')}</Button>
             <Button 
-                variant="outline" 
+              size="sm"
+              className="bg-sky-100 text-sky-800 hover:bg-sky-200 dark:bg-sky-700 dark:text-sky-100 dark:hover:bg-sky-600"
+            >
+                <Edit3 className="mr-2 h-4 w-4" />{translate('profileChangePass')}
+            </Button>
+            <Button 
                 size="sm" 
-                className="bg-custom-yellow-100 text-custom-yellow-800 hover:bg-custom-yellow-100/80 dark:bg-custom-yellow-800 dark:text-custom-yellow-100"
+                className="bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))] hover:bg-[hsl(var(--custom-yellow-100-hover))] dark:bg-[hsl(var(--custom-yellow-800))] dark:text-[hsl(var(--custom-yellow-100))] dark:hover:brightness-90"
                 onClick={handleDownloadHistoryXlsx}
             >
               <Download className="mr-2 h-4 w-4" />{translate('profileDownloadHistory')}
@@ -450,5 +454,6 @@ export default function PerfilPage() {
     
 
     
+
 
 
