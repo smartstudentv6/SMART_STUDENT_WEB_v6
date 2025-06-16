@@ -106,9 +106,7 @@ export default function DashboardHomePage() {
                 className={cn(
                   "home-card-button", 
                   getButtonColorClass(card.colorClass),
-                  // Apply brightness change only if not the green button
-                  card.colorClass !== 'green' && "hover:brightness-110", 
-                  "hover:shadow-lg hover:scale-105 transition-all duration-200"
+                  "hover:shadow-lg hover:scale-105 transition-all duration-200" // Removed hover:brightness-110
                 )}
               >
                 <Link href={card.targetPage}>{translate(card.btnKey)}</Link>
