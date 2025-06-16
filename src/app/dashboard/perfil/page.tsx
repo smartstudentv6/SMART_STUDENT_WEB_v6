@@ -11,6 +11,7 @@ import type { UserProfile, SubjectProgress, EvaluationHistoryItem } from '@/lib/
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
+import * as XLSX from 'xlsx';
 
 // Mock Data - UserProfile remains mock for now
 const userProfileData: UserProfile = {
@@ -38,8 +39,8 @@ const learningStatsTemplate: SubjectProgress[] = [
 const profileStatsCardsTemplate = [
     { value: "0", labelKey: "statEvals", colorClass: "bg-blue-500 dark:bg-blue-600" }, 
     { value: "0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" }, 
-    { value: "0", labelKey: "statGoals", colorClass: "bg-yellow-500 dark:bg-yellow-600" }, // Mock, reset to 0
-    { value: "0", labelKey: "statSummaries", colorClass: "bg-purple-500 dark:bg-purple-600" }, // Mock, reset to 0
+    { value: "0", labelKey: "statGoals", colorClass: "bg-yellow-500 dark:bg-yellow-600" },
+    { value: "0", labelKey: "statSummaries", colorClass: "bg-purple-500 dark:bg-purple-600" },
 ];
 
 
@@ -92,7 +93,6 @@ export default function PerfilPage() {
       let subjectEvaluations: EvaluationHistoryItem[] = [];
 
       if (subjectMappings[categoryKey]) {
-        // Get all potential names for the subject category in current and other language to be robust
         const currentLangSubjectNames = subjectMappings[categoryKey][language] || [];
         const otherLang = language === 'es' ? 'en' : 'es';
         const otherLangSubjectNames = subjectMappings[categoryKey][otherLang] || [];
@@ -123,7 +123,6 @@ export default function PerfilPage() {
     });
     setDynamicLearningStats(newLearningStats);
 
-    // Calculate dynamic profile cards
     let totalScoreSum = 0;
     let totalPossibleScoreSum = 0;
     evaluationHistory.forEach(item => {
@@ -141,8 +140,6 @@ export default function PerfilPage() {
       if (card.labelKey === "statAvgScore") {
         return { ...card, value: `${averageScorePercentage}%` };
       }
-      // For statGoals and statSummaries, they keep their initial "0" from template
-      // if not explicitly changed by other logic (which they aren't currently)
       return card; 
     });
     setDynamicProfileCards(newProfileCards);
@@ -152,7 +149,7 @@ export default function PerfilPage() {
 
   const handleDeleteHistory = () => {
     localStorage.removeItem('evaluationHistory');
-    setEvaluationHistory([]); // This will trigger the useEffect to recalculate dynamicProfileCards
+    setEvaluationHistory([]); 
     setCurrentPage(1);
     toast({ 
         title: translate('historyDeletedTitle'), 
@@ -160,7 +157,7 @@ export default function PerfilPage() {
     });
   };
 
-  const handleDownloadHistoryCsv = () => {
+  const handleDownloadHistoryXlsx = () => {
     if (evaluationHistory.length === 0) {
         toast({
             title: translate('historyEmptyTitle'),
@@ -175,47 +172,40 @@ export default function PerfilPage() {
         translate('tableCourse'),
         translate('tableBook'),
         translate('tableTopic'),
-        translate('tableGrade') + " (%)", // Clarify grade is percentage
+        translate('tableGrade') + " (%)",
         translate('tablePoints')
-    ].join(',');
+    ];
 
-    const rows = evaluationHistory.map(item => {
-        const grade = item.totalQuestions > 0 ? `${Math.round((item.score / item.totalQuestions) * 100)}` : 'N/A'; // Just number for CSV
+    const dataForSheet = evaluationHistory.map(item => {
+        const gradePercentage = item.totalQuestions > 0 ? Math.round((item.score / item.totalQuestions) * 100) : 0; // Ensure this is a number
         const points = `${item.score}/${item.totalQuestions}`;
-        
-        const escapeCsvField = (field: string | number) => {
-            const stringField = String(field);
-            // Basic escaping: if a field contains a comma, double quote, or newline, wrap it in double quotes.
-            // Also, double up any existing double quotes within the field.
-            if (/[",\n\r]/.test(stringField)) {
-                return `"${stringField.replace(/"/g, '""')}"`;
-            }
-            return stringField;
-        };
-
         return [
-            escapeCsvField(item.date),
-            escapeCsvField(item.courseName),
-            escapeCsvField(item.bookTitle),
-            escapeCsvField(item.topic),
-            escapeCsvField(grade),
-            escapeCsvField(points)
-        ].join(',');
+            item.date,
+            item.courseName,
+            item.bookTitle,
+            item.topic,
+            gradePercentage, // This should be a number for Excel to treat it as such
+            points
+        ];
     });
 
-    const csvString = `${headers}\n${rows.join('\n')}`;
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "historial_evaluaciones_scholarai.csv");
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataForSheet]);
+    
+    // Set column widths (optional, but good for readability)
+    const columnWidths = [
+      {wch: 20}, // Date
+      {wch: 20}, // Course
+      {wch: 30}, // Book
+      {wch: 30}, // Topic
+      {wch: 10}, // Grade
+      {wch: 10}  // Points
+    ];
+    ws['!cols'] = columnWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Historial Evaluaciones");
+
+    XLSX.writeFile(wb, "historial_evaluaciones_scholarai.xlsx");
   };
 
   const handleRepasar = (item: EvaluationHistoryItem) => {
@@ -266,7 +256,7 @@ export default function PerfilPage() {
                 variant="outline" 
                 size="sm" 
                 className="bg-custom-yellow-100 text-custom-yellow-800 hover:bg-custom-yellow-100/80"
-                onClick={handleDownloadHistoryCsv}
+                onClick={handleDownloadHistoryXlsx}
             >
               <Download className="mr-2 h-4 w-4" />{translate('profileDownloadHistory')}
             </Button>
