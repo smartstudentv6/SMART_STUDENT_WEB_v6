@@ -18,22 +18,22 @@ import { cn } from '@/lib/utils';
 const userProfileData: UserProfile = {
   name: "Felipe",
   levelKey: "profileLevelValue",
-  activeCoursesKey: "profileCourse8thGradeValue",
+  activeCoursesKey: "profileCourse8thGradeValue", // Updated key
   subjects: [
     { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
     { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
-    { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
-    { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+    { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, // Updated color class
+    { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, // Added Language
   ],
   evaluationsCompleted: 0, // This will be updated by history length
 };
 
-// Template for learning stats structure with specific subject colors
+// Template for learning stats structure with specific subject colors (now gradients)
 const learningStatsTemplate: SubjectProgress[] = [
-  { nameKey: "subjectMath", progress: 0, colorClass: "bg-blue-500" },
-  { nameKey: "subjectScience", progress: 0, colorClass: "bg-green-500" },
-  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-amber-600" },
-  { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-red-500" },
+  { nameKey: "subjectMath", progress: 0, colorClass: "bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" },
+  { nameKey: "subjectScience", progress: 0, colorClass: "bg-gradient-to-r from-green-400 via-green-500 to-green-600" },
+  { nameKey: "subjectHistory", progress: 0, colorClass: "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600" }, // Using amber for brownish
+  { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-gradient-to-r from-red-400 via-red-500 to-red-600" },
 ];
 
 // Template for profile stats cards
@@ -68,7 +68,7 @@ export default function PerfilPage() {
         setEvaluationHistory([]); 
       }
     }
-     // Load counts for summaries and maps
+     // Load counts for summaries, maps, and quizzes
     const summariesCount = localStorage.getItem('summariesCreatedCount') || '0';
     const mapsCount = localStorage.getItem('mapsCreatedCount') || '0';
     const quizzesCount = localStorage.getItem('quizzesCreatedCount') || '0';
@@ -341,7 +341,7 @@ export default function PerfilPage() {
               key={stat.labelKey} 
               className={cn(
                 stat.colorClass, 
-                "text-card-foreground", 
+                "text-card-foreground", // Changed from text-primary-foreground
                 "shadow-md", 
                 "hover:shadow-lg", 
                 "hover:brightness-110", 
@@ -444,5 +444,3 @@ export default function PerfilPage() {
     
 
     
-
-
