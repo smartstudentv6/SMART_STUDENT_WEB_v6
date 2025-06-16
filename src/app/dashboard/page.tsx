@@ -23,7 +23,7 @@ const featureCards = [
     btnKey: 'cardSummaryBtn',
     targetPage: '/dashboard/resumen',
     icon: Newspaper,
-    colorClass: 'blue',
+    colorClass: 'blue', // Ensured this is 'blue'
   },
   {
     titleKey: 'cardMapTitle',
@@ -62,7 +62,7 @@ export default function DashboardHomePage() {
       case 'yellow': return 'home-card-button-yellow';
       case 'cyan': return 'home-card-button-cyan';
       case 'purple': return 'home-card-button-purple';
-      default: return ''; // Return empty or a very basic non-themed class
+      default: return '';
     }
   };
   
@@ -101,10 +101,10 @@ export default function DashboardHomePage() {
                 {translate(card.descKey)}
               </CardDescription>
               <Button
-                variant="outline" // Use outline variant as a base
-                asChild 
+                variant="outline"
+                asChild
                 className={cn(
-                  "home-card-button", 
+                  "home-card-button",
                   getButtonColorClass(card.colorClass),
                   "hover:shadow-lg hover:scale-105 transition-all duration-200"
                 )}
