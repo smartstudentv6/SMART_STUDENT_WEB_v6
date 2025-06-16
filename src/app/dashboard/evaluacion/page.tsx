@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Award, Stopwatch } from 'lucide-react';
+import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Award, Timer } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateEvaluationContent, type EvaluationQuestion } from '@/ai/flows/generate-evaluation-content';
 import { useToast } from "@/hooks/use-toast";
@@ -86,7 +86,7 @@ export default function EvaluacionPage() {
     setTimerActive(false); // Stop the timer
     setEvaluationFinished(true);
     setShowResultDialog(true);
-  }, [calculateScore, evaluationQuestions.length, setMotivationalMessageKey, setScore, setShowResultDialog]);
+  }, [calculateScore, evaluationQuestions.length]);
 
   // Timer Effect
   useEffect(() => {
@@ -344,7 +344,7 @@ export default function EvaluacionPage() {
             <span>{translate('evalQuestionProgress', { current: currentQuestionIndex + 1, total: evaluationQuestions.length })}</span>
             {evaluationStarted && !evaluationFinished && (
               <span className="font-mono text-base text-primary tabular-nums flex items-center">
-                <Stopwatch className="w-4 h-4 mr-1.5" />
+                <Timer className="w-4 h-4 mr-1.5" />
                 {translate('evalTimeLeft', { time: formatTime(timeLeft) })}
               </span>
             )}
@@ -454,3 +454,4 @@ export default function EvaluacionPage() {
   );
 }
 
+    
