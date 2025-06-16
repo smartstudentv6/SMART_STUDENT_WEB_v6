@@ -1,16 +1,15 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Award } from 'lucide-react';
+import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Award, Stopwatch } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
-import { generateEvaluationContent } from '@/ai/flows/generate-evaluation-content';
-import type { EvaluationQuestion } from '@/ai/flows/generate-evaluation-content';
+import { generateEvaluationContent, type EvaluationQuestion } from '@/ai/flows/generate-evaluation-content';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -26,6 +25,8 @@ function shuffleArray<T>(array: T[]): T[] {
   }
   return newArray;
 }
+
+const INITIAL_TIME_LIMIT = 120; // 2 minutes in seconds
 
 export default function EvaluacionPage() {
   const { translate } = useLanguage();
@@ -49,6 +50,70 @@ export default function EvaluacionPage() {
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [score, setScore] = useState(0);
   const [motivationalMessageKey, setMotivationalMessageKey] = useState('');
+
+  // Timer state
+  const [timeLeft, setTimeLeft] = useState(INITIAL_TIME_LIMIT);
+  const [timerActive, setTimerActive] = useState(false);
+
+  const calculateScore = useCallback(() => {
+    let correctAnswers = 0;
+    evaluationQuestions.forEach((q, index) => {
+      const userAnswer = userAnswers[index];
+      if (q.type === 'TRUE_FALSE' && userAnswer === q.correctAnswer) {
+        correctAnswers++;
+      } else if (q.type === 'MULTIPLE_CHOICE' && userAnswer === q.correctAnswerIndex) {
+        correctAnswers++;
+      }
+    });
+    return correctAnswers;
+  }, [evaluationQuestions, userAnswers]);
+
+  const handleFinishEvaluation = useCallback(() => {
+    const finalScore = calculateScore();
+    setScore(finalScore);
+    
+    const totalQuestions = evaluationQuestions.length;
+    const percentage = totalQuestions > 0 ? (finalScore / totalQuestions) * 100 : 0;
+
+    if (percentage === 100) {
+      setMotivationalMessageKey('evalMotivationalPerfect');
+    } else if (percentage >= 50) {
+      setMotivationalMessageKey('evalMotivationalGood');
+    } else {
+      setMotivationalMessageKey('evalMotivationalImprovement');
+    }
+    
+    setTimerActive(false); // Stop the timer
+    setEvaluationFinished(true);
+    setShowResultDialog(true);
+  }, [calculateScore, evaluationQuestions.length, setMotivationalMessageKey, setScore, setShowResultDialog]);
+
+  // Timer Effect
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
+    if (evaluationStarted && !evaluationFinished && timerActive) {
+      if (timeLeft > 0) {
+        intervalId = setInterval(() => {
+          setTimeLeft((prevTime) => prevTime - 1);
+        }, 1000);
+      } else { // timeLeft is 0 or less
+        setTimerActive(false); 
+        toast({
+          title: translate('evalTimeUpTitle'),
+          description: translate('evalTimeUpDesc'),
+          variant: "default", 
+        });
+        handleFinishEvaluation();
+      }
+    }
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [evaluationStarted, evaluationFinished, timerActive, timeLeft, handleFinishEvaluation, toast, translate]);
+
 
   useEffect(() => {
     if (evaluationQuestions.length > 0) {
@@ -75,6 +140,7 @@ export default function EvaluacionPage() {
     setUserAnswers([]);
     setScore(0);
     setMotivationalMessageKey('');
+    
 
     try {
       const result = await generateEvaluationContent({
@@ -83,8 +149,11 @@ export default function EvaluacionPage() {
       });
       if (result && result.questions && result.questions.length === 3) {
         setEvaluationTitle(result.evaluationTitle);
-        setEvaluationQuestions(shuffleArray(result.questions)); // Shuffle questions here
+        setEvaluationQuestions(shuffleArray(result.questions));
+        setTimeLeft(INITIAL_TIME_LIMIT);
+        setTimerActive(true);
         setEvaluationStarted(true);
+        setEvaluationFinished(false); 
       } else {
         throw new Error(translate('evalErrorGenerationFormat', {defaultValue: "AI did not return the requested number of questions in the expected format."}));
       }
@@ -115,38 +184,6 @@ export default function EvaluacionPage() {
     }
   };
 
-  const calculateScore = () => {
-    let correctAnswers = 0;
-    evaluationQuestions.forEach((q, index) => {
-      const userAnswer = userAnswers[index];
-      if (q.type === 'TRUE_FALSE' && userAnswer === q.correctAnswer) {
-        correctAnswers++;
-      } else if (q.type === 'MULTIPLE_CHOICE' && userAnswer === q.correctAnswerIndex) {
-        correctAnswers++;
-      }
-    });
-    return correctAnswers;
-  };
-
-  const handleFinishEvaluation = () => {
-    const finalScore = calculateScore();
-    setScore(finalScore);
-    
-    const totalQuestions = evaluationQuestions.length;
-    const percentage = totalQuestions > 0 ? (finalScore / totalQuestions) * 100 : 0;
-
-    if (percentage === 100) {
-      setMotivationalMessageKey('evalMotivationalPerfect');
-    } else if (percentage >= 50) {
-      setMotivationalMessageKey('evalMotivationalGood');
-    } else {
-      setMotivationalMessageKey('evalMotivationalImprovement');
-    }
-
-    setEvaluationFinished(true);
-    setShowResultDialog(true);
-  };
-
   const handleRepeatEvaluation = () => {
     setCurrentQuestionIndex(0);
     setUserAnswers(Array(evaluationQuestions.length).fill(null));
@@ -154,6 +191,8 @@ export default function EvaluacionPage() {
     setShowResultDialog(false);
     setScore(0);
     setMotivationalMessageKey('');
+    setTimeLeft(INITIAL_TIME_LIMIT);
+    setTimerActive(true);
     setEvaluationStarted(true); 
   };
 
@@ -167,11 +206,18 @@ export default function EvaluacionPage() {
     setMotivationalMessageKey('');
     setTopic('');
     setShowResultDialog(false); 
+    setTimeLeft(INITIAL_TIME_LIMIT);
+    setTimerActive(false);
   };
 
   const handleCloseDialog = () => {
     setShowResultDialog(false);
-    // After closing the dialog, the review screen will be shown because evaluationFinished is true
+  };
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
   };
 
   const currentQuestion = evaluationQuestions[currentQuestionIndex];
@@ -208,7 +254,7 @@ export default function EvaluacionPage() {
             <Button
               onClick={handleCreateEvaluation}
               disabled={isLoading}
-              className="w-full font-semibold py-3 text-base md:text-sm bg-custom-purple-100 text-custom-purple-800 hover:bg-custom-purple-100/80 dark:bg-custom-purple-800 dark:text-custom-purple-100 dark:hover:bg-custom-purple-800/90"
+              className="w-full font-semibold py-3 text-base md:text-sm home-card-button-purple"
             >
               {isLoading ? (
                 <>{translate('loading')}...</>
@@ -294,8 +340,14 @@ export default function EvaluacionPage() {
       <Card className="w-full max-w-2xl mx-auto shadow-xl">
         <CardHeader className="text-center border-b pb-4">
           <CardTitle className="text-2xl font-bold font-headline">{evaluationTitle}</CardTitle>
-          <CardDescription>
-            {translate('evalQuestionProgress', { current: currentQuestionIndex + 1, total: evaluationQuestions.length })}
+          <CardDescription className="flex items-center justify-center space-x-4">
+            <span>{translate('evalQuestionProgress', { current: currentQuestionIndex + 1, total: evaluationQuestions.length })}</span>
+            {evaluationStarted && !evaluationFinished && (
+              <span className="font-mono text-base text-primary tabular-nums flex items-center">
+                <Stopwatch className="w-4 h-4 mr-1.5" />
+                {translate('evalTimeLeft', { time: formatTime(timeLeft) })}
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6 min-h-[250px] flex flex-col justify-between">
