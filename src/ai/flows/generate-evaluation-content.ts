@@ -54,6 +54,9 @@ const generateEvaluationPrompt = ai.definePrompt({
   name: 'generateEvaluationPrompt',
   input: {schema: GenerateEvaluationInputSchema.extend({ topic_uppercase: z.string() })},
   output: {schema: GenerateEvaluationOutputSchema},
+  config: { // Added temperature for more varied output
+    temperature: 0.7,
+  },
   prompt: `You are an expert educator creating an evaluation.
 Based on the book titled "{{bookTitle}}", generate an evaluation for the topic "{{topic}}".
 The language for all content MUST be Spanish.
@@ -114,7 +117,13 @@ const generateEvaluationFlow = ai.defineFlow(
 
     if (!output || !output.questions || output.questions.length !== 3) {
       console.error('AI response:', JSON.stringify(output, null, 2));
-      throw new Error('AI failed to generate the required 3 evaluation questions or the format is incorrect.');
+      // Log the actual number of questions if output and output.questions exist
+      if (output && output.questions) {
+        console.error(`Expected 3 questions, but received ${output.questions.length}.`);
+      }
+      throw new Error(
+        `AI failed to generate the required 3 evaluation questions or the format is incorrect. Expected 3, got ${output?.questions?.length || 0}.`
+      );
     }
     // Ensure IDs are unique if AI doesn't do it reliably, though prompt asks for it.
     // For now, trust the prompt's instruction for unique IDs.
