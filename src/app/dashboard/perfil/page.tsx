@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { UserCircle, BarChart3, History as HistoryIcon, Download, Trash2, Edit3 } from 'lucide-react';
 import type { UserProfile, SubjectProgress, EvaluationHistoryItem } from '@/lib/types';
+import { useEffect, useState } from 'react';
 
 // Mock Data - This would typically come from a backend or state management
 const userProfileData: UserProfile = {
@@ -19,7 +20,7 @@ const userProfileData: UserProfile = {
     { tag: "CIEN", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
     { tag: "HIST", nameKey: "subjectHistory", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
   ],
-  evaluationsCompleted: 33,
+  evaluationsCompleted: 33, // This will be dynamically updated later if needed
 };
 
 const learningStatsData: SubjectProgress[] = [
@@ -30,20 +31,45 @@ const learningStatsData: SubjectProgress[] = [
 ];
 
 const profileStatsCardsData = [
-    { value: "33", labelKey: "statEvals", colorClass: "bg-blue-500 dark:bg-blue-600" },
-    { value: "47.0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" },
+    { value: "33", labelKey: "statEvals", colorClass: "bg-blue-500 dark:bg-blue-600" }, // This value could be history.length
+    { value: "47.0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600" }, // This would need calculation
     { value: "2", labelKey: "statGoals", colorClass: "bg-yellow-500 dark:bg-yellow-600" },
     { value: "28", labelKey: "statSummaries", colorClass: "bg-purple-500 dark:bg-purple-600" },
-];
-
-const evaluationHistoryData: EvaluationHistoryItem[] = [
-  { id: "1", date: "05-06-2025 18:23 hrs", bookKey: "subjectScience", topic: "sistema respiratorio", grade: "0%", points: "0/15" },
-  // Add more mock history items if needed
 ];
 
 
 export default function PerfilPage() {
   const { translate } = useLanguage();
+  const [evaluationHistory, setEvaluationHistory] = useState<EvaluationHistoryItem[]>([]);
+
+  useEffect(() => {
+    const storedHistoryString = localStorage.getItem('evaluationHistory');
+    if (storedHistoryString) {
+      try {
+        const storedHistory: EvaluationHistoryItem[] = JSON.parse(storedHistoryString);
+        setEvaluationHistory(storedHistory);
+      } catch (error) {
+        console.error("Failed to parse evaluation history from localStorage:", error);
+        setEvaluationHistory([]); // Default to empty if parsing fails
+      }
+    }
+  }, []);
+
+  const handleDeleteHistory = () => {
+    localStorage.removeItem('evaluationHistory');
+    setEvaluationHistory([]);
+    // Potentially show a toast message
+  };
+
+  // Update profileStatsCardsData based on history if needed, e.g., for "Completed Evaluations"
+  const dynamicProfileStatsCardsData = profileStatsCardsData.map(stat => {
+    if (stat.labelKey === "statEvals") {
+      return { ...stat, value: evaluationHistory.length.toString() };
+    }
+    // Add calculation for 'statAvgScore' if desired
+    return stat;
+  });
+
 
   return (
     <div className="space-y-8">
@@ -75,7 +101,7 @@ export default function PerfilPage() {
                   ))}
                 </div>
               </div>
-              <div><strong>{translate('profileEvalsCompleted')}</strong> {userProfileData.evaluationsCompleted}</div>
+              <div><strong>{translate('profileEvalsCompleted')}</strong> {evaluationHistory.length}</div>
             </div>
           </div>
           <div className="mt-8 border-t pt-6 flex flex-wrap justify-center gap-3">
@@ -83,7 +109,12 @@ export default function PerfilPage() {
             <Button variant="outline" size="sm" className="bg-custom-yellow-100 text-custom-yellow-800 hover:bg-custom-yellow-100/80">
               <Download className="mr-2 h-4 w-4" />{translate('profileDownloadHistory')}
             </Button>
-            <Button variant="destructive" size="sm" className="bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-300 dark:hover:bg-red-700/40">
+            <Button 
+                variant="destructive" 
+                size="sm" 
+                className="bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-700/30 dark:text-red-300 dark:hover:bg-red-700/40"
+                onClick={handleDeleteHistory}
+            >
               <Trash2 className="mr-2 h-4 w-4" />{translate('profileDeleteHistory')}
             </Button>
           </div>
@@ -114,7 +145,7 @@ export default function PerfilPage() {
 
       {/* Stats Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          {profileStatsCardsData.map(stat => (
+          {dynamicProfileStatsCardsData.map(stat => ( // Use dynamicProfileStatsCardsData here
             <Card key={stat.labelKey} className={`${stat.colorClass} text-primary-foreground shadow-md`}>
                 <CardContent className="p-4">
                     <div className="text-3xl font-bold">{stat.value}</div>
@@ -148,18 +179,32 @@ export default function PerfilPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {evaluationHistoryData.map(item => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.date}</TableCell>
-                    <TableCell>{translate(item.bookKey)}</TableCell>
-                    <TableCell>{item.topic}</TableCell>
-                    <TableCell>{item.grade}</TableCell>
-                    <TableCell>{item.points}</TableCell>
-                    <TableCell>
-                      <Button variant="link" size="sm" className="p-0 h-auto text-primary">{translate('tableReview')}</Button>
+                {evaluationHistory.length > 0 ? (
+                  evaluationHistory.map(item => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.date}</TableCell>
+                      <TableCell>{item.bookTitle}</TableCell>
+                      <TableCell>{item.topic}</TableCell>
+                      <TableCell>
+                        {item.totalQuestions > 0 ? 
+                          `${Math.round((item.score / item.totalQuestions) * 100)}%` : 
+                          'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        {`${item.score}/${item.totalQuestions}`}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="link" size="sm" className="p-0 h-auto text-primary">{translate('tableReview')}</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      {translate('historyNoData', { defaultValue: "No evaluation history yet."})}
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>

@@ -80,7 +80,7 @@
     "evalMotivationalGood": "¡Muy bien! Sigue así, estás progresando.",
     "evalMotivationalImprovement": "¡Buen intento! Cada error es una oportunidad para aprender. ¡No te rindas!",
     "evalRepeatButton": "Repetir",
-    "evalCloseButton": "Cerrar",
+    "evalCloseButton": "Revisar y Cerrar",
     "evalGeneratingTitle": "Generando Evaluación...",
     "evalErrorGenerationFormat": "La IA no devolvió el número de preguntas solicitado o en el formato esperado.",
     "evalQuestionLabel": "Pregunta {{current}}/{{total}}",
@@ -94,6 +94,9 @@
     "evalTimeLeft": "Tiempo Restante: {{time}}",
     "evalTimeUpTitle": "¡Se Acabó el Tiempo!",
     "evalTimeUpDesc": "Tu evaluación ha finalizado automáticamente.",
+    "evalDateFormatLocale": "es-CL",
+    "evalErrorSavingHistoryTitle": "Error al Guardar Historial",
+    "evalErrorSavingHistoryDesc": "No se pudo guardar la evaluación en el historial.",
     "profilePersonalTitle": "Perfil Personal",
     "profilePersonalSub": "Aquí puedes ver tu progreso y gestionar tu cuenta.",
     "profileName": "Nombre:",
@@ -124,6 +127,7 @@
     "tableGrade": "Nota",
     "tablePoints": "Pts",
     "tableReview": "Repasar",
+    "historyNoData": "Aún no hay historial de evaluaciones.",
     "helpPageTitle": "Centro de Ayuda",
     "helpPageSub": "Aquí encontrarás respuestas a preguntas frecuentes que te harán como Student.",
     "faqTitle": "Preguntas Frecuentes",
@@ -164,4 +168,3 @@
     "mapActionCreateEval": "Crear Evaluación",
     "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes."
 }
-

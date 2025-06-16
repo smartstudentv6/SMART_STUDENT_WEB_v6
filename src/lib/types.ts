@@ -27,12 +27,11 @@ export interface SubjectProgress {
 }
 
 export interface EvaluationHistoryItem {
-  id: string;
-  date: string; // Could be Date object
-  bookKey: string; // Key for translation
+  id: string; // Unique ID, e.g., ISO timestamp of completion
+  date: string; // Formatted date and time string
+  bookTitle: string;
   topic: string;
-  grade: string; // e.g. "90%"
-  points: string; // e.g. "9/10"
+  score: number; // Number of correct answers
+  totalQuestions: number; // Total number of questions in the evaluation
 }
-
     

@@ -13,6 +13,7 @@ import { generateEvaluationContent, type EvaluationQuestion } from '@/ai/flows/g
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import type { EvaluationHistoryItem } from '@/lib/types';
 
 type UserAnswer = boolean | number | null; // boolean for T/F, number for MC index
 
@@ -36,6 +37,7 @@ export default function EvaluacionPage() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [topic, setTopic] = useState('');
+  const [currentTopicForDisplay, setCurrentTopicForDisplay] = useState('');
   
   // Evaluation state
   const [evaluationTitle, setEvaluationTitle] = useState('');
@@ -68,6 +70,39 @@ export default function EvaluacionPage() {
     return correctAnswers;
   }, [evaluationQuestions, userAnswers]);
 
+  const saveEvaluationToHistory = useCallback((finalScore: number, totalQuestions: number) => {
+    if (!selectedBook || !currentTopicForDisplay) return;
+
+    const newHistoryItem: EvaluationHistoryItem = {
+      id: new Date().toISOString(),
+      date: new Date().toLocaleString(translate('evalDateFormatLocale', {defaultValue: 'es-CL'}), { // Example: 'es-CL' or 'en-US'
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }) + ' hrs',
+      bookTitle: selectedBook,
+      topic: currentTopicForDisplay,
+      score: finalScore,
+      totalQuestions: totalQuestions,
+    };
+
+    try {
+      const existingHistoryString = localStorage.getItem('evaluationHistory');
+      const existingHistory: EvaluationHistoryItem[] = existingHistoryString ? JSON.parse(existingHistoryString) : [];
+      const updatedHistory = [newHistoryItem, ...existingHistory]; // Add new item to the beginning
+      localStorage.setItem('evaluationHistory', JSON.stringify(updatedHistory));
+    } catch (error) {
+      console.error("Failed to save evaluation history:", error);
+      toast({
+        title: translate('evalErrorSavingHistoryTitle', {defaultValue: "Error Saving History"}),
+        description: translate('evalErrorSavingHistoryDesc', {defaultValue: "Could not save evaluation to history."}),
+        variant: 'destructive',
+      });
+    }
+  }, [selectedBook, currentTopicForDisplay, toast, translate]);
+
   const handleFinishEvaluation = useCallback(() => {
     const finalScore = calculateScore();
     setScore(finalScore);
@@ -86,7 +121,10 @@ export default function EvaluacionPage() {
     setTimerActive(false); // Stop the timer
     setEvaluationFinished(true);
     setShowResultDialog(true);
-  }, [calculateScore, evaluationQuestions.length]);
+    if (totalQuestions > 0) { // Only save if there were questions
+        saveEvaluationToHistory(finalScore, totalQuestions);
+    }
+  }, [calculateScore, evaluationQuestions.length, saveEvaluationToHistory]);
 
   // Timer Effect
   useEffect(() => {
@@ -140,6 +178,7 @@ export default function EvaluacionPage() {
     setUserAnswers([]);
     setScore(0);
     setMotivationalMessageKey('');
+    setCurrentTopicForDisplay(trimmedTopic);
     
 
     try {
@@ -205,13 +244,16 @@ export default function EvaluacionPage() {
     setScore(0);
     setMotivationalMessageKey('');
     setTopic('');
+    setCurrentTopicForDisplay('');
     setShowResultDialog(false); 
     setTimeLeft(INITIAL_TIME_LIMIT);
     setTimerActive(false);
   };
 
-  const handleCloseDialog = () => {
+  const handleCloseDialogAndShowReview = () => {
     setShowResultDialog(false);
+    // setEvaluationFinished(true) is already called in handleFinishEvaluation
+    // This will make the review screen visible
   };
 
   const formatTime = (seconds: number) => {
@@ -444,7 +486,7 @@ export default function EvaluacionPage() {
             <Button onClick={handleRepeatEvaluation} className="w-full home-card-button-purple">
                 {translate('evalRepeatButton')}
             </Button>
-            <Button onClick={handleCloseDialog} variant="outline" className="w-full">
+            <Button onClick={handleCloseDialogAndShowReview} variant="outline" className="w-full">
                 {translate('evalCloseButton')}
             </Button>
           </AlertDialogFooter>
@@ -453,5 +495,4 @@ export default function EvaluacionPage() {
     </>
   );
 }
-
     
