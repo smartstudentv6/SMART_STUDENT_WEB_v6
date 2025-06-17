@@ -25,7 +25,7 @@ export default function LoginPage() {
               {/* Slogan is centered relative to "SMART STUDENT" due to text-center */}
               <p className="text-muted-foreground">{translate('appSlogan')}</p>
             </div>
-            <Logo className="w-10 h-10" width={40} height={40} /> {/* Logo moved to the right */}
+            <Logo className="w-10 h-10 text-foreground" /> {/* Logo moved to the right */}
           </div>
         </div>
         <LoginForm />

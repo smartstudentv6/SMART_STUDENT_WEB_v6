@@ -7,6 +7,11 @@ import { AppProviders } from '@/contexts/app-provider';
 export const metadata: Metadata = {
   title: 'SMART STUDENT',
   description: 'SMART STUDENT - Aprende, Crea y Destaca',
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -17,8 +22,6 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning={true}>
       <head>
-        <link rel="icon" href="/favicon.ico?v=4" type="image/x-icon" />
-        <link rel="shortcut icon" href="/favicon.ico?v=4" type="image/x-icon" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />

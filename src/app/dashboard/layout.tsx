@@ -124,7 +124,7 @@ export default function DashboardLayout({
             <h1 className="text-xl font-bold whitespace-nowrap text-foreground hidden sm:block font-headline">
               SMART STUDENT
             </h1>
-            <Logo className="w-7 h-7" width={28} height={28} />
+            <Logo className="w-7 h-7 text-foreground" />
           </Link>
           
           <div className="hidden md:flex items-center justify-center space-x-1 lg:space-x-2 overflow-x-auto">
