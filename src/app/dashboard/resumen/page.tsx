@@ -108,17 +108,7 @@ export default function ResumenPage() {
         includeKeyPoints: includeKeyPoints,
         language: currentUiLanguage,
       };
-      
-      console.log('Frontend: Calling generateSummary with input:', input);
-      
       const result = await generateSummary(input);
-      
-      console.log('Frontend: Received result:', {
-        summaryLength: result.summary?.length || 0,
-        keyPointsLength: result.keyPoints?.length || 0,
-        keyPointsRequested: includeKeyPoints
-      });
-      
       setSummaryResult({
         summary: result.summary, 
         keyPoints: result.keyPoints

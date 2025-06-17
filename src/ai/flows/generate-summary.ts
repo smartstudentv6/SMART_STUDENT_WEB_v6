@@ -18,26 +18,9 @@ const GenerateSummaryInputSchema = z.object({
   topic: z.string().describe('The specific topic to summarize. This helps focus the summary.'),
   includeKeyPoints: z.boolean().optional().describe('Whether to include 10 key points from the summary.'),
   language: z.enum(['es', 'en']).describe('The language for the output summary and key points (e.g., "es" for Spanish, "en" for English).'),
-  pdfContext: z.string().optional().describe('Additional context from PDF database search.'),
 });
 
 export type GenerateSummaryInput = z.infer<typeof GenerateSummaryInputSchema>;
-
-// Simulated PDF database search function
-async function searchPDFDatabase(bookTitle: string, topic: string): Promise<string> {
-  // In a real implementation, this would:
-  // 1. Connect to your database
-  // 2. Search for PDF documents related to the book title
-  // 3. Extract relevant content related to the topic
-  // 4. Return the extracted text content
-  
-  // For now, return a simulated PDF context
-  return `Información adicional encontrada en la base de datos de PDFs para "${bookTitle}" sobre el tema "${topic}":
-  
-Esta sección contiene información específica extraída de documentos PDF relacionados con el libro y tema solicitado. El sistema ha identificado contenido relevante que complementa el conocimiento base de la IA.
-
-Nota: En una implementación real, aquí aparecería el contenido específico extraído de los PDFs almacenados en la base de datos.`;
-}
 
 const GenerateSummaryOutputSchema = z.object({
   summary: z.string().describe('The generated summary of the topic, potentially up to 10,000 words based on AI knowledge of the book and topic. Should be formatted in Markdown.'),
@@ -49,27 +32,12 @@ export type GenerateSummaryOutput = z.infer<typeof GenerateSummaryOutputSchema>;
 
 export async function generateSummary(input: GenerateSummaryInput): Promise<GenerateSummaryOutput> {
   try {
-    // Debug logging
-    console.log('=== GENERATE SUMMARY DEBUG ===');
-    console.log('Input:', JSON.stringify(input, null, 2));
-    console.log('GOOGLE_API_KEY exists:', !!process.env.GOOGLE_API_KEY);
-    console.log('GOOGLE_API_KEY value:', process.env.GOOGLE_API_KEY ? `${process.env.GOOGLE_API_KEY.substring(0, 10)}...` : 'not set');
-    
-    // Check if API key is available and valid
-    const hasValidApiKey = process.env.GOOGLE_API_KEY && 
-                          process.env.GOOGLE_API_KEY !== 'your_google_api_key_here' && 
-                          process.env.GOOGLE_API_KEY.length > 10;
-    
-    console.log('hasValidApiKey:', hasValidApiKey);
-    
-    if (!hasValidApiKey) {
+    // Check if API key is available
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'your_google_api_key_here') {
       // Return enhanced mock data for development with more detailed content
       const isSpanish = input.language === 'es';
       
       const topicContent = getTopicContent(input.topic, input.bookTitle, isSpanish);
-      
-      console.log('Using mock data. includeKeyPoints:', input.includeKeyPoints);
-      console.log('Mock keyPoints length:', topicContent.keyPoints?.length || 0);
       
       return {
         summary: topicContent.summary,
@@ -79,22 +47,8 @@ export async function generateSummary(input: GenerateSummaryInput): Promise<Gene
           : `Summary generated with example data for "${input.topic}" during API setup.`
       };
     }
-
-    // Simulate PDF database search - In a real implementation, this would query your database
-    const pdfContent = await searchPDFDatabase(input.bookTitle, input.topic);
     
-    console.log('Using real API. Calling generateSummaryFlow...');
-    
-    // Generate summary using Gemini with PDF content context
-    const result = await generateSummaryFlow({
-      ...input,
-      pdfContext: pdfContent
-    });
-    
-    console.log('API result keyPoints length:', result.keyPoints?.length || 0);
-    console.log('=== END DEBUG ===');
-    
-    return result;
+    return await generateSummaryFlow(input);
   } catch (error) {
     console.error('Error generating summary:', error);
     const isSpanish = input.language === 'es';
@@ -468,66 +422,45 @@ const generateSummaryPrompt = ai.definePrompt({
   output: {
     schema: GenerateSummaryOutputSchema,
   },
-  prompt: `You are an AI assistant expert in educational content and academic summarization, with access to a comprehensive database of PDF documents.
+  prompt: `You are an AI assistant expert in educational content and academic summarization.
 
 Topic to Summarize: {{{topic}}}
 Book Title: {{{bookTitle}}}
 Output Language: {{{language}}}
-{{#if pdfContext}}
-PDF Database Context: {{{pdfContext}}}
-{{/if}}
 
 Instructions:
-1. Generate a comprehensive and detailed educational summary of the specified topic "{{{topic}}}" based on:
-   - Your knowledge of the book "{{{bookTitle}}}"
-   - General academic knowledge if the specific book is not in your training data
-   {{#if pdfContext}}
-   - The additional context provided from the PDF database search
-   {{/if}}
+1. Generate a comprehensive and detailed educational summary of the specified topic "{{{topic}}}" based on your knowledge of the book "{{{bookTitle}}}" or general academic knowledge if the specific book is not in your training data.
    
    The summary MUST be written in the language specified by the 'language' input field:
    - If 'language' is 'es', write everything in Spanish
    - If 'language' is 'en', write everything in English
    
-   IMPORTANT: Create an extensive, comprehensive summary aiming for approximately 8,000-10,000 words of substantial, educational content. This should be a thorough academic resource.
-   
    Structure your summary as follows:
-   - Start with a detailed introduction explaining what the topic is about (500-800 words)
-   - Include 8-12 main sections with descriptive headings (700-1000 words each)
-   - Provide detailed explanations with specific examples, case studies, and practical applications
-   - Include scientific or technical terminology with clear explanations
-   - Add subsections within each main section for better organization
-   - Include historical context where relevant
-   - Discuss current research and developments
-   - Address common misconceptions or challenges
-   - Provide comparative analysis where applicable
-   - End with comprehensive conclusions and practical applications (500-800 words)
+   - Start with a clear introduction explaining what the topic is about
+   - Include 3-5 main sections with descriptive headings
+   - Provide detailed explanations with specific examples where relevant
+   - Include scientific or technical terminology appropriately
+   - End with practical conclusions or applications
+   
+   Aim for approximately 1,500-3,000 words of substantial, educational content.
    
    Format using Markdown:
    - Use # for the main title
    - Use ## for major sections  
    - Use ### for subsections
-   - Use #### for detailed sub-points
-   - Use **bold** for important terms and concepts
-   - Use *italics* for emphasis
+   - Use **bold** for important terms
    - Use bullet points (-) for lists
-   - Use numbered lists (1.) for sequential information
    - Use double newlines between paragraphs
-   - Include relevant quotes or citations where appropriate
 
 {{#if includeKeyPoints}}
-2. MANDATORY: After the summary, you MUST extract exactly 10 key points that represent the most important takeaways from your comprehensive summary. This is a REQUIRED field when includeKeyPoints is true. These should be:
+2. After the summary, extract exactly 10 key points that represent the most important takeaways from your summary. These should be:
    - Distinct and non-repetitive
-   - Educational and highly informative
-   - Written as complete, detailed statements (2-3 sentences each)
-   - Cover different aspects of the topic
+   - Educational and informative
+   - Written as complete, clear statements
    - In the same language as the summary ({{{language}}})
-   - Prioritize the most critical concepts for student understanding
-   
-   IMPORTANT: The keyPoints field in the JSON response must contain an array of exactly 10 strings, not null or empty.
 {{/if}}
 
-Focus on creating educational content that would serve as a complete academic resource for students studying this topic at university level. Make it comprehensive, authoritative, and accessible while maintaining academic rigor.
+Focus on creating educational content that would be valuable for students studying this topic. Make it comprehensive yet accessible.
 
 Return the output in the specified JSON format with "summary", "keyPoints" (if requested), and "progress" fields.`,
 });
@@ -543,53 +476,12 @@ const generateSummaryFlow = ai.defineFlow(
     if (!output) {
       throw new Error('Failed to generate summary output.');
     }
-    
-    // Debug logging
-    console.log('API Response - includeKeyPoints:', input.includeKeyPoints);
-    console.log('API Response - keyPoints received:', output.keyPoints ? output.keyPoints.length : 'none');
-    
     const progressMessage = `Generated a detailed summary for topic "${input.topic}" from book "${input.bookTitle}" in ${input.language}.`;
-    
-    // Ensure keyPoints are returned if requested, even if API didn't generate them
-    let finalKeyPoints = output.keyPoints;
-    if (input.includeKeyPoints && (!finalKeyPoints || finalKeyPoints.length === 0)) {
-      // Generate fallback key points
-      const isSpanish = input.language === 'es';
-      finalKeyPoints = generateFallbackKeyPoints(input.topic, input.bookTitle, isSpanish);
-    }
-    
     return {
       summary: output.summary || '',
-      keyPoints: input.includeKeyPoints ? finalKeyPoints : undefined,
+      keyPoints: output.keyPoints || (input.includeKeyPoints ? [] : undefined),
       progress: progressMessage,
     };
   }
 );
-
-// Function to generate fallback key points when API doesn't provide them
-function generateFallbackKeyPoints(topic: string, bookTitle: string, isSpanish: boolean): string[] {
-  return isSpanish ? [
-    `Análisis detallado del tema "${topic}" según el contenido del libro "${bookTitle}"`,
-    `Conceptos fundamentales que todo estudiante debe conocer sobre este tema`,
-    `Aplicaciones prácticas y relevancia en el contexto académico actual`,
-    `Metodologías de estudio recomendadas para profundizar en el conocimiento`,
-    `Conexiones interdisciplinarias que enriquecen la comprensión del tema`,
-    `Importancia histórica y desarrollo evolutivo de los conceptos clave`,
-    `Casos de estudio y ejemplos prácticos para ilustrar la teoría`,
-    `Herramientas de evaluación y autoevaluación del aprendizaje`,
-    `Recursos adicionales recomendados para continuar el estudio`,
-    `Implicaciones futuras y tendencias emergentes en el área de estudio`
-  ] : [
-    `Detailed analysis of the topic "${topic}" according to the content of the book "${bookTitle}"`,
-    `Fundamental concepts that every student should know about this topic`,
-    `Practical applications and relevance in the current academic context`,
-    `Recommended study methodologies to deepen knowledge`,
-    `Interdisciplinary connections that enrich topic understanding`,
-    `Historical importance and evolutionary development of key concepts`,
-    `Case studies and practical examples to illustrate theory`,
-    `Assessment tools and self-evaluation of learning`,
-    `Additional recommended resources to continue studying`,
-    `Future implications and emerging trends in the study area`
-  ];
-}
 
