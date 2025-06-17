@@ -59,80 +59,90 @@ export default function PerfilPage() {
 
   // Initialize example data for Felipe if no data exists
   const initializeExampleData = () => {
-    const existingHistory = localStorage.getItem('evaluationHistory');
-    if (!existingHistory || JSON.parse(existingHistory).length === 0) {
-      const sampleEvaluations: EvaluationHistoryItem[] = [
-        {
-          id: 'eval1',
-          subject: 'Ciencias Naturales',
-          topic: 'Sistema Respiratorio',
-          score: 8,
-          totalQuestions: 10,
-          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-          answers: []
-        },
-        {
-          id: 'eval2',
-          subject: 'Matemáticas',
-          topic: 'Álgebra Básica',
-          score: 7,
-          totalQuestions: 10,
-          date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-          answers: []
-        },
-        {
-          id: 'eval3',
-          subject: 'Historia, Geografía y Ciencias Sociales',
-          topic: 'Independencia de Chile',
-          score: 9,
-          totalQuestions: 10,
-          date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
-          answers: []
+    if (typeof window === 'undefined') return; // Skip on server side
+    
+    try {
+      const existingHistory = localStorage.getItem('evaluationHistory');
+      if (!existingHistory || JSON.parse(existingHistory).length === 0) {
+        const sampleEvaluations: EvaluationHistoryItem[] = [
+          {
+            id: 'eval1',
+            subject: 'Ciencias Naturales',
+            topic: 'Sistema Respiratorio',
+            score: 8,
+            totalQuestions: 10,
+            date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+            answers: []
+          },
+          {
+            id: 'eval2',
+            subject: 'Matemáticas',
+            topic: 'Álgebra Básica',
+            score: 7,
+            totalQuestions: 10,
+            date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+            answers: []
+          },
+          {
+            id: 'eval3',
+            subject: 'Historia, Geografía y Ciencias Sociales',
+            topic: 'Independencia de Chile',
+            score: 9,
+            totalQuestions: 10,
+            date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+            answers: []
+          }
+        ];
+        localStorage.setItem('evaluationHistory', JSON.stringify(sampleEvaluations));
+        setEvaluationHistory(sampleEvaluations);
+        
+        // Also initialize some activity counts
+        if (!localStorage.getItem('summariesCreatedCount')) {
+          localStorage.setItem('summariesCreatedCount', '2');
         }
-      ];
-      localStorage.setItem('evaluationHistory', JSON.stringify(sampleEvaluations));
-      setEvaluationHistory(sampleEvaluations);
-      
-      // Also initialize some activity counts
-      if (!localStorage.getItem('summariesCreatedCount')) {
-        localStorage.setItem('summariesCreatedCount', '2');
+        if (!localStorage.getItem('mapsCreatedCount')) {
+          localStorage.setItem('mapsCreatedCount', '1');
+        }
+        if (!localStorage.getItem('quizzesCreatedCount')) {
+          localStorage.setItem('quizzesCreatedCount', '3');
+        }
       }
-      if (!localStorage.getItem('mapsCreatedCount')) {
-        localStorage.setItem('mapsCreatedCount', '1');
-      }
-      if (!localStorage.getItem('quizzesCreatedCount')) {
-        localStorage.setItem('quizzesCreatedCount', '3');
-      }
+    } catch (error) {
+      console.error('Error initializing example data:', error);
     }
   };
 
   useEffect(() => {
-    // Initialize example data for Felipe
-    initializeExampleData();
+    if (typeof window === 'undefined') return; // Skip on server side
     
-    const storedHistoryString = localStorage.getItem('evaluationHistory');
-    if (storedHistoryString) {
-      try {
-        const storedHistory: EvaluationHistoryItem[] = JSON.parse(storedHistoryString);
-        setEvaluationHistory(storedHistory);
-      } catch (error) {
-        console.error("Failed to parse evaluation history from localStorage:", error);
-        setEvaluationHistory([]); 
+    try {
+      // Initialize example data for Felipe
+      initializeExampleData();
+      
+      const storedHistoryString = localStorage.getItem('evaluationHistory');
+      if (storedHistoryString) {
+        try {
+          const storedHistory: EvaluationHistoryItem[] = JSON.parse(storedHistoryString);
+          setEvaluationHistory(storedHistory);
+        } catch (error) {
+          console.error("Failed to parse evaluation history from localStorage:", error);
+          setEvaluationHistory([]); 
+        }
       }
+       // Load counts for summaries, maps, and quizzes
+      const summariesCount = localStorage.getItem('summariesCreatedCount') || '0';
+      const mapsCount = localStorage.getItem('mapsCreatedCount') || '0';
+      const quizzesCount = localStorage.getItem('quizzesCreatedCount') || '0';
+
+      setDynamicProfileCards(prevCards => prevCards.map(card => {
+          if (card.labelKey === "statSummaries") return { ...card, value: summariesCount };
+          if (card.labelKey === "statMaps") return { ...card, value: mapsCount };
+          if (card.labelKey === "statQuizzes") return { ...card, value: quizzesCount };
+          return card;
+      }));
+    } catch (error) {
+      console.error('Error in profile useEffect:', error);
     }
-     // Load counts for summaries, maps, and quizzes
-    const summariesCount = localStorage.getItem('summariesCreatedCount') || '0';
-    const mapsCount = localStorage.getItem('mapsCreatedCount') || '0';
-    const quizzesCount = localStorage.getItem('quizzesCreatedCount') || '0';
-
-
-    setDynamicProfileCards(prevCards => prevCards.map(card => {
-        if (card.labelKey === "statSummaries") return { ...card, value: summariesCount };
-        if (card.labelKey === "statMaps") return { ...card, value: mapsCount };
-        if (card.labelKey === "statQuizzes") return { ...card, value: quizzesCount };
-        return card;
-    }));
-
   }, []);
 
   useEffect(() => {
@@ -200,9 +210,9 @@ export default function PerfilPage() {
       ? Math.round((totalScoreSum / totalPossibleScoreSum) * 100) 
       : 0;
     
-    const summariesCount = localStorage.getItem('summariesCreatedCount') || '0';
-    const mapsCount = localStorage.getItem('mapsCreatedCount') || '0';
-    const quizzesCount = localStorage.getItem('quizzesCreatedCount') || '0';
+    const summariesCount = typeof window !== 'undefined' ? (localStorage.getItem('summariesCreatedCount') || '0') : '0';
+    const mapsCount = typeof window !== 'undefined' ? (localStorage.getItem('mapsCreatedCount') || '0') : '0';
+    const quizzesCount = typeof window !== 'undefined' ? (localStorage.getItem('quizzesCreatedCount') || '0') : '0';
 
 
     const newProfileCards = profileStatsCardsTemplate.map(card => {
@@ -229,15 +239,18 @@ export default function PerfilPage() {
 
 
   const handleDeleteHistory = () => {
-    localStorage.removeItem('evaluationHistory');
-    localStorage.removeItem('summariesCreatedCount'); 
-    localStorage.removeItem('mapsCreatedCount'); 
-    localStorage.removeItem('quizzesCreatedCount');
-    setEvaluationHistory([]); 
-    setCurrentPage(1);
+    if (typeof window === 'undefined') return;
+    
+    try {
+      localStorage.removeItem('evaluationHistory');
+      localStorage.removeItem('summariesCreatedCount'); 
+      localStorage.removeItem('mapsCreatedCount'); 
+      localStorage.removeItem('quizzesCreatedCount');
+      setEvaluationHistory([]); 
+      setCurrentPage(1);
 
-    // Update profile cards immediately
-    setDynamicProfileCards(prevCards => prevCards.map(card => {
+      // Update profile cards immediately
+      setDynamicProfileCards(prevCards => prevCards.map(card => {
         if (card.labelKey === "statEvals") return { ...card, value: "0" };
         if (card.labelKey === "statAvgScore") return { ...card, value: "0%" };
         if (card.labelKey === "statSummaries") return { ...card, value: "0" };
@@ -246,10 +259,18 @@ export default function PerfilPage() {
         return card;
     }));
 
-    toast({ 
-        title: translate('historyDeletedTitle'), 
-        description: translate('historyDeletedDesc') 
-    });
+      toast({ 
+          title: translate('historyDeletedTitle'), 
+          description: translate('historyDeletedDesc') 
+      });
+    } catch (error) {
+      console.error('Error deleting history:', error);
+      toast({ 
+          title: 'Error', 
+          description: 'Error al eliminar el historial',
+          variant: 'destructive'
+      });
+    }
   };
 
   const handleDownloadHistoryXlsx = () => {
