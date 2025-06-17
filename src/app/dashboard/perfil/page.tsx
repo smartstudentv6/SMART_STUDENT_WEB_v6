@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 const userProfileData: UserProfile = {
   name: "Felipe",
   levelKey: "profileLevelValue",
-  activeCoursesKey: "profileCourse8thGradeValue", 
+  activeCoursesKey: "profileCourse8thGrade", 
   subjects: [
     { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
     { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
@@ -57,7 +57,59 @@ export default function PerfilPage() {
   const [dynamicLearningStats, setDynamicLearningStats] = useState<SubjectProgress[]>(learningStatsTemplate);
   const [dynamicProfileCards, setDynamicProfileCards] = useState(profileStatsCardsTemplate);
 
+  // Initialize example data for Felipe if no data exists
+  const initializeExampleData = () => {
+    const existingHistory = localStorage.getItem('evaluationHistory');
+    if (!existingHistory || JSON.parse(existingHistory).length === 0) {
+      const sampleEvaluations: EvaluationHistoryItem[] = [
+        {
+          id: 'eval1',
+          subject: 'Ciencias Naturales',
+          topic: 'Sistema Respiratorio',
+          score: 8,
+          totalQuestions: 10,
+          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+          answers: []
+        },
+        {
+          id: 'eval2',
+          subject: 'Matemáticas',
+          topic: 'Álgebra Básica',
+          score: 7,
+          totalQuestions: 10,
+          date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+          answers: []
+        },
+        {
+          id: 'eval3',
+          subject: 'Historia, Geografía y Ciencias Sociales',
+          topic: 'Independencia de Chile',
+          score: 9,
+          totalQuestions: 10,
+          date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+          answers: []
+        }
+      ];
+      localStorage.setItem('evaluationHistory', JSON.stringify(sampleEvaluations));
+      setEvaluationHistory(sampleEvaluations);
+      
+      // Also initialize some activity counts
+      if (!localStorage.getItem('summariesCreatedCount')) {
+        localStorage.setItem('summariesCreatedCount', '2');
+      }
+      if (!localStorage.getItem('mapsCreatedCount')) {
+        localStorage.setItem('mapsCreatedCount', '1');
+      }
+      if (!localStorage.getItem('quizzesCreatedCount')) {
+        localStorage.setItem('quizzesCreatedCount', '3');
+      }
+    }
+  };
+
   useEffect(() => {
+    // Initialize example data for Felipe
+    initializeExampleData();
+    
     const storedHistoryString = localStorage.getItem('evaluationHistory');
     if (storedHistoryString) {
       try {

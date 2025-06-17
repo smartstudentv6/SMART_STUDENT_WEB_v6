@@ -10,8 +10,8 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3000', '*.github.dev'],
-      bodySizeLimit: '2mb',
+      allowedOrigins: ['localhost:3000', 'localhost:9002', 'localhost:9003', '*.github.dev', '*.gitpod.io', '*.railway.app'],
+      bodySizeLimit: '5mb',
     },
   },
   images: {
