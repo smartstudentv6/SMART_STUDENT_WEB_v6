@@ -85,7 +85,7 @@ export default function DashboardHomePage() {
           <h1 className="text-3xl font-bold text-foreground font-headline">
             {translate('welcomeMessage', { name: userName })}
           </h1>
-          <Home className="w-8 h-8 text-foreground" />
+          <Home className="w-8 h-8" />
         </div>
       </div>
 
