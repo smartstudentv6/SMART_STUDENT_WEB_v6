@@ -2,7 +2,6 @@
 "use client";
 
 import LoginForm from '@/components/auth/login-form';
-import Logo from '@/components/shared/logo';
 import { useLanguage } from '@/contexts/language-context';
 import LanguageToggle from '@/components/shared/language-toggle';
 import ThemeToggle from '@/components/shared/theme-toggle';
@@ -25,7 +24,11 @@ export default function LoginPage() {
               {/* Slogan is centered relative to "SMART STUDENT" due to text-center */}
               <p className="text-muted-foreground">{translate('appSlogan')}</p>
             </div>
-            <Logo className="w-10 h-10 text-foreground" /> {/* Logo moved to the right */}
+            <img 
+              src="/favicon.ico" 
+              alt="SMART STUDENT Logo" 
+              className="w-10 h-10" 
+            /> {/* Logo moved to the right */}
           </div>
         </div>
         <LoginForm />
