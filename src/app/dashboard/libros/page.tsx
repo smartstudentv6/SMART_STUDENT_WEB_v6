@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Library, Download, Book, FileText, Search, GraduationCap, Filter } from 'lucide-react';
+import { Library, Download, Book, FileText, Search, GraduationCap, Filter, Microscope, Calculator, BookOpen, Map, Atom, Zap, Flask, Brain, Users, Scale } from 'lucide-react';
 import { bookPDFs, BookPDF } from '@/lib/books-data';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
@@ -18,6 +17,40 @@ export default function LibrosPage() {
   const { courses } = useAppData();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Function to get subject icon and color
+  const getSubjectIconAndColor = (subject: string) => {
+    const lowerSubject = subject.toLowerCase();
+    
+    // Ciencias básicas
+    if (lowerSubject.includes('ciencias') && lowerSubject.includes('naturales')) {
+      return { icon: Microscope, color: 'text-green-600' };
+    } 
+    // Materias específicas de media
+    else if (lowerSubject.includes('biología') || lowerSubject.includes('biologia')) {
+      return { icon: Atom, color: 'text-emerald-600' };
+    } else if (lowerSubject.includes('física') || lowerSubject.includes('fisica')) {
+      return { icon: Zap, color: 'text-yellow-600' };
+    } else if (lowerSubject.includes('química') || lowerSubject.includes('quimica')) {
+      return { icon: Flask, color: 'text-purple-600' };
+    } else if (lowerSubject.includes('filosofía') || lowerSubject.includes('filosofia')) {
+      return { icon: Brain, color: 'text-indigo-600' };
+    } else if (lowerSubject.includes('ciencias para la ciudadanía') || lowerSubject.includes('ciencias para la ciudadania')) {
+      return { icon: Users, color: 'text-teal-600' };
+    } else if (lowerSubject.includes('educación ciudadana') || lowerSubject.includes('educacion ciudadana')) {
+      return { icon: Scale, color: 'text-orange-600' };
+    }
+    // Materias básicas
+    else if (lowerSubject.includes('matemáticas') || lowerSubject.includes('matematicas')) {
+      return { icon: Calculator, color: 'text-blue-600' };
+    } else if (lowerSubject.includes('lenguaje') || lowerSubject.includes('comunicación')) {
+      return { icon: BookOpen, color: 'text-red-600' };
+    } else if (lowerSubject.includes('historia') || lowerSubject.includes('geografía') || lowerSubject.includes('sociales')) {
+      return { icon: Map, color: 'text-amber-700' };
+    } else {
+      return { icon: Book, color: 'text-gray-600' };
+    }
+  };
 
   // Group books by course
   const booksByCourse = useMemo(() => {
@@ -141,38 +174,41 @@ export default function LibrosPage() {
 
               {/* Books Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {books.map((book, index) => (
-                  <Card key={`${book.course}-${book.subject}-${index}`} className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
-                    <CardHeader className="pb-3 flex-grow">
-                      <div className="flex items-start gap-2">
-                        <Book className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="text-base font-semibold leading-tight line-clamp-2">
-                            {book.subject}
-                          </CardTitle>
+                {books.map((book, index) => {
+                  const { icon: SubjectIcon, color } = getSubjectIconAndColor(book.subject);
+                  return (
+                    <Card key={`${book.course}-${book.subject}-${index}`} className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
+                      <CardHeader className="pb-3 flex-grow">
+                        <div className="flex items-start gap-2">
+                          <SubjectIcon className={`w-5 h-5 ${color} mt-1 flex-shrink-0`} />
+                          <div className="min-w-0 flex-1">
+                            <CardTitle className="text-base font-semibold leading-tight line-clamp-2">
+                              {book.subject}
+                            </CardTitle>
+                          </div>
                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0 mt-auto">
-                      <div className="space-y-3">
-                        <Badge variant="outline" className="text-xs">
-                          {book.course}
-                        </Badge>
-                        <Button
-                          onClick={() => handleDownloadPdf(book)}
-                          className={cn(
-                            "w-full font-semibold text-sm home-card-button-green",
-                            "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
-                          )}
-                          size="sm"
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Descargar PDF
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardHeader>
+                      <CardContent className="pt-0 mt-auto">
+                        <div className="space-y-3">
+                          <Badge variant="outline" className="text-xs">
+                            {book.course}
+                          </Badge>
+                          <Button
+                            onClick={() => handleDownloadPdf(book)}
+                            className={cn(
+                              "w-full font-semibold text-sm home-card-button-green",
+                              "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+                            )}
+                            size="sm"
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Descargar PDF
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           ))
