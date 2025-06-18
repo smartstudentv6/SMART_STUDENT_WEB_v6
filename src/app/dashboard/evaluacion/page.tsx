@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import type { EvaluationHistoryItem } from '@/lib/types';
 import { useSearchParams } from 'next/navigation'; 
 
-type UserAnswer = boolean | number | null; 
+type UserAnswer = boolean | number | number[] | null; 
 
 // Fisher-Yates shuffle function
 function shuffleArray<T>(array: T[]): T[] {
@@ -90,6 +90,14 @@ export default function EvaluacionPage() {
         correctAnswers++;
       } else if (q.type === 'MULTIPLE_CHOICE' && userAnswer === q.correctAnswerIndex) {
         correctAnswers++;
+      } else if (q.type === 'MULTIPLE_SELECTION' && Array.isArray(userAnswer) && Array.isArray(q.correctAnswerIndices)) {
+        // Check if user selected exactly the correct answers
+        const userAnswerSorted = [...userAnswer].sort();
+        const correctAnswerSorted = [...q.correctAnswerIndices].sort();
+        if (userAnswerSorted.length === correctAnswerSorted.length &&
+            userAnswerSorted.every((val, idx) => val === correctAnswerSorted[idx])) {
+          correctAnswers++;
+        }
       }
     });
     return correctAnswers;
@@ -314,6 +322,26 @@ export default function EvaluacionPage() {
   const handleAnswerSelect = (answer: UserAnswer) => {
     const newAnswers = [...userAnswers];
     newAnswers[currentQuestionIndex] = answer;
+    setUserAnswers(newAnswers);
+  };
+
+  const handleMultipleSelectionToggle = (optionIndex: number) => {
+    const newAnswers = [...userAnswers];
+    const currentAnswer = newAnswers[currentQuestionIndex];
+    
+    if (Array.isArray(currentAnswer)) {
+      // If the option is already selected, remove it
+      if (currentAnswer.includes(optionIndex)) {
+        newAnswers[currentQuestionIndex] = currentAnswer.filter(idx => idx !== optionIndex);
+      } else {
+        // Add the option to the selection
+        newAnswers[currentQuestionIndex] = [...currentAnswer, optionIndex];
+      }
+    } else {
+      // Initialize as an array with the first selection
+      newAnswers[currentQuestionIndex] = [optionIndex];
+    }
+    
     setUserAnswers(newAnswers);
   };
 
@@ -674,6 +702,38 @@ export default function EvaluacionPage() {
                       <span className="mr-2 font-semibold">{String.fromCharCode(65 + index)}.</span> {option}
                     </Button>
                   ))}
+                </div>
+              )}
+              {currentQuestion.type === 'MULTIPLE_SELECTION' && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground italic mb-4">
+                    {translate('evalMultipleSelectionInstruction', {defaultValue: 'Selecciona todas las respuestas correctas:'})}
+                  </p>
+                  <div className="grid grid-cols-1 gap-3">
+                    {currentQuestion.options.map((option, index) => {
+                      const isSelected = Array.isArray(userAnswers[currentQuestionIndex]) && 
+                                       (userAnswers[currentQuestionIndex] as number[]).includes(index);
+                      return (
+                        <Button
+                          key={index}
+                          variant="ghost"
+                          className={cn(
+                            "py-3 text-base justify-start text-left h-auto whitespace-normal w-full",
+                            isSelected ?
+                               'home-card-button-purple' : 
+                               'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20' 
+                          )}
+                          onClick={() => handleMultipleSelectionToggle(index)}
+                        >
+                          <span className="mr-2 font-semibold">{String.fromCharCode(65 + index)}.</span> 
+                          <span className="mr-2">
+                            {isSelected ? '✓' : '☐'}
+                          </span>
+                          {option}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

@@ -170,7 +170,8 @@
     "evalExtractingPDFContent": "Extracting PDF content...",
     "evalGeneratingDynamicQuestions": "Generating dynamic questions based on PDF...",
     "evalNewEvaluationGenerated": "New evaluation generated with completely different questions",
-    "evalFallbackRepeat": "Evaluation restarted with reordered questions"
+    "evalFallbackRepeat": "Evaluation restarted with reordered questions",
+    "evalMultipleSelectionInstruction": "Select all correct answers:"
 }
 
 

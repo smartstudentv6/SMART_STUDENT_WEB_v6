@@ -47,7 +47,16 @@ const MultipleChoiceQuestionSchema = z.object({
   explanation: z.string().describe('A brief explanation for the correct answer.'),
 });
 
-const EvaluationQuestionSchema = z.union([TrueFalseQuestionSchema, MultipleChoiceQuestionSchema]);
+const MultipleSelectionQuestionSchema = z.object({
+  id: z.string().describe('Unique ID for the question.'),
+  type: z.enum(['MULTIPLE_SELECTION']).describe('Question type.'),
+  questionText: z.string().describe('The text of the multiple-selection question.'),
+  options: z.array(z.string()).length(4).describe('An array of exactly 4 string options (A, B, C, D).'),
+  correctAnswerIndices: z.array(z.number()).min(2).max(3).describe('An array of 2-3 indices indicating the correct options (multiple correct answers).'),
+  explanation: z.string().describe('A brief explanation for why those specific answers are correct.'),
+});
+
+const EvaluationQuestionSchema = z.union([TrueFalseQuestionSchema, MultipleChoiceQuestionSchema, MultipleSelectionQuestionSchema]);
 type EvaluationQuestion = z.infer<typeof EvaluationQuestionSchema>;
 
 const GenerateEvaluationOutputSchema = z.object({
@@ -193,19 +202,33 @@ CRITICAL INSTRUCTIONS:
 The evaluation must adhere to the following structure:
 1.  **Evaluation Title**: The title must be "{{title_prefix}} - {{topic_uppercase}}".
 2.  **Total Questions**: Generate exactly 3 unique questions based on the PDF content above.
-3.  **Question Types**:
-    *   Generate exactly 1 True/False question based on specific information from the PDF.
-    *   Generate exactly 2 Multiple Choice questions based on specific concepts, examples, or details from the PDF.
+3.  **Question Types** (EXACTLY 1 OF EACH):
+    *   Generate exactly 1 True/False question (type: "TRUE_FALSE")
+    *   Generate exactly 1 Multiple Choice question (type: "MULTIPLE_CHOICE") - single correct answer
+    *   Generate exactly 1 Multiple Selection question (type: "MULTIPLE_SELECTION") - multiple correct answers
 4.  **For each question, ensure you provide**:
     *   \`id\`: A unique string identifier including the timestamp (e.g., "q1_{{timestamp}}", "q2_{{timestamp}}", "q3_{{timestamp}}").
-    *   \`type\`: Set to "TRUE_FALSE" for true/false questions, or "MULTIPLE_CHOICE" for multiple-choice questions.
+    *   \`type\`: Set to "TRUE_FALSE", "MULTIPLE_CHOICE", or "MULTIPLE_SELECTION".
     *   \`questionText\`: The clear and concise text of the question, referencing specific content from the PDF.
     *   \`explanation\`: A brief explanation referencing the specific part of the PDF content where this information can be found.
 5.  **Specifics for True/False Questions**:
     *   \`correctAnswer\`: A boolean value (\`true\` or \`false\`).
-6.  **Specifics for Multiple Choice Questions**:
+6.  **Specifics for Multiple Choice Questions (single answer)**:
     *   \`options\`: An array of exactly 4 distinct string options based on the PDF content.
     *   \`correctAnswerIndex\`: A number from 0 to 3 indicating the index of the correct option.
+7.  **Specifics for Multiple Selection Questions (multiple answers)**:
+    *   \`options\`: An array of exactly 4 distinct string options based on the PDF content.
+    *   \`correctAnswerIndices\`: An array of 2-3 numbers (0-3) indicating the indices of the correct options.
+
+Example of a Multiple Selection question structure (if language is "es"):
+{
+  "id": "q3_{{timestamp}}",
+  "type": "MULTIPLE_SELECTION",
+  "questionText": "¿Cuáles de las siguientes son características del sistema respiratorio? (Selecciona todas las correctas)",
+  "options": ["Intercambia gases", "Produce insulina", "Filtra la sangre", "Transporta oxígeno"],
+  "correctAnswerIndices": [0, 3],
+  "explanation": "El sistema respiratorio intercambia gases y transporta oxígeno, pero no produce insulina ni filtra la sangre."
+}
 
 ENSURE UNIQUENESS: Use different sections, examples, concepts, or details from the PDF content each time. Never repeat the same question structure or content. The random seed {{randomSeed}} should influence which parts of the PDF content you focus on.
 
@@ -312,17 +335,17 @@ export async function generateDynamicEvaluationContent(input: GenerateDynamicEva
           },
           {
             id: `q3_${timestamp}_${randomSeed}`,
-            type: 'MULTIPLE_CHOICE',
+            type: 'MULTIPLE_SELECTION',
             questionText: input.language === 'es'
-              ? `¿Qué ejemplo del PDF ilustra mejor "${input.topic}"? (Variación ${randomSeed})`
-              : `What example from the PDF best illustrates "${input.topic}"? (Variation ${randomSeed})`,
+              ? `¿Cuáles de las siguientes características pertenecen a "${input.topic}"? (Selecciona todas las correctas - Variación ${randomSeed})`
+              : `Which of the following characteristics belong to "${input.topic}"? (Select all correct - Variation ${randomSeed})`,
             options: input.language === 'es'
-              ? [`Ejemplo A-${randomSeed}`, `Ejemplo B-${randomSeed}`, `Ejemplo C-${randomSeed}`, `Ejemplo D-${randomSeed}`]
-              : [`Example A-${randomSeed}`, `Example B-${randomSeed}`, `Example C-${randomSeed}`, `Example D-${randomSeed}`],
-            correctAnswerIndex: (randomSeed + 1) % 4,
+              ? [`Característica A-${randomSeed}`, `Característica B-${randomSeed}`, `Característica C-${randomSeed}`, `Característica D-${randomSeed}`]
+              : [`Feature A-${randomSeed}`, `Feature B-${randomSeed}`, `Feature C-${randomSeed}`, `Feature D-${randomSeed}`],
+            correctAnswerIndices: [0, 2], // First and third options are correct
             explanation: input.language === 'es'
-              ? `Esta pregunta se basa en ejemplos específicos extraídos del PDF. Seed: ${randomSeed}`
-              : `This question is based on specific examples extracted from the PDF. Seed: ${randomSeed}`
+              ? `Esta pregunta de selección múltiple se basa en características extraídas del PDF. Seed: ${randomSeed}`
+              : `This multiple selection question is based on features extracted from the PDF. Seed: ${randomSeed}`
           }
         ]
       };
@@ -339,15 +362,43 @@ export async function generateDynamicEvaluationContent(input: GenerateDynamicEva
       evaluationTitle: `${input.language === 'es' ? 'EVALUACIÓN' : 'EVALUATION'} - ${input.topic.toUpperCase()}`,
       questions: [
         {
-          id: `fallback_${timestamp}_${randomSeed}`,
+          id: `fallback_tf_${timestamp}_${randomSeed}`,
           type: 'TRUE_FALSE',
           questionText: input.language === 'es'
-            ? `Pregunta de respaldo para "${input.topic}". ¿Esta pregunta es única? (ID: ${randomSeed})`
-            : `Fallback question for "${input.topic}". Is this question unique? (ID: ${randomSeed})`,
+            ? `Pregunta de respaldo V/F para "${input.topic}". ¿Esta pregunta es única? (ID: ${randomSeed})`
+            : `Fallback T/F question for "${input.topic}". Is this question unique? (ID: ${randomSeed})`,
           correctAnswer: true,
           explanation: input.language === 'es'
-            ? `Pregunta generada como respaldo debido a un error en la API. Timestamp: ${timestamp}`
-            : `Fallback question generated due to API error. Timestamp: ${timestamp}`
+            ? `Pregunta V/F generada como respaldo debido a un error en la API. Timestamp: ${timestamp}`
+            : `T/F fallback question generated due to API error. Timestamp: ${timestamp}`
+        },
+        {
+          id: `fallback_mc_${timestamp}_${randomSeed}`,
+          type: 'MULTIPLE_CHOICE',
+          questionText: input.language === 'es'
+            ? `Pregunta de respaldo de alternativas para "${input.topic}". ¿Cuál es correcta? (ID: ${randomSeed})`
+            : `Fallback multiple choice question for "${input.topic}". Which is correct? (ID: ${randomSeed})`,
+          options: input.language === 'es'
+            ? [`Opción A-${randomSeed}`, `Opción B-${randomSeed}`, `Opción C-${randomSeed}`, `Opción D-${randomSeed}`]
+            : [`Option A-${randomSeed}`, `Option B-${randomSeed}`, `Option C-${randomSeed}`, `Option D-${randomSeed}`],
+          correctAnswerIndex: randomSeed % 4,
+          explanation: input.language === 'es'
+            ? `Pregunta de alternativas generada como respaldo. Timestamp: ${timestamp}`
+            : `Multiple choice fallback question generated. Timestamp: ${timestamp}`
+        },
+        {
+          id: `fallback_ms_${timestamp}_${randomSeed}`,
+          type: 'MULTIPLE_SELECTION',
+          questionText: input.language === 'es'
+            ? `Pregunta de respaldo de selección múltiple para "${input.topic}". ¿Cuáles son correctas? (ID: ${randomSeed})`
+            : `Fallback multiple selection question for "${input.topic}". Which are correct? (ID: ${randomSeed})`,
+          options: input.language === 'es'
+            ? [`Elemento A-${randomSeed}`, `Elemento B-${randomSeed}`, `Elemento C-${randomSeed}`, `Elemento D-${randomSeed}`]
+            : [`Element A-${randomSeed}`, `Element B-${randomSeed}`, `Element C-${randomSeed}`, `Element D-${randomSeed}`],
+          correctAnswerIndices: [0, 2],
+          explanation: input.language === 'es'
+            ? `Pregunta de selección múltiple generada como respaldo. Timestamp: ${timestamp}`
+            : `Multiple selection fallback question generated. Timestamp: ${timestamp}`
         }
       ]
     };
