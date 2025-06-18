@@ -142,21 +142,18 @@ export default function LibrosPage() {
               {/* Books Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {books.map((book, index) => (
-                  <Card key={`${book.course}-${book.subject}-${index}`} className="hover:shadow-lg transition-shadow duration-200">
-                    <CardHeader className="pb-3">
+                  <Card key={`${book.course}-${book.subject}-${index}`} className="hover:shadow-lg transition-shadow duration-200 flex flex-col">
+                    <CardHeader className="pb-3 flex-grow">
                       <div className="flex items-start gap-2">
                         <Book className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
                         <div className="min-w-0 flex-1">
                           <CardTitle className="text-base font-semibold leading-tight line-clamp-2">
-                            {book.title}
-                          </CardTitle>
-                          <CardDescription className="text-sm mt-1">
                             {book.subject}
-                          </CardDescription>
+                          </CardTitle>
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="pt-0">
+                    <CardContent className="pt-0 mt-auto">
                       <div className="space-y-3">
                         <Badge variant="outline" className="text-xs">
                           {book.course}
