@@ -168,7 +168,9 @@
     "evalGeneratedDesc": "Your dynamic evaluation has been successfully created based on the PDF content",
     "evalDynamicGenerationProgress": "Processing PDF content and generating unique questions...",
     "evalExtractingPDFContent": "Extracting PDF content...",
-    "evalGeneratingDynamicQuestions": "Generating dynamic questions based on PDF..."
+    "evalGeneratingDynamicQuestions": "Generating dynamic questions based on PDF...",
+    "evalNewEvaluationGenerated": "New evaluation generated with completely different questions",
+    "evalFallbackRepeat": "Evaluation restarted with reordered questions"
 }
 
 

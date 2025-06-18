@@ -329,16 +329,141 @@ export default function EvaluacionPage() {
     }
   };
 
-  const handleRepeatEvaluation = () => {
+  const handleRepeatEvaluation = async () => {
+    if (!selectedBook || !currentTopicForDisplay) {
+      toast({ 
+        title: translate('errorGenerating'), 
+        description: translate('noBookSelected'), 
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Start progress simulation for new evaluation generation
+    const progressInterval = startProgress('evaluation', 12000);
+    
+    // Reset state
     setCurrentQuestionIndex(0);
-    setUserAnswers(Array(evaluationQuestions.length).fill(null));
+    setUserAnswers([]);
     setEvaluationFinished(false); 
     setShowResultDialog(false);
     setScore(0);
     setMotivationalMessageKey('');
-    setTimeLeft(INITIAL_TIME_LIMIT);
-    setTimerActive(true);
-    setEvaluationStarted(true); 
+    setEvaluationQuestions([]);
+    setTimerActive(false);
+
+    try {
+      // First, extract PDF content
+      let pdfContent = '';
+      try {
+        const pdfResponse = await fetch('/api/extract-pdf-content', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bookTitle: selectedBook
+          }),
+        });
+        
+        if (pdfResponse.ok) {
+          const pdfData = await pdfResponse.json();
+          pdfContent = pdfData.pdfContent || '';
+        } else {
+          console.warn('Failed to extract PDF content for repeat evaluation, using fallback generation');
+        }
+      } catch (pdfError) {
+        console.warn('Error extracting PDF content for repeat evaluation:', pdfError);
+      }
+
+      // Generate NEW dynamic evaluation using PDF content
+      const evaluationResponse = await fetch('/api/generate-dynamic-evaluation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookTitle: selectedBook,
+          topic: currentTopicForDisplay,
+          language: currentUiLanguage,
+          pdfContent: pdfContent
+        }),
+      });
+
+      if (!evaluationResponse.ok) {
+        throw new Error('Failed to generate new dynamic evaluation');
+      }
+
+      const evaluationData = await evaluationResponse.json();
+      const result = evaluationData.data;
+      
+      if (result && result.questions && result.questions.length === 3) {
+        setEvaluationTitle(result.evaluationTitle);
+        setEvaluationQuestions(shuffleArray(result.questions));
+        setUserAnswers(Array(result.questions.length).fill(null));
+        setTimeLeft(INITIAL_TIME_LIMIT);
+        setTimerActive(true);
+        setEvaluationStarted(true);
+        
+        // Show success notification for new evaluation
+        toast({ 
+          title: translate('evalGeneratedTitle'), 
+          description: translate('evalNewEvaluationGenerated', {defaultValue: 'Nueva evaluación generada con preguntas diferentes'}),
+          variant: 'default'
+        });
+      } else {
+        throw new Error('Failed to generate new evaluation with proper format');
+      }
+    } catch (error) {
+      console.error("Error generating new evaluation for repeat:", error);
+      
+      // Fallback to original method if dynamic generation fails
+      try {
+        console.log("Attempting fallback generation for repeat...");
+        const result = await generateEvaluationContent({
+          bookTitle: selectedBook,
+          topic: currentTopicForDisplay,
+          language: currentUiLanguage,
+        });
+        
+        if (result && result.questions && result.questions.length === 3) {
+          setEvaluationTitle(result.evaluationTitle);
+          setEvaluationQuestions(shuffleArray(result.questions));
+          setUserAnswers(Array(result.questions.length).fill(null));
+          setTimeLeft(INITIAL_TIME_LIMIT);
+          setTimerActive(true);
+          setEvaluationStarted(true);
+          
+          toast({ 
+            title: translate('evalGeneratedTitle'), 
+            description: translate('evalNewEvaluationGenerated', {defaultValue: 'Nueva evaluación generada'}),
+            variant: 'default'
+          });
+        } else {
+          throw new Error('Fallback generation also failed for repeat');
+        }
+      } catch (fallbackError) {
+        console.error("Fallback generation failed for repeat:", fallbackError);
+        // If all fails, just reset to the original questions but shuffle them
+        setCurrentQuestionIndex(0);
+        setUserAnswers(Array(evaluationQuestions.length).fill(null));
+        setEvaluationFinished(false); 
+        setShowResultDialog(false);
+        setScore(0);
+        setMotivationalMessageKey('');
+        setTimeLeft(INITIAL_TIME_LIMIT);
+        setTimerActive(true);
+        setEvaluationStarted(true);
+        
+        toast({ 
+          title: translate('evalGeneratedTitle'), 
+          description: translate('evalFallbackRepeat', {defaultValue: 'Evaluación reiniciada con preguntas reordenadas'}),
+          variant: 'default'
+        });
+      }
+    } finally {
+      stopProgress(progressInterval);
+    }
   };
 
   const handleStartNewEvaluation = () => {
