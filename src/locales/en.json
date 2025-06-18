@@ -1,4 +1,3 @@
-
 {
     "appSlogan": "Learn, Create and Stand Out",
     "loginTitle": "Login",
@@ -159,24 +158,14 @@
     "noTopicProvided": "Please enter a topic.",
     "noBookSelected": "Please select a book.",
     "noCourseSelected": "Please select a course.",
-    "summaryActionDownloadPdf": "Download PDF",
-    "summaryActionCreateMap": "Create Mind Map",
-    "summaryActionCreateQuiz": "Create Quiz",
-    "summaryActionCreateEval": "Create Evaluation",
-    "summaryContentTitle": "Summary",
-    "pdfDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings.",
-    "mapActionDownloadPdf": "Download PDF",
-    "mapActionCreateSummary": "Create Summary",
-    "mapActionCreateQuiz": "Create Quiz",
-    "mapActionCreateEval": "Create Evaluation",
-    "mapDownloadErrorPopupBlocked": "Could not open print window. Please check your pop-up blocker settings.",
-    "paginationPrevious": "Previous",
-    "paginationNext": "Next",
-    "paginationPageInfo": "Page {{currentPage}} of {{totalPages}}",
-    "historyEmptyTitle": "History Empty",
-    "historyEmptyDesc": "There is no evaluation history to download.",
-    "historyDeletedTitle": "History Deleted",
-    "historyDeletedDesc": "Your evaluation history and related stats have been cleared."
+    "summaryGeneratedTitle": "Summary generated",
+    "summaryGeneratedDesc": "Your summary has been generated successfully.",
+    "mapGeneratedTitle": "Mind map generated",
+    "mapGeneratedDesc": "Your mind map has been generated successfully.",
+    "quizGeneratedTitle": "Quiz generated",
+    "quizGeneratedDesc": "Your quiz has been generated successfully.",
+    "evalGeneratedTitle": "Evaluation generated",
+    "evalGeneratedDesc": "Your evaluation has been generated successfully."
 }
 
-    
+

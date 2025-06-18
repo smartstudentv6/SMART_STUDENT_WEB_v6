@@ -1,4 +1,3 @@
-
 {
     "appSlogan": "Aprende, Crea y Destaca",
     "loginTitle": "Iniciar Sesión",
@@ -159,24 +158,13 @@
     "noTopicProvided": "Por favor, ingresa un tema.",
     "noBookSelected": "Por favor, selecciona un libro.",
     "noCourseSelected": "Por favor, selecciona un curso.",
-    "summaryActionDownloadPdf": "Descargar PDF",
-    "summaryActionCreateMap": "Crear Mapa Mental",
-    "summaryActionCreateQuiz": "Crear Cuestionario",
-    "summaryActionCreateEval": "Crear Evaluación",
-    "summaryContentTitle": "Resumen",
-    "pdfDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes.",
-    "mapActionDownloadPdf": "Descargar PDF",
-    "mapActionCreateSummary": "Crear Resumen",
-    "mapActionCreateQuiz": "Crear Cuestionario",
-    "mapActionCreateEval": "Crear Evaluación",
-    "mapDownloadErrorPopupBlocked": "No se pudo abrir la ventana de impresión. Por favor, revisa la configuración de tu bloqueador de ventanas emergentes.",
-    "paginationPrevious": "Anterior",
-    "paginationNext": "Siguiente",
-    "paginationPageInfo": "Página {{currentPage}} de {{totalPages}}",
-    "historyEmptyTitle": "Historial Vacío",
-    "historyEmptyDesc": "No hay historial de evaluaciones para descargar.",
-    "historyDeletedTitle": "Historial Eliminado",
-    "historyDeletedDesc": "Tu historial de evaluaciones y estadísticas relacionadas han sido borrados."
+    "summaryGeneratedTitle": "Resumen generado",
+    "summaryGeneratedDesc": "Tu resumen ha sido generado exitosamente.",
+    "mapGeneratedTitle": "Mapa mental generado",
+    "mapGeneratedDesc": "Tu mapa mental ha sido generado exitosamente.",
+    "quizGeneratedTitle": "Cuestionario generado",
+    "quizGeneratedDesc": "Tu cuestionario ha sido generado exitosamente.",
+    "evalGeneratedTitle": "Evaluación generada",
+    "evalGeneratedDesc": "Tu evaluación ha sido generada exitosamente."
 }
 
-    

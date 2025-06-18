@@ -219,7 +219,14 @@ export default function EvaluacionPage() {
         setTimeLeft(INITIAL_TIME_LIMIT);
         setTimerActive(true);
         setEvaluationStarted(true);
-        setEvaluationFinished(false); 
+        setEvaluationFinished(false);
+        
+        // Show success notification
+        toast({ 
+          title: translate('evalGeneratedTitle'), 
+          description: translate('evalGeneratedDesc'),
+          variant: 'default'
+        });
       } else {
         throw new Error(translate('evalErrorGenerationFormat', {defaultValue: "AI did not return the requested number of questions in the expected format."}));
       }
@@ -344,7 +351,7 @@ export default function EvaluacionPage() {
     );
   }
 
-  if (isLoading) {
+  if (aiIsLoading) {
      return (
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
             <Card className="w-full max-w-md p-8 text-center shadow-xl">

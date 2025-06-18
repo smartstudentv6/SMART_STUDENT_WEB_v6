@@ -152,10 +152,8 @@ export default function ResumenPage() {
         
         // Show success notification
         toast({ 
-          title: translate('loading') === 'Cargando' ? 'Resumen generado' : 'Summary generated', 
-          description: translate('loading') === 'Cargando' ? 
-            'Tu resumen ha sido generado exitosamente.' : 
-            'Your summary has been generated successfully.',
+          title: translate('summaryGeneratedTitle'), 
+          description: translate('summaryGeneratedDesc'),
           variant: 'default'
         });
         

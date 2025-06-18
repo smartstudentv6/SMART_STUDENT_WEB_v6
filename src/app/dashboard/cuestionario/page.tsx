@@ -51,6 +51,14 @@ export default function CuestionarioPage() {
         language: currentUiLanguage,
       });
       setQuizResult(result.quiz);
+      
+      // Show success notification
+      toast({ 
+        title: translate('quizGeneratedTitle'), 
+        description: translate('quizGeneratedDesc'),
+        variant: 'default'
+      });
+      
       const currentCount = parseInt(localStorage.getItem('quizzesCreatedCount') || '0', 10);
       localStorage.setItem('quizzesCreatedCount', (currentCount + 1).toString());
     } catch (error) {

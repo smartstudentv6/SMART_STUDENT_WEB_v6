@@ -53,6 +53,14 @@ export default function MapaMentalPage() {
         isHorizontal: isHorizontal,
       });
       setMindMapResult(result.imageDataUri);
+      
+      // Show success notification
+      toast({ 
+        title: translate('mapGeneratedTitle'), 
+        description: translate('mapGeneratedDesc'),
+        variant: 'default'
+      });
+      
       // Increment maps count
       const currentCount = parseInt(localStorage.getItem('mapsCreatedCount') || '0', 10);
       localStorage.setItem('mapsCreatedCount', (currentCount + 1).toString());
