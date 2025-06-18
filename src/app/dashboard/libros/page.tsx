@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Library, Download, Book, FileText, Search, GraduationCap, Filter, Microscope, Calculator, BookOpen, Map, Atom, Zap, Flask, Brain, Users, Scale } from 'lucide-react';
+import { Library, Download, Book, FileText, Search, GraduationCap, Filter, Microscope, Calculator, BookOpen, Map, Atom, Zap, TestTube, Brain, Users, Scale } from 'lucide-react';
 import { bookPDFs, BookPDF } from '@/lib/books-data';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
@@ -32,7 +32,7 @@ export default function LibrosPage() {
     } else if (lowerSubject.includes('física') || lowerSubject.includes('fisica')) {
       return { icon: Zap, color: 'text-yellow-600' };
     } else if (lowerSubject.includes('química') || lowerSubject.includes('quimica')) {
-      return { icon: Flask, color: 'text-purple-600' };
+      return { icon: TestTube, color: 'text-purple-600' };
     } else if (lowerSubject.includes('filosofía') || lowerSubject.includes('filosofia')) {
       return { icon: Brain, color: 'text-indigo-600' };
     } else if (lowerSubject.includes('ciencias para la ciudadanía') || lowerSubject.includes('ciencias para la ciudadania')) {
