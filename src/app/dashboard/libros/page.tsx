@@ -124,8 +124,8 @@ export default function LibrosPage() {
                           </Badge>                        <Button
                           onClick={() => handleDownloadPdf(book)}
                           className={cn(
-                            "w-full font-semibold text-sm home-card-button-green",
-                            "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+                            "home-card-button home-card-button-green",
+                            "hover:shadow-lg hover:scale-105 transition-all duration-200"
                           )}
                           size="sm"
                         >
