@@ -1,4 +1,3 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -8,10 +7,7 @@ export const metadata: Metadata = {
   title: 'SMART STUDENT',
   description: 'SMART STUDENT - Aprende, Crea y Destaca',
   icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: '16x16', type: 'image/x-icon' },
-      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
-    ],
+    icon: '/favicon.ico',
     shortcut: '/favicon.ico',
     apple: '/favicon.ico',
   },
@@ -27,8 +23,6 @@ export default function RootLayout({
       <head>
         <link rel="icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" href="/favicon.ico" />
-        <meta name="msapplication-TileImage" content="/favicon.ico" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />

@@ -125,8 +125,8 @@ export default function DashboardLayout({
             </h1>
             <img 
               src="/favicon.ico" 
-              alt="SMART STUDENT Logo" 
-              className="w-7 h-7" 
+              alt="SMART STUDENT" 
+              className="w-7 h-7"
             />
           </Link>
           

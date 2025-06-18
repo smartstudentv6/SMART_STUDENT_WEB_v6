@@ -26,8 +26,8 @@ export default function LoginPage() {
             </div>
             <img 
               src="/favicon.ico" 
-              alt="SMART STUDENT Logo" 
-              className="w-10 h-10" 
+              alt="SMART STUDENT" 
+              className="w-10 h-10"
             /> {/* Logo moved to the right */}
           </div>
         </div>
