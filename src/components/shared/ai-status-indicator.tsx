@@ -5,7 +5,7 @@ import { useLanguage } from '@/contexts/language-context';
 
 export function AIStatusIndicator() {
   const [aiStatus, setAiStatus] = useState<'checking' | 'active' | 'inactive'>('checking');
-  const { t } = useLanguage();
+  const { translate } = useLanguage();
 
   useEffect(() => {
     const checkAIStatus = async () => {
@@ -27,17 +27,17 @@ export function AIStatusIndicator() {
       {aiStatus === 'checking' ? (
         <div 
           className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" 
-          title={t('aiStatusChecking')}
+          title={translate('aiStatusChecking')}
         />
       ) : aiStatus === 'active' ? (
         <div 
           className="h-2 w-2 rounded-full bg-green-500 animate-pulse" 
-          title={t('aiStatusActive')}
+          title={translate('aiStatusActive')}
         />
       ) : (
         <div 
           className="h-2 w-2 rounded-full bg-red-500" 
-          title={t('aiStatusInactive')}
+          title={translate('aiStatusInactive')}
         />
       )}
     </div>
