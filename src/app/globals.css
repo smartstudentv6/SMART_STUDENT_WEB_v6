@@ -222,11 +222,24 @@ html.dark.theme-accent-purple {
          focus:bg-[hsl(var(--custom-green-800))] focus:text-[hsl(var(--custom-green-100))]
          hover:shadow-2xl hover:shadow-green-500/50 hover:scale-110 hover:-translate-y-1
          transition-all duration-300 ease-out;
+  background-color: hsl(var(--custom-green-100)) !important;
+  color: hsl(var(--custom-green-800)) !important;
+  border: none !important;
+}
+.home-card-button-green:hover {
+  background-color: hsl(var(--custom-green-800)) !important;
+  color: hsl(var(--custom-green-100)) !important;
+  border: none !important;
 }
 .home-card-button-green:active {
   background-color: hsl(var(--custom-green-800)) !important;
   color: hsl(var(--custom-green-100)) !important;
   transform: scale(1.05) !important;
+  border: none !important;
+}
+.home-card-button-green:focus {
+  background-color: hsl(var(--custom-green-800)) !important;
+  color: hsl(var(--custom-green-100)) !important;
   border: none !important;
 }
 .dark .home-card-button-green {

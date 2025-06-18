@@ -122,6 +122,7 @@ export default function LibrosPage() {
                           <Badge variant="outline" className="text-xs">
                             {book.course}
                           </Badge>                        <Button
+                          variant="outline"
                           onClick={() => handleDownloadPdf(book)}
                           className={cn(
                             "home-card-button home-card-button-green",
