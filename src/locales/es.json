@@ -173,6 +173,9 @@
     "evalFallbackRepeat": "Evaluación reiniciada con preguntas reordenadas",
     "evalMultipleSelectionInstruction": "Selecciona todas las respuestas correctas:",
     "historyDeletedTitle": "¡Historial eliminado!",
-    "historyDeletedDesc": "Todos tus datos han sido borrados correctamente."
+    "historyDeletedDesc": "Todos tus datos han sido borrados correctamente.",
+    "aiStatusChecking": "Verificando conexión IA...",
+    "aiStatusActive": "IA Activada",
+    "aiStatusInactive": "IA No Disponible - Modo de Ejemplo"
 }
 

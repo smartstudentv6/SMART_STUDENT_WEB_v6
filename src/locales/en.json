@@ -173,7 +173,10 @@
     "evalFallbackRepeat": "Evaluation restarted with reordered questions",
     "evalMultipleSelectionInstruction": "Select all correct answers:",
     "historyDeletedTitle": "History deleted!",
-    "historyDeletedDesc": "All your data has been successfully cleared."
+    "historyDeletedDesc": "All your data has been successfully cleared.",
+    "aiStatusChecking": "Checking AI connection...",
+    "aiStatusActive": "AI Activated",
+    "aiStatusInactive": "AI Not Available - Example Mode"
 }
 
 

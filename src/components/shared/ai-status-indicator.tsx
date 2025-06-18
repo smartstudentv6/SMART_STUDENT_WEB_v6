@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/language-context';
 
 export function AIStatusIndicator() {
   const [aiStatus, setAiStatus] = useState<'checking' | 'active' | 'inactive'>('checking');
+  const { t } = useLanguage();
 
   useEffect(() => {
     const checkAIStatus = async () => {
@@ -25,17 +27,17 @@ export function AIStatusIndicator() {
       {aiStatus === 'checking' ? (
         <div 
           className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" 
-          title="Verificando conexión IA..."
+          title={t('aiStatusChecking')}
         />
       ) : aiStatus === 'active' ? (
         <div 
           className="h-2 w-2 rounded-full bg-green-500 animate-pulse" 
-          title="IA Activada - Generación con Gemini AI"
+          title={t('aiStatusActive')}
         />
       ) : (
         <div 
           className="h-2 w-2 rounded-full bg-red-500" 
-          title="IA No Disponible - Modo de Ejemplo"
+          title={t('aiStatusInactive')}
         />
       )}
     </div>
