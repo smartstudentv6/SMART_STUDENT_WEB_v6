@@ -164,7 +164,10 @@
     "mapGeneratedDesc": "Tu mapa mental ha sido generado exitosamente.",
     "quizGeneratedTitle": "Cuestionario generado",
     "quizGeneratedDesc": "Tu cuestionario ha sido generado exitosamente.",
-    "evalGeneratedTitle": "Evaluación generada",
-    "evalGeneratedDesc": "Tu evaluación ha sido generada exitosamente."
+    "evalGeneratedTitle": "Evaluación Generada",
+    "evalGeneratedDesc": "Tu evaluación dinámica ha sido creada exitosamente basada en el contenido del PDF",
+    "evalDynamicGenerationProgress": "Procesando contenido del PDF y generando preguntas únicas...",
+    "evalExtractingPDFContent": "Extrayendo contenido del PDF...",
+    "evalGeneratingDynamicQuestions": "Generando preguntas dinámicas basadas en el PDF..."
 }
 

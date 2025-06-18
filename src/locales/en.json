@@ -164,8 +164,11 @@
     "mapGeneratedDesc": "Your mind map has been generated successfully.",
     "quizGeneratedTitle": "Quiz generated",
     "quizGeneratedDesc": "Your quiz has been generated successfully.",
-    "evalGeneratedTitle": "Evaluation generated",
-    "evalGeneratedDesc": "Your evaluation has been generated successfully."
+    "evalGeneratedTitle": "Evaluation Generated",
+    "evalGeneratedDesc": "Your dynamic evaluation has been successfully created based on the PDF content",
+    "evalDynamicGenerationProgress": "Processing PDF content and generating unique questions...",
+    "evalExtractingPDFContent": "Extracting PDF content...",
+    "evalGeneratingDynamicQuestions": "Generating dynamic questions based on PDF..."
 }
 
 

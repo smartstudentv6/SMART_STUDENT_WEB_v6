@@ -196,7 +196,7 @@ export default function EvaluacionPage() {
     }
 
     // Start progress simulation
-    const progressInterval = startProgress('evaluation', 9000);
+    const progressInterval = startProgress('evaluation', 12000); // Extended time for PDF processing
     setEvaluationStarted(false);
     setEvaluationFinished(false);
     setEvaluationQuestions([]);
@@ -208,11 +208,50 @@ export default function EvaluacionPage() {
     
 
     try {
-      const result = await generateEvaluationContent({
-        bookTitle: selectedBook,
-        topic: trimmedTopic,
-        language: currentUiLanguage,
+      // First, extract PDF content
+      let pdfContent = '';
+      try {
+        const pdfResponse = await fetch('/api/extract-pdf-content', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bookTitle: selectedBook
+          }),
+        });
+        
+        if (pdfResponse.ok) {
+          const pdfData = await pdfResponse.json();
+          pdfContent = pdfData.pdfContent || '';
+        } else {
+          console.warn('Failed to extract PDF content, using fallback generation');
+        }
+      } catch (pdfError) {
+        console.warn('Error extracting PDF content:', pdfError);
+      }
+
+      // Generate dynamic evaluation using PDF content
+      const evaluationResponse = await fetch('/api/generate-dynamic-evaluation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookTitle: selectedBook,
+          topic: trimmedTopic,
+          language: currentUiLanguage,
+          pdfContent: pdfContent
+        }),
       });
+
+      if (!evaluationResponse.ok) {
+        throw new Error('Failed to generate dynamic evaluation');
+      }
+
+      const evaluationData = await evaluationResponse.json();
+      const result = evaluationData.data;
+      
       if (result && result.questions && result.questions.length === 3) {
         setEvaluationTitle(result.evaluationTitle);
         setEvaluationQuestions(shuffleArray(result.questions));
@@ -232,8 +271,41 @@ export default function EvaluacionPage() {
       }
     } catch (error) {
       console.error("Error generating evaluation:", error);
-      toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
-      setEvaluationStarted(false);
+      
+      // Fallback to original method if dynamic generation fails
+      try {
+        console.log("Attempting fallback generation...");
+        const result = await generateEvaluationContent({
+          bookTitle: selectedBook,
+          topic: trimmedTopic,
+          language: currentUiLanguage,
+        });
+        
+        if (result && result.questions && result.questions.length === 3) {
+          setEvaluationTitle(result.evaluationTitle);
+          setEvaluationQuestions(shuffleArray(result.questions));
+          setTimeLeft(INITIAL_TIME_LIMIT);
+          setTimerActive(true);
+          setEvaluationStarted(true);
+          setEvaluationFinished(false);
+          
+          toast({ 
+            title: translate('evalGeneratedTitle'), 
+            description: translate('evalGeneratedDesc'),
+            variant: 'default'
+          });
+        } else {
+          throw new Error('Fallback generation also failed');
+        }
+      } catch (fallbackError) {
+        console.error("Fallback generation failed:", fallbackError);
+        toast({ 
+          title: translate('errorGenerating'), 
+          description: (error as Error).message, 
+          variant: 'destructive'
+        });
+        setEvaluationStarted(false);
+      }
     } finally {
       stopProgress(progressInterval);
     }
