@@ -171,6 +171,8 @@
     "evalGeneratingDynamicQuestions": "Generando preguntas dinámicas basadas en el PDF...",
     "evalNewEvaluationGenerated": "Nueva evaluación generada con preguntas completamente diferentes",
     "evalFallbackRepeat": "Evaluación reiniciada con preguntas reordenadas",
-    "evalMultipleSelectionInstruction": "Selecciona todas las respuestas correctas:"
+    "evalMultipleSelectionInstruction": "Selecciona todas las respuestas correctas:",
+    "historyDeletedTitle": "¡Historial eliminado!",
+    "historyDeletedDesc": "Todos tus datos han sido borrados correctamente."
 }
 

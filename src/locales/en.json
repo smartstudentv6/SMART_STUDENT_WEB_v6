@@ -171,7 +171,9 @@
     "evalGeneratingDynamicQuestions": "Generating dynamic questions based on PDF...",
     "evalNewEvaluationGenerated": "New evaluation generated with completely different questions",
     "evalFallbackRepeat": "Evaluation restarted with reordered questions",
-    "evalMultipleSelectionInstruction": "Select all correct answers:"
+    "evalMultipleSelectionInstruction": "Select all correct answers:",
+    "historyDeletedTitle": "History deleted!",
+    "historyDeletedDesc": "All your data has been successfully cleared."
 }
 
 
