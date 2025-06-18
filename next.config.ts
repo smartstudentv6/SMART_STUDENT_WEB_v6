@@ -10,7 +10,14 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3000', '*.github.dev'],
+      allowedOrigins: [
+        'localhost:3000', 
+        'localhost:9002',
+        '*.github.dev',
+        '*.gitpod.io',
+        '*.repl.co',
+        '*.app.github.dev'
+      ],
       bodySizeLimit: '2mb',
     },
   },

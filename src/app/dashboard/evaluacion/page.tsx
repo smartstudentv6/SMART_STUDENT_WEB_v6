@@ -11,6 +11,7 @@ import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Awar
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateEvaluationContent, type EvaluationQuestion } from '@/ai/flows/generate-evaluation-content';
 import { useToast } from "@/hooks/use-toast";
+import { useAIProgress } from "@/hooks/use-ai-progress";
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import type { EvaluationHistoryItem } from '@/lib/types';
@@ -33,6 +34,7 @@ const INITIAL_TIME_LIMIT = 120; // 2 minutes in seconds
 export default function EvaluacionPage() {
   const { translate, language: currentUiLanguage } = useLanguage();
   const { toast } = useToast();
+  const { progress, progressText, isLoading: aiIsLoading, startProgress, stopProgress } = useAIProgress();
   const searchParams = useSearchParams(); 
 
   // Setup state
@@ -48,7 +50,6 @@ export default function EvaluacionPage() {
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   
   // Control state
-  const [isLoading, setIsLoading] = useState(false);
   const [evaluationStarted, setEvaluationStarted] = useState(false);
   const [evaluationFinished, setEvaluationFinished] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
@@ -194,7 +195,8 @@ export default function EvaluacionPage() {
       return;
     }
 
-    setIsLoading(true);
+    // Start progress simulation
+    const progressInterval = startProgress('evaluation', 9000);
     setEvaluationStarted(false);
     setEvaluationFinished(false);
     setEvaluationQuestions([]);
@@ -226,7 +228,7 @@ export default function EvaluacionPage() {
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
       setEvaluationStarted(false);
     } finally {
-      setIsLoading(false);
+      stopProgress(progressInterval);
     }
   };
 
@@ -322,13 +324,13 @@ export default function EvaluacionPage() {
             </div>
             <Button
               onClick={handleCreateEvaluation}
-              disabled={isLoading}
+              disabled={aiIsLoading}
               className={cn(
                 "w-full font-semibold py-3 text-base md:text-sm home-card-button-purple"
               )}
             >
-              {isLoading ? (
-                <>{translate('loading')}...</>
+              {aiIsLoading ? (
+                <>{translate('loading')} {progress}%</>
               ) : (
                 <>
                   <PlayCircle className="w-5 h-5 mr-2" />

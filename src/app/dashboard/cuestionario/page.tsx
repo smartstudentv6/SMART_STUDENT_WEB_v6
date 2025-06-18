@@ -11,17 +11,19 @@ import { FileQuestion, Sparkles, Download, Newspaper, Network, ClipboardList } f
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { generateQuiz } from '@/ai/flows/generate-quiz';
 import { useToast } from "@/hooks/use-toast";
+import { useAIProgress } from "@/hooks/use-ai-progress";
+import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 export default function CuestionarioPage() {
   const { translate, language: currentUiLanguage } = useLanguage();
   const { toast } = useToast();
+  const { progress, progressText, isLoading, startProgress, stopProgress } = useAIProgress();
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [topic, setTopic] = useState('');
   const [quizResult, setQuizResult] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [currentTopicForDisplay, setCurrentTopicForDisplay] = useState('');
 
   const handleGenerateQuiz = async () => {
@@ -35,9 +37,12 @@ export default function CuestionarioPage() {
       return;
     }
     
-    setIsLoading(true);
     setQuizResult('');
-    setCurrentTopicForDisplay(currentTopic); 
+    setCurrentTopicForDisplay(currentTopic);
+    
+    // Start progress simulation
+    const progressInterval = startProgress('quiz', 7000);
+    
     try {
       const result = await generateQuiz({
         bookTitle: selectedBook,
@@ -53,7 +58,7 @@ export default function CuestionarioPage() {
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
       setQuizResult(`<p class="text-destructive">${translate('errorGenerating')}</p>`);
     } finally {
-      setIsLoading(false);
+      stopProgress(progressInterval);
     }
   };
 
@@ -139,7 +144,7 @@ export default function CuestionarioPage() {
             )}
           >
             {isLoading ? (
-              <>{translate('loading')}...</>
+              <>{translate('loading')} {progress}%</>
             ) : (
               <>
                 <Sparkles className="w-5 h-5 mr-2" />
@@ -153,7 +158,10 @@ export default function CuestionarioPage() {
       {quizResult && !isLoading && (
         <Card className="mt-6 w-full max-w-lg text-left shadow-md">
           <CardContent className="pt-6">
-            <div dangerouslySetInnerHTML={{ __html: quizResult }} className="prose dark:prose-invert max-w-none text-sm leading-relaxed" />
+            <div 
+              dangerouslySetInnerHTML={{ __html: quizResult }} 
+              className="prose dark:prose-invert max-w-none text-sm leading-relaxed quiz-content" 
+            />
             
             <div className="mt-8 pt-6 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <Button

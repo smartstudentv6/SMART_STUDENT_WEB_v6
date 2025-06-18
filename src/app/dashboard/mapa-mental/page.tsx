@@ -14,17 +14,18 @@ import { Network, Sparkles, Download, Newspaper as SummaryIcon, FileQuestion, Cl
 import { BookCourseSelector } from '@/components/common/book-course-selector';
 import { createMindMap } from '@/ai/flows/create-mind-map';
 import { useToast } from "@/hooks/use-toast";
+import { useAIProgress } from "@/hooks/use-ai-progress";
 import { cn } from '@/lib/utils';
 
 export default function MapaMentalPage() {
   const { translate, language: currentUiLanguage } = useLanguage();
   const { toast } = useToast();
+  const { progress, progressText, isLoading, startProgress, stopProgress } = useAIProgress();
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [centralTheme, setCentralTheme] = useState('');
   const [isHorizontal, setIsHorizontal] = useState(false);
   const [mindMapResult, setMindMapResult] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [currentCentralThemeForDisplay, setCurrentCentralThemeForDisplay] = useState('');
 
 
@@ -38,9 +39,12 @@ export default function MapaMentalPage() {
       return;
     }
 
-    setIsLoading(true);
     setMindMapResult(null);
     setCurrentCentralThemeForDisplay(centralTheme.trim());
+    
+    // Start progress simulation
+    const progressInterval = startProgress('mindmap', 10000);
+    
     try {
       const result = await createMindMap({
         centralTheme: centralTheme.trim(),
@@ -57,7 +61,7 @@ export default function MapaMentalPage() {
       toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
       setMindMapResult(null);
     } finally {
-      setIsLoading(false);
+      stopProgress(progressInterval);
     }
   };
 
@@ -145,7 +149,7 @@ export default function MapaMentalPage() {
             )}
           >
             {isLoading ? (
-              <>{translate('loading')}...</>
+              <>{translate('loading')} {progress}%</>
             ) : (
               <>
                 <Sparkles className="w-5 h-5 mr-2" />
@@ -159,7 +163,7 @@ export default function MapaMentalPage() {
       {mindMapResult && !isLoading && (
         <Card className="w-full max-w-3xl text-left shadow-md">
            <CardHeader>
-            <CardTitle className="font-headline text-center">
+            <CardTitle className="font-headline text-center mind-map-title">
               {translate('mindMapResultTitle')} - {currentCentralThemeForDisplay.toUpperCase()}
             </CardTitle>
           </CardHeader>

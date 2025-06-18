@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LanguageToggle from '@/components/shared/language-toggle';
 import ThemeToggle from '@/components/shared/theme-toggle';
+import { AIStatusIndicator } from '@/components/shared/ai-status-indicator';
 import { Button } from '@/components/ui/button';
 import { LogOut, Home, Library, FileText, Network, FileQuestion, ClipboardList, UserCircle2, HelpCircle } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
@@ -128,6 +129,7 @@ export default function DashboardLayout({
               alt="SMART STUDENT" 
               className="w-7 h-7"
             />
+            <AIStatusIndicator />
           </Link>
           
           <div className="hidden md:flex items-center justify-center space-x-1 lg:space-x-2 overflow-x-auto">

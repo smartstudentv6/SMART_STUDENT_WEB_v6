@@ -474,3 +474,23 @@ input:-webkit-autofill:active {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Quiz content styles */
+.quiz-content h2 {
+  text-transform: uppercase;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.25rem; /* Slightly larger for better visibility */
+  margin-bottom: 1.5rem;
+  margin-top: 0;
+}
+
+/* Mind Map title styles */
+.mind-map-title {
+  text-transform: uppercase;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.25rem; /* Slightly larger for better visibility */
+  margin-bottom: 1rem;
+  margin-top: 0;
+}

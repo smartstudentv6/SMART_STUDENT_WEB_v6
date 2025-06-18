@@ -10,10 +10,18 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Newspaper, Download, Network, FileQuestion, ClipboardList } from 'lucide-react';
 import { BookCourseSelector } from '@/components/common/book-course-selector';
-import { generateSummary, type GenerateSummaryInput } from '@/ai/flows/generate-summary';
 import { useToast } from "@/hooks/use-toast";
+import { useAIProgress } from "@/hooks/use-ai-progress";
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+
+// Types for API response
+interface GenerateSummaryResponse {
+  summary: string;
+  keyPoints?: string[];
+  progress: string;
+}
 
 // Helper function to convert basic Markdown to HTML for the main summary
 function simpleMarkdownToHtml(mdText: string): string {
@@ -76,52 +84,107 @@ function formatInlineMarkdown(text: string): string {
 export default function ResumenPage() {
   const { translate, language: currentUiLanguage } = useLanguage();
   const { toast } = useToast();
+  const { progress, progressText, isLoading, startProgress, stopProgress } = useAIProgress();
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedBook, setSelectedBook] = useState('');
   const [topic, setTopic] = useState('');
   const [includeKeyPoints, setIncludeKeyPoints] = useState(false);
   const [summaryResult, setSummaryResult] = useState<{ summary: string; keyPoints?: string[] } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [keyPointsRequested, setKeyPointsRequested] = useState(false);
   const [currentTopicForDisplay, setCurrentTopicForDisplay] = useState('');
 
   const handleGenerateSummary = async () => {
     if (!selectedBook) {
-      toast({ title: translate('errorGenerating'), description: translate('noBookSelected'), variant: 'destructive'});
+      toast({ 
+        title: translate('errorGenerating'), 
+        description: translate('noBookSelected'), 
+        variant: 'destructive'
+      });
       return;
     }
     if (!topic.trim()) {
-      toast({ title: translate('errorGenerating'), description: translate('noTopicProvided'), variant: 'destructive'});
+      toast({ 
+        title: translate('errorGenerating'), 
+        description: translate('noTopicProvided'), 
+        variant: 'destructive'
+      });
       return;
     }
 
-    setIsLoading(true);
     setSummaryResult(null);
     setKeyPointsRequested(includeKeyPoints); 
     const topicForSummary = topic.trim() || "General Summary";
     setCurrentTopicForDisplay(topicForSummary); 
 
+    // Start progress simulation
+    const progressInterval = startProgress('summary', 8000);
+
     try {
-      const input: GenerateSummaryInput = {
+      const requestBody = {
         bookTitle: selectedBook,
         topic: topicForSummary,
         includeKeyPoints: includeKeyPoints,
         language: currentUiLanguage,
       };
-      const result = await generateSummary(input);
-      setSummaryResult({
-        summary: result.summary, 
-        keyPoints: result.keyPoints
+      
+      console.log('Sending request to API:', requestBody);
+      
+      const response = await fetch('/api/generate-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
       });
-      // Increment summaries count
-      const currentCount = parseInt(localStorage.getItem('summariesCreatedCount') || '0', 10);
-      localStorage.setItem('summariesCreatedCount', (currentCount + 1).toString());
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result: GenerateSummaryResponse = await response.json();
+      
+      if (result && result.summary) {
+        setSummaryResult({
+          summary: result.summary, 
+          keyPoints: result.keyPoints
+        });
+        
+        // Show success notification
+        toast({ 
+          title: translate('loading') === 'Cargando' ? 'Resumen generado' : 'Summary generated', 
+          description: translate('loading') === 'Cargando' ? 
+            'Tu resumen ha sido generado exitosamente.' : 
+            'Your summary has been generated successfully.',
+          variant: 'default'
+        });
+        
+        // Increment summaries count
+        const currentCount = parseInt(localStorage.getItem('summariesCreatedCount') || '0', 10);
+        localStorage.setItem('summariesCreatedCount', (currentCount + 1).toString());
+      } else {
+        throw new Error('No summary content received');
+      }
     } catch (error) {
       console.error("Error generating summary:", error);
-      toast({ title: translate('errorGenerating'), description: (error as Error).message, variant: 'destructive'});
-      setSummaryResult({ summary: `<p class="text-destructive">${translate('errorGenerating')}</p>` });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      toast({ 
+        title: translate('errorGenerating'), 
+        description: errorMessage, 
+        variant: 'destructive'
+      });
+      
+      // Set a user-friendly error message
+      setSummaryResult({ 
+        summary: `<div class="text-center p-8">
+          <p class="text-destructive text-lg font-semibold mb-2">${translate('errorGenerating')}</p>
+          <p class="text-muted-foreground mb-4">Por favor, verifica tu selección e intenta nuevamente.</p>
+          <p class="text-sm text-muted-foreground">Error: ${errorMessage}</p>
+        </div>` 
+      });
     } finally {
-      setIsLoading(false);
+      stopProgress(progressInterval);
     }
   };
 
@@ -243,11 +306,9 @@ export default function ResumenPage() {
             )}
           >
             {isLoading ? (
-              <>{translate('loading')}...</>
+              <>{translate('loading')} {progress}%</>
             ) : (
-              <>
-                {translate('summaryGenerateBtn')}
-              </>
+              <>{translate('summaryGenerateBtn')}</>
             )}
           </Button>
         </CardContent>
