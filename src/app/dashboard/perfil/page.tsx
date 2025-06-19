@@ -11,7 +11,7 @@ import type { UserProfile, SubjectProgress, EvaluationHistoryItem } from '@/lib/
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from 'xlsx';
+import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 
 // Mock Data - UserProfile remains mock for now
@@ -200,7 +200,7 @@ export default function PerfilPage() {
     });
   };
 
-  const handleDownloadHistoryXlsx = () => {
+  const handleDownloadHistoryXlsx = async () => {
     if (evaluationHistory.length === 0) {
         toast({
             title: translate('historyEmptyTitle'),
@@ -210,44 +210,62 @@ export default function PerfilPage() {
         return;
     }
 
-    const headers = [
-        translate('tableDate'),
-        translate('tableCourse'),
-        translate('tableBook'),
-        translate('tableTopic'),
-        translate('tableGrade') + " (%)",
-        translate('tablePoints')
-    ];
+    try {
+      // Dynamic import of XLSX to avoid SSR issues
+      const XLSX = await import('xlsx');
+      
+      const headers = [
+          translate('tableDate'),
+          translate('tableCourse'),
+          translate('tableBook'),
+          translate('tableTopic'),
+          translate('tableGrade') + " (%)",
+          translate('tablePoints')
+      ];
 
-    const dataForSheet = evaluationHistory.map(item => {
-        const gradePercentage = item.totalQuestions > 0 ? Math.round((item.score / item.totalQuestions) * 100) : 0;
-        const points = `${item.score}/${item.totalQuestions}`;
-        return [
-            item.date,
-            item.courseName,
-            item.bookTitle,
-            item.topic,
-            gradePercentage, 
-            points
-        ];
-    });
+      const dataForSheet = evaluationHistory.map(item => {
+          const gradePercentage = item.totalQuestions > 0 ? Math.round((item.score / item.totalQuestions) * 100) : 0;
+          const points = `${item.score}/${item.totalQuestions}`;
+          return [
+              item.date,
+              item.courseName,
+              item.bookTitle,
+              item.topic,
+              gradePercentage, 
+              points
+          ];
+      });
 
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataForSheet]);
-    
-    const columnWidths = [
-      {wch: 20}, // Date
-      {wch: 20}, // Course
-      {wch: 30}, // Book
-      {wch: 30}, // Topic
-      {wch: 10}, // Grade
-      {wch: 10}  // Points
-    ];
-    ws['!cols'] = columnWidths;
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...dataForSheet]);
+      
+      const columnWidths = [
+        {wch: 20}, // Date
+        {wch: 20}, // Course
+        {wch: 30}, // Book
+        {wch: 30}, // Topic
+        {wch: 10}, // Grade
+        {wch: 10}  // Points
+      ];
+      ws['!cols'] = columnWidths;
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Historial Evaluaciones");
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Historial Evaluaciones");
 
-    XLSX.writeFile(wb, "historial_evaluaciones_smart_student.xlsx");
+      XLSX.writeFile(wb, "historial_evaluaciones_smart_student.xlsx");
+      
+      toast({
+        title: "Descarga exitosa",
+        description: "El archivo Excel se ha descargado correctamente",
+        variant: "default"
+      });
+    } catch (error) {
+      console.error('Error downloading XLSX:', error);
+      toast({
+        title: "Error en descarga",
+        description: "No se pudo descargar el archivo Excel",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleRepasar = (item: EvaluationHistoryItem) => {
