@@ -11,7 +11,6 @@ import type { UserProfile, SubjectProgress, EvaluationHistoryItem } from '@/lib/
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 
 // Mock Data - UserProfile remains mock for now
@@ -53,11 +52,19 @@ export default function PerfilPage() {
   const [evaluationHistory, setEvaluationHistory] = useState<EvaluationHistoryItem[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [isClient, setIsClient] = useState(false);
 
   const [dynamicLearningStats, setDynamicLearningStats] = useState<SubjectProgress[]>(learningStatsTemplate);
   const [dynamicProfileCards, setDynamicProfileCards] = useState(profileStatsCardsTemplate);
 
+  // Ensure this only runs on client-side
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+    
     const storedHistoryString = localStorage.getItem('evaluationHistory');
     if (storedHistoryString) {
       try {
@@ -81,9 +88,11 @@ export default function PerfilPage() {
         return card;
     }));
 
-  }, []);
+  }, [isClient]);
 
   useEffect(() => {
+    if (!isClient || evaluationHistory.length === 0) return;
+    
     const subjectMappings: Record<string, { es: string[], en: string[] }> = {
       subjectScience: {
         es: ["Ciencias", "Ciencias Naturales", "Biología", "Física", "Química", "Ciencias para la Ciudadanía"],
@@ -173,7 +182,7 @@ export default function PerfilPage() {
     });
     setDynamicProfileCards(newProfileCards);
 
-  }, [evaluationHistory, language, translate]);
+  }, [evaluationHistory, language, translate, isClient]);
 
 
   const handleDeleteHistory = () => {
@@ -201,6 +210,15 @@ export default function PerfilPage() {
   };
 
   const handleDownloadHistoryXlsx = async () => {
+    if (!isClient) {
+      toast({
+        title: "Error",
+        description: "La página aún se está cargando. Intenta de nuevo.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (evaluationHistory.length === 0) {
         toast({
             title: translate('historyEmptyTitle'),
@@ -262,7 +280,7 @@ export default function PerfilPage() {
       console.error('Error downloading XLSX:', error);
       toast({
         title: "Error en descarga",
-        description: "No se pudo descargar el archivo Excel",
+        description: "No se pudo descargar el archivo Excel. Intenta de nuevo.",
         variant: "destructive"
       });
     }
@@ -277,6 +295,18 @@ export default function PerfilPage() {
   const currentItems = evaluationHistory.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(evaluationHistory.length / itemsPerPage);
 
+  // Don't render anything until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <div className="space-y-8">
+        <div className="animate-pulse">
+          <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-lg mt-4"></div>
+          <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg mt-4"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
