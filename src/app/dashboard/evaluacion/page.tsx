@@ -29,7 +29,7 @@ function shuffleArray<T>(array: T[]): T[] {
   return newArray;
 }
 
-const INITIAL_TIME_LIMIT = 120; // 2 minutes in seconds
+const INITIAL_TIME_LIMIT = 900; // 15 minutes in seconds (15 preguntas x 1 minuto por pregunta)
 
 export default function EvaluacionPage() {
   const { translate, language: currentUiLanguage } = useLanguage();

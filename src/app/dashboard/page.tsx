@@ -1,11 +1,14 @@
 
 "use client";
 
+import React from 'react';
 import { useLanguage } from '@/contexts/language-context';
-import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
+import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Crown, GraduationCap, Users } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const featureCards = [
@@ -53,7 +56,34 @@ const featureCards = [
 
 export default function DashboardHomePage() {
   const { translate } = useLanguage();
-  const userName = "Felipe"; // Placeholder for actual user name
+  const { user } = useAuth();
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin': return Crown;
+      case 'teacher': return Users;
+      case 'student': return GraduationCap;
+      default: return Home;
+    }
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'text-yellow-600 dark:text-yellow-400';
+      case 'teacher': return 'text-blue-600 dark:text-blue-400';
+      case 'student': return 'text-green-600 dark:text-green-400';
+      default: return 'text-foreground';
+    }
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'teacher': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'student': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+    }
+  };
 
   const getButtonColorClass = (color: string) => {
     switch (color) {
@@ -81,11 +111,25 @@ export default function DashboardHomePage() {
   return (
     <div className="space-y-8">
       <div className="mb-4">
-        <div className="flex items-center justify-start gap-3">
-          <h1 className="text-3xl font-bold text-foreground font-headline">
-            {translate('welcomeMessage', { name: userName })}
-          </h1>
-          <Home className="w-8 h-8 text-foreground" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center justify-start gap-3">
+            <h1 className="text-3xl font-bold text-foreground font-headline">
+              {translate('welcomeMessage', { name: user?.displayName || 'Usuario' })}
+            </h1>
+            <Home className="w-8 h-8 text-foreground" />
+          </div>
+          {user && (
+            <div className="flex items-center gap-3">
+              <Badge className={cn("text-sm font-medium", getRoleBadgeColor(user.role))}>
+                {user.role === 'admin' && '👑 Administrador'}
+                {user.role === 'teacher' && '👨‍🏫 Profesor'}
+                {user.role === 'student' && '🎓 Estudiante'}
+              </Badge>
+              {React.createElement(getRoleIcon(user.role), {
+                className: cn("w-6 h-6", getRoleColor(user.role))
+              })}
+            </div>
+          )}
         </div>
       </div>
 
