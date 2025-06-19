@@ -29,7 +29,7 @@ function shuffleArray<T>(array: T[]): T[] {
   return newArray;
 }
 
-const INITIAL_TIME_LIMIT = 900; // 15 minutes in seconds (15 preguntas x 1 minuto por pregunta)
+const INITIAL_TIME_LIMIT = 120; // 2 minutes in seconds
 
 export default function EvaluacionPage() {
   const { translate, language: currentUiLanguage } = useLanguage();
@@ -59,6 +59,9 @@ export default function EvaluacionPage() {
   // Timer state
   const [timeLeft, setTimeLeft] = useState(INITIAL_TIME_LIMIT);
   const [timerActive, setTimerActive] = useState(false);
+
+  // Log initial time limit for debugging
+  console.log('Initial time limit set to:', INITIAL_TIME_LIMIT, 'seconds (', INITIAL_TIME_LIMIT/60, 'minutes)');
 
   // For pre-filling from query params
   const [initialBookFromQuery, setInitialBookFromQuery] = useState<string | undefined>(undefined);
@@ -263,6 +266,7 @@ export default function EvaluacionPage() {
       if (result && result.questions && result.questions.length === 15) {
         setEvaluationTitle(result.evaluationTitle);
         setEvaluationQuestions(shuffleArray(result.questions));
+        console.log('Setting timer to:', INITIAL_TIME_LIMIT, 'seconds (', INITIAL_TIME_LIMIT/60, 'minutes)');
         setTimeLeft(INITIAL_TIME_LIMIT);
         setTimerActive(true);
         setEvaluationStarted(true);
