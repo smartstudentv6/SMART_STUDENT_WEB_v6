@@ -260,7 +260,7 @@ export default function EvaluacionPage() {
       const evaluationData = await evaluationResponse.json();
       const result = evaluationData.data;
       
-      if (result && result.questions && result.questions.length === 3) {
+      if (result && result.questions && result.questions.length === 15) {
         setEvaluationTitle(result.evaluationTitle);
         setEvaluationQuestions(shuffleArray(result.questions));
         setTimeLeft(INITIAL_TIME_LIMIT);
@@ -289,7 +289,7 @@ export default function EvaluacionPage() {
           language: currentUiLanguage,
         });
         
-        if (result && result.questions && result.questions.length === 3) {
+        if (result && result.questions && result.questions.length === 15) {
           setEvaluationTitle(result.evaluationTitle);
           setEvaluationQuestions(shuffleArray(result.questions));
           setTimeLeft(INITIAL_TIME_LIMIT);
@@ -425,7 +425,7 @@ export default function EvaluacionPage() {
       const evaluationData = await evaluationResponse.json();
       const result = evaluationData.data;
       
-      if (result && result.questions && result.questions.length === 3) {
+      if (result && result.questions && result.questions.length === 15) {
         setEvaluationTitle(result.evaluationTitle);
         setEvaluationQuestions(shuffleArray(result.questions));
         setUserAnswers(Array(result.questions.length).fill(null));
@@ -454,7 +454,7 @@ export default function EvaluacionPage() {
           language: currentUiLanguage,
         });
         
-        if (result && result.questions && result.questions.length === 3) {
+        if (result && result.questions && result.questions.length === 15) {
           setEvaluationTitle(result.evaluationTitle);
           setEvaluationQuestions(shuffleArray(result.questions));
           setUserAnswers(Array(result.questions.length).fill(null));
