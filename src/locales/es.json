@@ -200,6 +200,8 @@
     "reviewButton": "Repasar",
     "roleAdmin": "Administrador",
     "roleTeacher": "Profesor",
-    "roleStudent": "Estudiante"
+    "roleStudent": "Estudiante",
+    "noEvaluationsYet": "Aún no has completado evaluaciones",
+    "noEvaluationsSubtext": "Realiza tu primera evaluación para ver tu progreso aquí"
 }
 

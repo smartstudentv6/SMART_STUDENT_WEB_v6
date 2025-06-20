@@ -200,7 +200,9 @@
     "reviewButton": "Review",
     "roleAdmin": "Administrator",
     "roleTeacher": "Teacher",
-    "roleStudent": "Student"
+    "roleStudent": "Student",
+    "noEvaluationsYet": "You haven't completed any evaluations yet",
+    "noEvaluationsSubtext": "Take your first evaluation to see your progress here"
 }
 
 
