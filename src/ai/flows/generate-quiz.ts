@@ -41,6 +41,65 @@ export type GenerateQuizOutput = z.infer<typeof GenerateQuizOutputSchema>;
 
 
 export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQuizOutput> {
+  // Mock mode for development when AI is not available
+  if (process.env.NODE_ENV === 'development' && !process.env.GOOGLE_AI_API_KEY) {
+    console.log('📝 Running generateQuiz in MOCK mode');
+    
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const isSpanish = input.language === 'es';
+    const titlePrefix = isSpanish ? 'CUESTIONARIO' : 'QUIZ';
+    const topicUpper = input.topic.toUpperCase();
+    
+    const mockQuestions = [
+      {
+        questionText: isSpanish ? `¿Cuál es el concepto más importante de ${input.topic}?` : `What is the most important concept of ${input.topic}?`,
+        expectedAnswer: isSpanish ? `El concepto más importante es la comprensión fundamental de los principios básicos que rigen ${input.topic}.` : `The most important concept is the fundamental understanding of the basic principles that govern ${input.topic}.`
+      },
+      {
+        questionText: isSpanish ? `¿Cómo se relaciona ${input.topic} con otros temas del curso?` : `How does ${input.topic} relate to other course topics?`,
+        expectedAnswer: isSpanish ? `${input.topic} se conecta con múltiples áreas del conocimiento a través de sus aplicaciones prácticas.` : `${input.topic} connects with multiple knowledge areas through its practical applications.`
+      },
+      {
+        questionText: isSpanish ? `¿Cuáles son las aplicaciones prácticas de ${input.topic}?` : `What are the practical applications of ${input.topic}?`,
+        expectedAnswer: isSpanish ? `Las aplicaciones incluyen resolver problemas cotidianos y comprender fenómenos naturales.` : `Applications include solving everyday problems and understanding natural phenomena.`
+      }
+    ];
+    
+    // Generate 15 questions by repeating and varying the mock questions
+    const questions = [];
+    for (let i = 0; i < 15; i++) {
+      const baseQuestion = mockQuestions[i % mockQuestions.length];
+      questions.push({
+        questionText: `${i + 1}. ${baseQuestion.questionText}`,
+        expectedAnswer: baseQuestion.expectedAnswer
+      });
+    }
+    
+    const mockHtml = `
+      <div class="quiz-container">
+        <h1>${titlePrefix} - ${topicUpper}</h1>
+        <p><strong>${isSpanish ? 'Libro:' : 'Book:'}</strong> ${input.bookTitle}</p>
+        <p><strong>${isSpanish ? 'Curso:' : 'Course:'}</strong> ${input.courseName}</p>
+        <hr>
+        ${questions.map((q, index) => `
+          <div class="question-block">
+            <h3>${isSpanish ? 'Pregunta' : 'Question'} ${index + 1}</h3>
+            <p><strong>${q.questionText}</strong></p>
+            <div class="answer-space">
+              <p><strong>${isSpanish ? 'Respuesta esperada:' : 'Expected answer:'}</strong></p>
+              <p>${q.expectedAnswer}</p>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    
+    return { quiz: mockHtml };
+  }
+
+  // Original AI implementation
   return generateQuizFlow(input);
 }
 

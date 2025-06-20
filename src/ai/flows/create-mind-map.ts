@@ -151,6 +151,65 @@ If any text is distorted, unreadable, or omitted, or if any text is added that w
 
 
 export async function createMindMap(input: CreateMindMapInput): Promise<CreateMindMapOutput> {
+  // Mock mode for development when AI is not available
+  if (process.env.NODE_ENV === 'development' && !process.env.GOOGLE_AI_API_KEY) {
+    console.log('🧠 Running createMindMap in MOCK mode');
+    
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Return a mock SVG mind map as data URI
+    const mockSvg = `
+      <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+        <style>
+          .node { fill: #f1f5f9; stroke: #334155; stroke-width: 2; }
+          .central { fill: #3b82f6; stroke: #1e40af; }
+          .text { font-family: Arial, sans-serif; font-size: 14px; text-anchor: middle; }
+          .central-text { fill: white; font-weight: bold; font-size: 16px; }
+          .branch-text { fill: #334155; font-weight: 500; }
+          .line { stroke: #64748b; stroke-width: 2; }
+        </style>
+        
+        <!-- Central node -->
+        <circle cx="400" cy="300" r="80" class="node central"/>
+        <text x="400" y="305" class="text central-text">${input.centralTheme}</text>
+        
+        <!-- Branch 1 -->
+        <line x1="480" y1="300" x2="600" y2="200" class="line"/>
+        <circle cx="600" cy="200" r="50" class="node"/>
+        <text x="600" y="205" class="text branch-text">Concepto 1</text>
+        
+        <!-- Branch 2 -->
+        <line x1="400" y1="220" x2="400" y2="100" class="line"/>
+        <circle cx="400" cy="100" r="50" class="node"/>
+        <text x="400" y="105" class="text branch-text">Concepto 2</text>
+        
+        <!-- Branch 3 -->
+        <line x1="320" y1="300" x2="200" y2="200" class="line"/>
+        <circle cx="200" cy="200" r="50" class="node"/>
+        <text x="200" y="205" class="text branch-text">Concepto 3</text>
+        
+        <!-- Branch 4 -->
+        <line x1="400" y1="380" x2="400" y2="500" class="line"/>
+        <circle cx="400" cy="500" r="50" class="node"/>
+        <text x="400" y="505" class="text branch-text">Concepto 4</text>
+        
+        <!-- Sub-nodes -->
+        <line x1="650" y1="200" x2="720" y2="150" class="line"/>
+        <circle cx="720" cy="150" r="30" class="node"/>
+        <text x="720" y="155" class="text branch-text">Detalle</text>
+        
+        <line x1="150" y1="200" x2="80" y2="150" class="line"/>
+        <circle cx="80" cy="150" r="30" class="node"/>
+        <text x="80" y="155" class="text branch-text">Detalle</text>
+      </svg>
+    `;
+    
+    const dataUri = `data:image/svg+xml;base64,${Buffer.from(mockSvg).toString('base64')}`;
+    return { imageDataUri: dataUri };
+  }
+
+  // Original AI implementation
   return createMindMapFlow(input);
 }
 
