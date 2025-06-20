@@ -2,16 +2,26 @@
 "use client";
 
 import { useLanguage } from '@/contexts/language-context';
-import { useAppData } from '@/contexts/app-data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { HelpCircle, MessageSquareQuote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// FAQ data directly in component to avoid context issues
+const faqData = [
+  { id: "faq1", qKey: "faq1_q", aKey: "faq1_a" },
+  { id: "faq2", qKey: "faq2_q", aKey: "faq2_a" },
+  { id: "faq3", qKey: "faq3_q", aKey: "faq3_a" },
+  { id: "faq4", qKey: "faq4_q", aKey: "faq4_a" },
+  { id: "faq5", qKey: "faq5_q", aKey: "faq5_a" },
+  { id: "faq6", qKey: "faq6_q", aKey: "faq6_a" },
+  { id: "faq7", qKey: "faq7_q", aKey: "faq7_a" },
+  { id: "faq8", qKey: "faq8_q", aKey: "faq8_a" },
+];
+
 export default function AyudaPage() {
   const { translate } = useLanguage();
-  const { faqData } = useAppData();
 
   return (
     <div className="flex flex-col items-center text-center">
