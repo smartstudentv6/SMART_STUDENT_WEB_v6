@@ -197,7 +197,10 @@
     "tasksEmptyTeacher": "You haven't created any tasks yet. Create your first task!",
     "tasksEmptyStudent": "You have no assigned tasks at this time.",
     "tableActions": "Actions",
-    "reviewButton": "Review"
+    "reviewButton": "Review",
+    "roleAdmin": "Administrator",
+    "roleTeacher": "Teacher",
+    "roleStudent": "Student"
 }
 
 

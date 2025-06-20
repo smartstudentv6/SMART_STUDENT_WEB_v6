@@ -197,6 +197,9 @@
     "tasksEmptyTeacher": "No has creado tareas aún. ¡Crea tu primera tarea!",
     "tasksEmptyStudent": "No tienes tareas asignadas en este momento.",
     "tableActions": "Acciones",
-    "reviewButton": "Repasar"
+    "reviewButton": "Repasar",
+    "roleAdmin": "Administrador",
+    "roleTeacher": "Profesor",
+    "roleStudent": "Estudiante"
 }
 

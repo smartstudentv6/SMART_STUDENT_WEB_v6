@@ -51,52 +51,63 @@ export default function PerfilClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [dynamicLearningStats, setDynamicLearningStats] = useState<SubjectProgress[]>(learningStatsTemplate);
   const [dynamicProfileCards, setDynamicProfileCards] = useState(profileStatsCardsTemplate);
 
   // Function to translate book titles based on current language
   const translateBookTitle = (bookTitle: string): string => {
-    if (language === 'en') {
-      // Map of Spanish book titles to English translations
-      const bookTranslations: Record<string, string> = {
-        'Ciencias Naturales': 'Natural Sciences',
-        'Historia, Geografía y Ciencias Sociales': 'History, Geography and Social Sciences',
-        'Lenguaje y Comunicación': 'Language and Communication',
-        'Matemáticas': 'Mathematics',
-        'Ciencias para la Ciudadanía': 'Science for Citizenship',
-        'Biología': 'Biology',
-        'Física': 'Physics',
-        'Química': 'Chemistry',
-        'Historia': 'History',
-        'Inglés': 'English',
-        'Educación Física': 'Physical Education',
-        'Artes Visuales': 'Visual Arts',
-        'Música': 'Music',
-        'Tecnología': 'Technology',
-        'Religión': 'Religion',
-        'Orientación': 'Guidance'
-      };
-
-      // Try to find exact match first
-      if (bookTranslations[bookTitle]) {
-        return bookTranslations[bookTitle];
+    try {
+      if (!bookTitle || typeof bookTitle !== 'string') {
+        return bookTitle || '';
       }
 
-      // For composite titles like "Ciencias Naturales 1ro Básico"
-      for (const [spanish, english] of Object.entries(bookTranslations)) {
-        if (bookTitle.includes(spanish)) {
-          return bookTitle.replace(spanish, english);
+      if (language === 'en') {
+        // Map of Spanish book titles to English translations
+        const bookTranslations: Record<string, string> = {
+          'Ciencias Naturales': 'Natural Sciences',
+          'Historia, Geografía y Ciencias Sociales': 'History, Geography and Social Sciences',
+          'Lenguaje y Comunicación': 'Language and Communication',
+          'Matemáticas': 'Mathematics',
+          'Ciencias para la Ciudadanía': 'Science for Citizenship',
+          'Biología': 'Biology',
+          'Física': 'Physics',
+          'Química': 'Chemistry',
+          'Historia': 'History',
+          'Inglés': 'English',
+          'Educación Física': 'Physical Education',
+          'Artes Visuales': 'Visual Arts',
+          'Música': 'Music',
+          'Tecnología': 'Technology',
+          'Religión': 'Religion',
+          'Orientación': 'Guidance'
+        };
+
+        // Try to find exact match first
+        if (bookTranslations[bookTitle]) {
+          return bookTranslations[bookTitle];
+        }
+
+        // For composite titles like "Ciencias Naturales 1ro Básico"
+        for (const [spanish, english] of Object.entries(bookTranslations)) {
+          if (bookTitle.includes(spanish)) {
+            return bookTitle.replace(spanish, english);
+          }
         }
       }
+      
+      return bookTitle; // Return original if no translation found or if in Spanish
+    } catch (error) {
+      console.error("Error translating book title:", error);
+      return bookTitle || '';
     }
-    
-    return bookTitle; // Return original if no translation found or if in Spanish
   };
 
   // Ensure this only runs on client-side
   useEffect(() => {
     setMounted(true);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -348,6 +359,18 @@ export default function PerfilClient() {
     );
   }
 
+  // Error boundary check
+  if (!translate || !language) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="text-red-500 mb-2">Error: Contexto de idioma no disponible</div>
+          <div className="text-sm text-gray-500">Por favor, recarga la página</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <Card className="shadow-lg">
@@ -548,7 +571,7 @@ export default function PerfilClient() {
                     {translate('previousPage')}
                   </Button>
                   <span className="px-4 py-2 text-sm">
-                    {translate('pageInfo', { current: currentPage, total: totalPages })}
+                    {translate('pageInfo', { current: currentPage.toString(), total: totalPages.toString() })}
                   </span>
                   <Button
                     variant="outline"
