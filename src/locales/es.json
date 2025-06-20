@@ -13,6 +13,7 @@
     "navMindMap": "Mapa Mental",
     "navQuiz": "Cuestionario",
     "navEvaluation": "Evaluación",
+    "navTasks": "Tareas",
     "navProfile": "Perfil",
     "navHelp": "Ayuda",
     "logoutButtonTitle": "Cerrar Sesión",
@@ -189,6 +190,13 @@
     "aiStatusInactive": "IA No Disponible - Modo de Ejemplo",
     "cardTasksTitle": "Gestión de Tareas",
     "cardTasksDesc": "Organiza y administra tus tareas académicas y pendientes de estudio",
-    "cardTasksBtn": "Ver Tareas"
+    "cardTasksBtn": "Ver Tareas",
+    "tasksPageTitle": "Tareas",
+    "tasksPageSubTeacher": "Gestiona y asigna tareas a tus estudiantes",
+    "tasksPageSubStudent": "Revisa y comenta tus tareas asignadas",
+    "tasksEmptyTeacher": "No has creado tareas aún. ¡Crea tu primera tarea!",
+    "tasksEmptyStudent": "No tienes tareas asignadas en este momento.",
+    "tableActions": "Acciones",
+    "reviewButton": "Repasar"
 }
 

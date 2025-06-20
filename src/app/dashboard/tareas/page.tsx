@@ -263,12 +263,12 @@ export default function TareasPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center">
             <ClipboardList className="w-8 h-8 mr-3 text-indigo-600" />
-            Tareas
+            {translate('tasksPageTitle')}
           </h1>
           <p className="text-muted-foreground">
             {user?.role === 'teacher' 
-              ? 'Gestiona y asigna tareas a tus estudiantes'
-              : 'Revisa y comenta tus tareas asignadas'
+              ? translate('tasksPageSubTeacher')
+              : translate('tasksPageSubStudent')
             }
           </p>
         </div>
@@ -289,8 +289,8 @@ export default function TareasPage() {
               <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
                 {user?.role === 'teacher' 
-                  ? 'No has creado tareas aún. ¡Crea tu primera tarea!'
-                  : 'No tienes tareas asignadas en este momento.'
+                  ? translate('tasksEmptyTeacher')
+                  : translate('tasksEmptyStudent')
                 }
               </p>
             </CardContent>

@@ -13,6 +13,7 @@
     "navMindMap": "Mind Map",
     "navQuiz": "Quiz",
     "navEvaluation": "Evaluation",
+    "navTasks": "Tasks",
     "navProfile": "Profile",
     "navHelp": "Help",
     "logoutButtonTitle": "Logout",
@@ -189,7 +190,14 @@
     "aiStatusInactive": "AI Not Available - Example Mode",
     "cardTasksTitle": "Task Management",
     "cardTasksDesc": "Organize and manage your academic tasks and study assignments",
-    "cardTasksBtn": "View Tasks"
+    "cardTasksBtn": "View Tasks",
+    "tasksPageTitle": "Tasks",
+    "tasksPageSubTeacher": "Manage and assign tasks to your students",
+    "tasksPageSubStudent": "Review and comment on your assigned tasks",
+    "tasksEmptyTeacher": "You haven't created any tasks yet. Create your first task!",
+    "tasksEmptyStudent": "You have no assigned tasks at this time.",
+    "tableActions": "Actions",
+    "reviewButton": "Review"
 }
 
 

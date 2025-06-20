@@ -286,6 +286,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user.role === 'admin') return true;
     
     // Estudiantes y profesores solo a sus cursos activos
+    // Verificar que activeCourses existe y es un array
+    if (!user.activeCourses || !Array.isArray(user.activeCourses)) {
+      return false;
+    }
+    
     return user.activeCourses.includes(course);
   };
 
@@ -303,6 +308,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         '6to Básico', '7mo Básico', '8vo Básico', '1ro Medio', '2do Medio',
         '3ro Medio', '4to Medio'
       ];
+    }
+    
+    // Verificar que activeCourses existe y es un array
+    if (!user.activeCourses || !Array.isArray(user.activeCourses)) {
+      return [];
     }
     
     return user.activeCourses;
