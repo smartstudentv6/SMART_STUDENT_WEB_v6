@@ -56,6 +56,14 @@ body {
     --custom-purple-100: 260 100% 92%;
     --custom-purple-100-hover: 260 100% 87%;
     --custom-purple-800: 260 70% 50%;
+
+    --custom-orange-100: 25 100% 88%;
+    --custom-orange-100-hover: 25 100% 83%;
+    --custom-orange-800: 25 90% 35%;
+
+    --custom-teal-100: 175 80% 88%;
+    --custom-teal-100-hover: 175 80% 83%;
+    --custom-teal-800: 175 60% 35%;
   }
 
   .dark {
@@ -96,6 +104,12 @@ body {
 
     --custom-purple-100: 260 100% 95%;
     --custom-purple-800: 260 70% 50%;
+
+    --custom-orange-100: 25 100% 95%;
+    --custom-orange-800: 25 90% 35%;
+
+    --custom-teal-100: 175 100% 95%;
+    --custom-teal-800: 175 60% 35%;
   }
 }
 
@@ -207,6 +221,10 @@ html.dark.theme-accent-purple {
 .bg-custom-purple-100 { @apply bg-[hsl(var(--custom-purple-100))]; }
 .text-custom-purple-800 { @apply text-[hsl(var(--custom-purple-800))]; }
 .hover\:bg-custom-purple-100\/80:hover { @apply hover:bg-[hsl(var(--custom-purple-100-hover))]; }
+
+.bg-custom-teal-100 { @apply bg-[hsl(var(--custom-teal-100))]; }
+.text-custom-teal-800 { @apply text-[hsl(var(--custom-teal-800))]; }
+.hover\:bg-custom-teal-100\/80:hover { @apply hover:bg-[hsl(var(--custom-teal-100-hover))]; }
 
 
 /* For buttons on home cards and main action buttons on feature pages */
@@ -401,6 +419,216 @@ html.dark.theme-accent-purple {
          transition-all duration-500 ease-out;
 }
 .dark .home-card-button-purple:hover::before {
+  @apply left-[100%];
+}
+
+/* Red button styles for admin functionality */
+.home-card-button-red {
+  @apply border-transparent bg-red-100 text-red-800 
+         hover:border-transparent hover:bg-red-800 hover:text-red-100
+         hover:shadow-2xl hover:shadow-red-500/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out
+         relative overflow-hidden;
+  background-color: rgb(254 226 226) !important; /* red-100 */
+  color: rgb(153 27 27) !important; /* red-800 */
+  border: none !important;
+}
+.home-card-button-red:hover {
+  background-color: rgb(153 27 27) !important; /* red-800 */
+  color: rgb(254 226 226) !important; /* red-100 */
+  border: none !important;
+}
+.home-card-button-red:active {
+  background-color: rgb(153 27 27) !important; /* red-800 */
+  color: rgb(254 226 226) !important; /* red-100 */
+  transform: scale(1.05) !important;
+  border: none !important;
+}
+.home-card-button-red:focus {
+  background-color: rgb(153 27 27) !important; /* red-800 */
+  color: rgb(254 226 226) !important; /* red-100 */
+  border: none !important;
+}
+.home-card-button-red::before {
+  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
+         bg-gradient-to-r from-transparent via-white/20 to-transparent
+         transition-all duration-500 ease-out;
+}
+.home-card-button-red:hover::before {
+  @apply left-[100%];
+}
+.dark .home-card-button-red {
+  @apply border-transparent bg-red-100 text-red-800
+         hover:border-transparent hover:bg-red-800 hover:text-red-100
+         hover:shadow-2xl hover:shadow-red-400/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out
+         relative overflow-hidden;
+  background-color: rgb(254 226 226) !important; /* red-100 */
+  color: rgb(153 27 27) !important; /* red-800 */
+  border: none !important;
+}
+.dark .home-card-button-red:hover {
+  background-color: rgb(153 27 27) !important; /* red-800 */
+  color: rgb(254 226 226) !important; /* red-100 */
+  border: none !important;
+}
+.dark .home-card-button-red:active {
+  background-color: rgb(153 27 27) !important; /* red-800 */
+  color: rgb(254 226 226) !important; /* red-100 */
+  transform: scale(1.05) !important;
+  border: none !important;
+}
+.dark .home-card-button-red:focus {
+  background-color: rgb(153 27 27) !important; /* red-800 */
+  color: rgb(254 226 226) !important; /* red-100 */
+  border: none !important;
+}
+.dark .home-card-button-red::before {
+  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
+         bg-gradient-to-r from-transparent via-white/30 to-transparent
+         transition-all duration-500 ease-out;
+}
+.dark .home-card-button-red:hover::before {
+  @apply left-[100%];
+}
+
+/* Orange button styles for admin requests functionality */
+.home-card-button-orange {
+  @apply border-transparent bg-orange-100 text-orange-800 
+         hover:border-transparent hover:bg-orange-800 hover:text-orange-100
+         hover:shadow-2xl hover:shadow-orange-500/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out
+         relative overflow-hidden;
+  background-color: rgb(254 215 170) !important; /* orange-100 */
+  color: rgb(154 52 18) !important; /* orange-800 */
+  border: none !important;
+}
+.home-card-button-orange:hover {
+  background-color: rgb(154 52 18) !important; /* orange-800 */
+  color: rgb(254 215 170) !important; /* orange-100 */
+  border: none !important;
+}
+.home-card-button-orange:active {
+  background-color: rgb(154 52 18) !important; /* orange-800 */
+  color: rgb(254 215 170) !important; /* orange-100 */
+  transform: scale(1.05) !important;
+  border: none !important;
+}
+.home-card-button-orange:focus {
+  background-color: rgb(154 52 18) !important; /* orange-800 */
+  color: rgb(254 215 170) !important; /* orange-100 */
+  border: none !important;
+}
+.home-card-button-orange::before {
+  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
+         bg-gradient-to-r from-transparent via-white/20 to-transparent
+         transition-all duration-500 ease-out;
+}
+.home-card-button-orange:hover::before {
+  @apply left-[100%];
+}
+.dark .home-card-button-orange {
+  @apply border-transparent bg-orange-100 text-orange-800
+         hover:border-transparent hover:bg-orange-800 hover:text-orange-100
+         hover:shadow-2xl hover:shadow-orange-400/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out
+         relative overflow-hidden;
+  background-color: rgb(254 215 170) !important; /* orange-100 */
+  color: rgb(154 52 18) !important; /* orange-800 */
+  border: none !important;
+}
+.dark .home-card-button-orange:hover {
+  background-color: rgb(154 52 18) !important; /* orange-800 */
+  color: rgb(254 215 170) !important; /* orange-100 */
+  border: none !important;
+}
+.dark .home-card-button-orange:active {
+  background-color: rgb(154 52 18) !important; /* orange-800 */
+  color: rgb(254 215 170) !important; /* orange-100 */
+  transform: scale(1.05) !important;
+  border: none !important;
+}
+.dark .home-card-button-orange:focus {
+  background-color: rgb(154 52 18) !important; /* orange-800 */
+  color: rgb(254 215 170) !important; /* orange-100 */
+  border: none !important;
+}
+.dark .home-card-button-orange::before {
+  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
+         bg-gradient-to-r from-transparent via-white/30 to-transparent
+         transition-all duration-500 ease-out;
+}
+.dark .home-card-button-orange:hover::before {
+  @apply left-[100%];
+}
+
+/* Teal button styles for chat functionality */
+.home-card-button-teal {
+  @apply border-transparent bg-[hsl(var(--custom-teal-100))] text-[hsl(var(--custom-teal-800))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-teal-800))] hover:text-[hsl(var(--custom-teal-100))]
+         hover:shadow-2xl hover:shadow-teal-500/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out
+         relative overflow-hidden;
+  background-color: hsl(var(--custom-teal-100)) !important;
+  color: hsl(var(--custom-teal-800)) !important;
+  border: none !important;
+}
+.home-card-button-teal:hover {
+  background-color: hsl(var(--custom-teal-800)) !important;
+  color: hsl(var(--custom-teal-100)) !important;
+  border: none !important;
+}
+.home-card-button-teal:active {
+  background-color: hsl(var(--custom-teal-800)) !important;
+  color: hsl(var(--custom-teal-100)) !important;
+  transform: scale(1.05) !important;
+  border: none !important;
+}
+.home-card-button-teal:focus {
+  background-color: hsl(var(--custom-teal-800)) !important;
+  color: hsl(var(--custom-teal-100)) !important;
+  border: none !important;
+}
+.home-card-button-teal::before {
+  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
+         bg-gradient-to-r from-transparent via-white/20 to-transparent
+         transition-all duration-500 ease-out;
+}
+.home-card-button-teal:hover::before {
+  @apply left-[100%];
+}
+.dark .home-card-button-teal {
+  @apply border-transparent bg-[hsl(var(--custom-teal-100))] text-[hsl(var(--custom-teal-800))]
+         hover:border-transparent hover:bg-[hsl(var(--custom-teal-800))] hover:text-[hsl(var(--custom-teal-100))]
+         hover:shadow-2xl hover:shadow-teal-400/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out
+         relative overflow-hidden;
+  background-color: hsl(var(--custom-teal-100)) !important;
+  color: hsl(var(--custom-teal-800)) !important;
+  border: none !important;
+}
+.dark .home-card-button-teal:hover {
+  background-color: hsl(var(--custom-teal-800)) !important;
+  color: hsl(var(--custom-teal-100)) !important;
+  border: none !important;
+}
+.dark .home-card-button-teal:active {
+  background-color: hsl(var(--custom-teal-800)) !important;
+  color: hsl(var(--custom-teal-100)) !important;
+  transform: scale(1.05) !important;
+  border: none !important;
+}
+.dark .home-card-button-teal:focus {
+  background-color: hsl(var(--custom-teal-800)) !important;
+  color: hsl(var(--custom-teal-100)) !important;
+  border: none !important;
+}
+.dark .home-card-button-teal::before {
+  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
+         bg-gradient-to-r from-transparent via-white/30 to-transparent
+         transition-all duration-500 ease-out;
+}
+.dark .home-card-button-teal:hover::before {
   @apply left-[100%];
 }
 

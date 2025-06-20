@@ -421,3 +421,24 @@ export function getSubjectsForCourse(course: string): string[] {
     .filter(book => book.course === course)
     .map(book => book.subject);
 }
+
+// Get all unique subjects across all courses
+export function getAllSubjects(): string[] {
+  const subjects = bookPDFs.map(book => book.subject);
+  return [...new Set(subjects)].sort();
+}
+
+// Get all unique courses
+export function getAllCourses(): string[] {
+  const courses = bookPDFs.map(book => book.course);
+  return [...new Set(courses)].sort();
+}
+
+// Get courses that have a specific subject
+export function getCoursesForSubject(subject: string): string[] {
+  return bookPDFs
+    .filter(book => book.subject === subject)
+    .map(book => book.course)
+    .filter((course, index, array) => array.indexOf(course) === index)
+    .sort();
+}

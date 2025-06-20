@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import Link from 'next/link';
+import { ForgotPasswordDialog } from '@/components/auth/forgot-password-dialog';
 import { cn } from '@/lib/utils';
 
 export default function LoginForm() {
@@ -16,6 +16,7 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showForgotPasswordDialog, setShowForgotPasswordDialog] = useState(false);
   const { login } = useAuth();
   const { translate } = useLanguage();
 
@@ -74,10 +75,19 @@ export default function LoginForm() {
             {isSubmitting ? `${translate('loading')}...` : translate('loginButton')}
           </Button>
         </form>
-        <Link href="#" className="block text-center mt-6 text-sm text-foreground hover:underline">
+        <button 
+          onClick={() => setShowForgotPasswordDialog(true)}
+          className="w-full text-center mt-6 text-sm text-foreground hover:underline bg-transparent border-none cursor-pointer"
+        >
           {translate('loginForgot')}
-        </Link>
+        </button>
       </CardContent>
+
+      {/* Forgot Password Dialog */}
+      <ForgotPasswordDialog
+        open={showForgotPasswordDialog}
+        onOpenChange={setShowForgotPasswordDialog}
+      />
     </Card>
   );
 }

@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/language-context';
+import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,6 +34,7 @@ const INITIAL_TIME_LIMIT = 120; // 2 minutes in seconds
 
 export default function EvaluacionPage() {
   const { translate, language: currentUiLanguage } = useLanguage();
+  const { user } = useAuth();
   const { toast } = useToast();
   const { progress, progressText, isLoading: aiIsLoading, startProgress, stopProgress } = useAIProgress();
   const searchParams = useSearchParams(); 
@@ -107,17 +109,19 @@ export default function EvaluacionPage() {
   }, [evaluationQuestions, userAnswers]);
 
   const saveEvaluationToHistory = useCallback((finalScore: number, totalQuestions: number) => {
-    if (!selectedBook || !currentTopicForDisplay || !selectedCourse) return;
+    if (!selectedBook || !currentTopicForDisplay || !selectedCourse || !user) return;
 
     const newHistoryItem: EvaluationHistoryItem = {
       id: new Date().toISOString(),
-      date: new Date().toLocaleString(translate('evalDateFormatLocale', {defaultValue: 'es-CL'}), { 
+      date: new Date().toLocaleDateString('es-ES', { 
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
+      }) + ', ' + new Date().toLocaleTimeString('es-ES', {
         hour: '2-digit',
         minute: '2-digit',
-      }) + (currentUiLanguage === 'es' ? ' hrs' : ''), // Append 'hrs' only for Spanish
+        hour12: false
+      }) + ' Hrs',
       courseName: selectedCourse, 
       bookTitle: selectedBook,
       topic: currentTopicForDisplay,
@@ -126,10 +130,12 @@ export default function EvaluacionPage() {
     };
 
     try {
-      const existingHistoryString = localStorage.getItem('evaluationHistory');
+      // Use user-specific localStorage key
+      const historyKey = `evaluationHistory_${user.username}`;
+      const existingHistoryString = localStorage.getItem(historyKey);
       const existingHistory: EvaluationHistoryItem[] = existingHistoryString ? JSON.parse(existingHistoryString) : [];
       const updatedHistory = [newHistoryItem, ...existingHistory]; 
-      localStorage.setItem('evaluationHistory', JSON.stringify(updatedHistory));
+      localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
     } catch (error) {
       console.error("Failed to save evaluation history:", error);
       toast({
@@ -138,7 +144,7 @@ export default function EvaluacionPage() {
         variant: 'destructive',
       });
     }
-  }, [selectedCourse, selectedBook, currentTopicForDisplay, toast, translate, currentUiLanguage]);
+  }, [selectedCourse, selectedBook, currentTopicForDisplay, user, toast, translate, currentUiLanguage]);
 
   const handleFinishEvaluation = useCallback(() => {
     const finalScore = calculateScore();

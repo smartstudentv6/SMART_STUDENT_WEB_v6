@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/language-context';
 import { useAppData } from '@/contexts/app-data-context';
+import { useAuth } from '@/contexts/auth-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { CourseData } from '@/lib/types';
 
@@ -23,10 +24,29 @@ export function BookCourseSelector({
 }: BookCourseSelectorProps) {
   const { translate, language } = useLanguage();
   const { courses } = useAppData();
+  const { getAccessibleCourses, hasAccessToCourse, isAdmin, user, isLoading } = useAuth();
   const [booksForCourse, setBooksForCourse] = useState<string[]>([]);
 
+  // Early return if loading or no user
+  if (isLoading || !user) {
+    return (
+      <div className="space-y-3">
+        <div className="h-12 bg-muted animate-pulse rounded-md"></div>
+        <div className="h-12 bg-muted animate-pulse rounded-md"></div>
+      </div>
+    );
+  }
+
+  // Filtrar cursos basado en permisos del usuario
+  const isUserAdmin = isAdmin();
+  const userAccessibleCourses = getAccessibleCourses();
+  const accessibleCourses = isUserAdmin ? Object.keys(courses || {}) : (userAccessibleCourses || []);
+  const filteredCourses = Object.keys(courses || {}).filter(course => 
+    Array.isArray(accessibleCourses) && accessibleCourses.includes(course)
+  );
+
   useEffect(() => {
-    if (selectedCourse && courses[selectedCourse]) {
+    if (selectedCourse && courses[selectedCourse] && hasAccessToCourse(selectedCourse)) {
       const newBooks = courses[selectedCourse][language] || [];
       setBooksForCourse(newBooks);
       if (initialBookNameToSelect && newBooks.includes(initialBookNameToSelect)) {
@@ -43,7 +63,7 @@ export function BookCourseSelector({
       onBookChange(''); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCourse, language, courses, initialBookNameToSelect]); // onBookChange removed, initialBookNameToSelect added
+  }, [selectedCourse, language, courses, initialBookNameToSelect, hasAccessToCourse]); // añadido hasAccessToCourse
 
   return (
     <>
@@ -52,7 +72,7 @@ export function BookCourseSelector({
           <SelectValue placeholder={translate('selectCourse')} />
         </SelectTrigger>
         <SelectContent>
-          {Object.keys(courses).map(courseName => (
+          {filteredCourses.map(courseName => (
             <SelectItem key={courseName} value={courseName}>
               {courseName.replace(/Básico/g, 'Básico').replace(/Medio/g, 'Medio')}
             </SelectItem>

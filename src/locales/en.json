@@ -111,6 +111,8 @@
     "profileDeleteHistory": "Delete History",
     "profileStatsTitle": "Learning Statistics",
     "profileProgressBySub": "Progress by Subject",
+    "learningProgressTitle": "Learning Statistics",
+    "learningProgressSub": "Visualize your academic progress by subject",
     "subjectMath": "Mathematics",
     "subjectScience": "Science",
     "subjectHistory": "History",
@@ -122,6 +124,11 @@
     "statQuizzes": "Quizzes Created",
     "historyTitle": "Evaluation History",
     "historySub": "See your progress! Every evaluation makes you stronger 🔥",
+    "evaluationHistoryTitle": "Evaluation History",
+    "evaluationHistorySub": "Review all your completed evaluations and academic progress",
+    "historyDeleteButton": "Delete History",
+    "historyEmptyTitle": "No history",
+    "historyEmptyDesc": "No evaluation data to download",
     "tableDate": "Date",
     "tableCourse": "Course",
     "tableBook": "Book",
@@ -130,6 +137,9 @@
     "tablePoints": "Pts",
     "tableReview": "Review",
     "historyNoData": "No evaluation history yet.",
+    "previousPage": "Previous",
+    "nextPage": "Next",
+    "pageInfo": "Page {{current}} of {{total}}",
     "helpPageTitle": "Help Center",
     "helpPageSub": "Here you will find answers to frequently asked questions you may have as a Student.",
     "faqTitle": "Frequently Asked Questions",
@@ -176,7 +186,10 @@
     "historyDeletedDesc": "All your data has been successfully cleared.",
     "aiStatusChecking": "Checking AI connection...",
     "aiStatusActive": "AI Activated",
-    "aiStatusInactive": "AI Not Available - Example Mode"
+    "aiStatusInactive": "AI Not Available - Example Mode",
+    "cardTasksTitle": "Task Management",
+    "cardTasksDesc": "Organize and manage your academic tasks and study assignments",
+    "cardTasksBtn": "View Tasks"
 }
 
 

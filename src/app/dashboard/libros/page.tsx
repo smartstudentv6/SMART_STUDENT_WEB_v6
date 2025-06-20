@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '@/contexts/language-context';
 import { useAppData } from '@/contexts/app-data-context';
+import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,7 +16,20 @@ import { cn } from '@/lib/utils';
 export default function LibrosPage() {
   const { translate, language } = useLanguage();
   const { courses } = useAppData();
+  const { user, getAccessibleCourses, hasAccessToCourse, isLoading } = useAuth();
   const { toast } = useToast();
+
+  // Early return if loading or no user
+  if (isLoading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando biblioteca...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Function to get subject icon and color
   const getSubjectIconAndColor = (subject: string) => {
@@ -51,20 +65,35 @@ export default function LibrosPage() {
     }
   };
 
-  // Group books by course
+  // Group books by course - filtered by user permissions
   const booksByCourse = useMemo(() => {
+    const accessibleCourses = getAccessibleCourses();
+    
     const grouped = bookPDFs.reduce((acc, book) => {
-      if (!acc[book.course]) {
-        acc[book.course] = [];
+      // Only include books from courses the user has access to
+      if (hasAccessToCourse(book.course) && accessibleCourses.includes(book.course)) {
+        if (!acc[book.course]) {
+          acc[book.course] = [];
+        }
+        acc[book.course].push(book);
       }
-      acc[book.course].push(book);
       return acc;
     }, {} as Record<string, BookPDF[]>);
 
     return grouped;
-  }, []);
+  }, [getAccessibleCourses, hasAccessToCourse]);
 
   const handleDownloadPdf = (book: BookPDF) => {
+    // Verify user has access to this book's course
+    if (!hasAccessToCourse(book.course)) {
+      toast({
+        title: 'Acceso Denegado',
+        description: 'No tienes permisos para acceder a este libro.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     window.open(book.pdfUrl, '_blank');
     toast({
       title: 'PDF Abierto',
@@ -90,7 +119,18 @@ export default function LibrosPage() {
 
       {/* Books by Course */}
       <div className="space-y-8">
-        {Object.entries(booksByCourse).map(([course, books]) => (
+        {Object.keys(booksByCourse).length === 0 ? (
+          <div className="text-center py-12">
+            <Library className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-muted-foreground mb-2">
+              No tienes acceso a libros
+            </h3>
+            <p className="text-muted-foreground">
+              Contacta al administrador para obtener acceso a los cursos y sus libros.
+            </p>
+          </div>
+        ) : (
+          Object.entries(booksByCourse).map(([course, books]) => (
             <div key={course} className="space-y-4">
               {/* Course Title */}
               <div className="flex items-center gap-3 mb-6">
@@ -121,18 +161,20 @@ export default function LibrosPage() {
                         <div className="space-y-3">
                           <Badge variant="outline" className="text-xs">
                             {book.course}
-                          </Badge>                        <Button
-                          variant="outline"
-                          onClick={() => handleDownloadPdf(book)}
-                          className={cn(
-                            "home-card-button home-card-button-green",
-                            "hover:shadow-lg hover:scale-105 transition-all duration-200"
-                          )}
-                          size="sm"
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          {translate('downloadPDF')}
-                        </Button>
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            onClick={() => handleDownloadPdf(book)}
+                            className={cn(
+                              "home-card-button home-card-button-green",
+                              "hover:shadow-lg hover:scale-105 transition-all duration-200"
+                            )}
+                            size="sm"
+                            disabled={!hasAccessToCourse(book.course)}
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            {translate('downloadPDF')}
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -141,7 +183,7 @@ export default function LibrosPage() {
               </div>
             </div>
           ))
-        }
+        )}
       </div>
     </div>
   );

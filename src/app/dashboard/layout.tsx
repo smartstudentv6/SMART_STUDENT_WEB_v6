@@ -8,8 +8,9 @@ import Link from 'next/link';
 import LanguageToggle from '@/components/shared/language-toggle';
 import ThemeToggle from '@/components/shared/theme-toggle';
 import { AIStatusIndicator } from '@/components/shared/ai-status-indicator';
+import { UserRoleBadge } from '@/components/shared/user-role-badge';
 import { Button } from '@/components/ui/button';
-import { LogOut, Home, Library, FileText, Network, FileQuestion, ClipboardList, UserCircle2, HelpCircle } from 'lucide-react';
+import { LogOut, Home, Library, FileText, Network, FileQuestion, ClipboardList, UserCircle2, HelpCircle, Users, Mail, CheckSquare } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -21,8 +22,15 @@ const navItems = [
   { href: '/dashboard/mapa-mental', labelKey: 'navMindMap', icon: Network },
   { href: '/dashboard/cuestionario', labelKey: 'navQuiz', icon: FileQuestion },
   { href: '/dashboard/evaluacion', labelKey: 'navEvaluation', icon: ClipboardList },
+  { href: '/dashboard/tareas', labelKey: 'navTasks', icon: CheckSquare },
   { href: '/dashboard/perfil', labelKey: 'navProfile', icon: UserCircle2 },
   { href: '/dashboard/ayuda', labelKey: 'navHelp', icon: HelpCircle },
+];
+
+// Admin-only navigation items - these appear only on dashboard cards, not in navigation
+const adminNavItems = [
+  { href: '/dashboard/gestion-usuarios', labelKey: 'navUserManagement', icon: Users },
+  { href: '/dashboard/solicitudes', labelKey: 'navPasswordRequests', icon: Mail },
 ];
 
 export default function DashboardLayout({
@@ -30,11 +38,14 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading, logout, isAdmin } = useAuth();
   const { translate } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const [activeAccentTheme, setActiveAccentTheme] = useState('default');
+
+  // Navigation items - only regular items, admin features are accessible via dashboard cards
+  const allNavItems = navItems;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -45,16 +56,24 @@ export default function DashboardLayout({
   useEffect(() => {
     // Determine active theme based on pathname when dashboard is visible
     if (!isLoading && isAuthenticated) {
-      const currentNavItem = navItems.find(item => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));
-      let newTheme = 'default';
-      if (currentNavItem) {
-        switch (currentNavItem.labelKey) {
-          case 'navSummary': newTheme = 'blue'; break;
-          case 'navBooks': newTheme = 'green'; break;
-          case 'navMindMap': newTheme = 'yellow'; break;
-          case 'navQuiz': newTheme = 'cyan'; break;
-          case 'navEvaluation': newTheme = 'purple'; break;
-          default: newTheme = 'default';
+      // Check regular navigation items first
+      const currentNavItem = allNavItems.find(item => pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)));
+      let newTheme = 'default';        if (currentNavItem) {
+          switch (currentNavItem.labelKey) {
+            case 'navSummary': newTheme = 'blue'; break;
+            case 'navBooks': newTheme = 'green'; break;
+            case 'navMindMap': newTheme = 'yellow'; break;
+            case 'navQuiz': newTheme = 'cyan'; break;
+            case 'navEvaluation': newTheme = 'purple'; break;
+            case 'navTasks': newTheme = 'teal'; break;
+            default: newTheme = 'default';
+          }
+        }else {
+        // Check admin paths that are not in navigation
+        if (pathname.startsWith('/dashboard/gestion-usuarios')) {
+          newTheme = 'red';
+        } else if (pathname.startsWith('/dashboard/solicitudes')) {
+          newTheme = 'orange';
         }
       }
       setActiveAccentTheme(newTheme);
@@ -62,11 +81,11 @@ export default function DashboardLayout({
       // If navigating away from dashboard (e.g. logout), reset to default
       setActiveAccentTheme('default');
     }
-  }, [pathname, isLoading, isAuthenticated]);
+  }, [pathname, isLoading, isAuthenticated, allNavItems]);
 
   useEffect(() => {
     // List of all possible theme classes
-    const themeClasses = ['theme-accent-default', 'theme-accent-blue', 'theme-accent-green', 'theme-accent-yellow', 'theme-accent-cyan', 'theme-accent-purple'];
+    const themeClasses = ['theme-accent-default', 'theme-accent-blue', 'theme-accent-green', 'theme-accent-yellow', 'theme-accent-cyan', 'theme-accent-purple', 'theme-accent-red', 'theme-accent-orange', 'theme-accent-teal'];
     
     // Clean up previous theme classes from html element
     themeClasses.forEach(cls => document.documentElement.classList.remove(cls));
@@ -133,7 +152,7 @@ export default function DashboardLayout({
           </Link>
           
           <div className="hidden md:flex items-center justify-center space-x-1 lg:space-x-2 overflow-x-auto">
-            {navItems.map((item) => {
+            {allNavItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
               let activeStyle = 'bg-muted text-foreground font-semibold border-2 border-transparent dark:border-white dark:bg-transparent'; // Default active style with white border in dark mode
               
@@ -147,13 +166,17 @@ export default function DashboardLayout({
                 activeStyle = 'bg-custom-cyan-100 text-custom-cyan-800 font-semibold';
               } else if (item.labelKey === 'navEvaluation') {
                 activeStyle = 'bg-custom-purple-100 text-custom-purple-800 font-semibold';
+              } else if (item.labelKey === 'navTasks') {
+                activeStyle = 'bg-custom-teal-100 text-custom-teal-800 font-semibold';
+              } else if (item.labelKey === 'navUserManagement') {
+                activeStyle = 'bg-custom-red-100 text-custom-red-800 font-semibold';
               }
               
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap
+                  className={`flex items-center px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap relative
                     ${isActive
                       ? activeStyle
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 font-medium'
@@ -166,6 +189,7 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex justify-end items-center space-x-2 sm:space-x-4">
+            <UserRoleBadge />
             <LanguageToggle />
             <ThemeToggle />
             <Button 
@@ -186,7 +210,7 @@ export default function DashboardLayout({
          {/* Mobile Navigation - Appears below header on small screens */}
         <div className="md:hidden bg-card border-t border-border p-2">
             <div className="flex items-center justify-start space-x-1 overflow-x-auto">
-            {navItems.map((item) => {
+            {allNavItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
               let mobileActiveClasses = 'text-muted-foreground hover:text-foreground hover:bg-muted/50';
               
@@ -201,6 +225,8 @@ export default function DashboardLayout({
                   mobileActiveClasses = 'bg-custom-cyan-100/50 text-custom-cyan-800 font-semibold';
                 } else if (item.labelKey === 'navEvaluation') {
                   mobileActiveClasses = 'bg-custom-purple-100/50 text-custom-purple-800 font-semibold';
+                } else if (item.labelKey === 'navTasks') {
+                  mobileActiveClasses = 'bg-custom-teal-100/50 text-custom-teal-800 font-semibold';
                 } else {
                   // For Home, Profile, Help
                   mobileActiveClasses = 'bg-muted text-foreground font-semibold border-2 border-transparent dark:border-white dark:bg-transparent';
@@ -211,9 +237,11 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors min-w-[60px] text-center ${mobileActiveClasses}`}
+                  className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors min-w-[60px] text-center relative ${mobileActiveClasses}`}
                 >
-                  <item.icon className="w-5 h-5" />
+                  <div className="relative">
+                    <item.icon className="w-5 h-5" />
+                  </div>
                   <span className="whitespace-nowrap">{translate(item.labelKey)}</span>
                 </Link>
               );

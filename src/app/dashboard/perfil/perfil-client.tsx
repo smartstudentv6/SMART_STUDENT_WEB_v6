@@ -36,11 +36,11 @@ const learningStatsTemplate: SubjectProgress[] = [
 
 // Template for profile stats cards
 const profileStatsCardsTemplate = [
-    { value: "0", labelKey: "statEvals", colorClass: "bg-purple-500 dark:bg-purple-600", icon: Award }, 
-    { value: "0%", labelKey: "statAvgScore", colorClass: "bg-green-500 dark:bg-green-600", icon: Percent }, 
-    { value: "0", labelKey: "statSummaries", colorClass: "bg-blue-500 dark:bg-blue-600", icon: Newspaper },
-    { value: "0", labelKey: "statMaps", colorClass: "bg-yellow-500 dark:bg-yellow-600", icon: Network },
-    { value: "0", labelKey: "statQuizzes", colorClass: "bg-cyan-500 dark:bg-cyan-600", icon: FileQuestion },
+    { value: "0", labelKey: "statEvals", colorClass: "bg-gradient-to-r from-purple-500 to-purple-600", bgClass: "from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20", icon: Award }, 
+    { value: "0%", labelKey: "statAvgScore", colorClass: "bg-gradient-to-r from-emerald-500 to-emerald-600", bgClass: "from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20", icon: Percent }, 
+    { value: "0", labelKey: "statSummaries", colorClass: "bg-gradient-to-r from-blue-500 to-blue-600", bgClass: "from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20", icon: Newspaper },
+    { value: "0", labelKey: "statMaps", colorClass: "bg-gradient-to-r from-amber-500 to-amber-600", bgClass: "from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20", icon: Network },
+    { value: "0", labelKey: "statQuizzes", colorClass: "bg-gradient-to-r from-cyan-500 to-cyan-600", bgClass: "from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20", icon: FileQuestion },
 ];
 
 export default function PerfilClient() {
@@ -54,6 +54,45 @@ export default function PerfilClient() {
 
   const [dynamicLearningStats, setDynamicLearningStats] = useState<SubjectProgress[]>(learningStatsTemplate);
   const [dynamicProfileCards, setDynamicProfileCards] = useState(profileStatsCardsTemplate);
+
+  // Function to translate book titles based on current language
+  const translateBookTitle = (bookTitle: string): string => {
+    if (language === 'en') {
+      // Map of Spanish book titles to English translations
+      const bookTranslations: Record<string, string> = {
+        'Ciencias Naturales': 'Natural Sciences',
+        'Historia, Geografía y Ciencias Sociales': 'History, Geography and Social Sciences',
+        'Lenguaje y Comunicación': 'Language and Communication',
+        'Matemáticas': 'Mathematics',
+        'Ciencias para la Ciudadanía': 'Science for Citizenship',
+        'Biología': 'Biology',
+        'Física': 'Physics',
+        'Química': 'Chemistry',
+        'Historia': 'History',
+        'Inglés': 'English',
+        'Educación Física': 'Physical Education',
+        'Artes Visuales': 'Visual Arts',
+        'Música': 'Music',
+        'Tecnología': 'Technology',
+        'Religión': 'Religion',
+        'Orientación': 'Guidance'
+      };
+
+      // Try to find exact match first
+      if (bookTranslations[bookTitle]) {
+        return bookTranslations[bookTitle];
+      }
+
+      // For composite titles like "Ciencias Naturales 1ro Básico"
+      for (const [spanish, english] of Object.entries(bookTranslations)) {
+        if (bookTitle.includes(spanish)) {
+          return bookTitle.replace(spanish, english);
+        }
+      }
+    }
+    
+    return bookTitle; // Return original if no translation found or if in Spanish
+  };
 
   // Ensure this only runs on client-side
   useEffect(() => {
@@ -310,7 +349,7 @@ export default function PerfilClient() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8">
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-4 mb-2">
@@ -371,15 +410,22 @@ export default function PerfilClient() {
       </Card>
 
       {/* Profile Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {dynamicProfileCards.map((card, index) => (
-          <Card key={index} className="text-center">
-            <CardContent className="p-6">
-              <div className={cn("w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4", card.colorClass)}>
-                <card.icon className="w-6 h-6 text-white" />
+          <Card key={index} className="relative overflow-hidden group hover:scale-105 hover:shadow-xl transition-all duration-300 cursor-pointer border-2 hover:border-primary/20">
+            <div className={cn("absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300", card.bgClass)}></div>
+            <CardContent className="p-6 relative z-10 text-center">
+              <div className="flex items-center justify-center gap-4 mb-3">
+                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center", card.colorClass, "shadow-md group-hover:shadow-lg transition-shadow")}>
+                  <card.icon className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-3xl font-bold text-primary group-hover:text-primary/80 transition-colors">
+                  {card.value}
+                </div>
               </div>
-              <div className="text-2xl font-bold">{card.value}</div>
-              <div className="text-sm text-muted-foreground">{translate(card.labelKey)}</div>
+              <div className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                {translate(card.labelKey)}
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -470,7 +516,7 @@ export default function PerfilClient() {
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.date}</TableCell>
                           <TableCell>{item.courseName}</TableCell>
-                          <TableCell className="max-w-xs truncate" title={item.bookTitle}>{item.bookTitle}</TableCell>
+                          <TableCell className="max-w-xs truncate" title={translateBookTitle(item.bookTitle)}>{translateBookTitle(item.bookTitle)}</TableCell>
                           <TableCell className="max-w-xs truncate" title={item.topic}>{item.topic}</TableCell>
                           <TableCell className={cn("font-semibold", gradeColorClass)}>{gradePercentage}%</TableCell>
                           <TableCell>{item.score}/{item.totalQuestions}</TableCell>
