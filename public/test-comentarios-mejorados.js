@@ -141,8 +141,29 @@ const crearComentariosEjemplo = (taskId) => {
     }
   ];
 
+  // Limpiar comentarios existentes y migrar comentarios antiguos al nuevo formato
   const existingComments = JSON.parse(localStorage.getItem('smart-student-task-comments') || '[]');
-  const filteredComments = existingComments.filter(c => c.taskId !== taskId);
+  const filteredComments = existingComments
+    .filter(c => c.taskId !== taskId)
+    .map(c => {
+      // Migrar comentarios en formato antiguo al nuevo formato
+      if (c.studentUsername && !c.username) {
+        return {
+          ...c,
+          username: c.studentUsername,
+          userDisplayName: c.studentName || 'Usuario',
+          userRole: 'student'
+        };
+      }
+      // Asegurar que todos los comentarios tengan las propiedades necesarias
+      return {
+        ...c,
+        username: c.username || 'unknown',
+        userDisplayName: c.userDisplayName || 'Usuario',
+        userRole: c.userRole || 'student'
+      };
+    });
+  
   const allComments = [...filteredComments, ...comentarios];
   localStorage.setItem('smart-student-task-comments', JSON.stringify(allComments));
   

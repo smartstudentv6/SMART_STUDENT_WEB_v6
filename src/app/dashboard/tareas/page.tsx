@@ -387,7 +387,7 @@ export default function TareasPage() {
     setReplyingToId(commentId);
     const comment = comments.find(c => c.id === commentId);
     if (comment) {
-      setNewComment(`@${comment.userDisplayName} `);
+      setNewComment(`@${comment.userDisplayName || 'Usuario'} `);
     }
   };
 
@@ -879,15 +879,16 @@ export default function TareasPage() {
                                 ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
                                 : 'bg-gradient-to-r from-blue-500 to-purple-600'
                             }`}>
-                              {comment.userDisplayName.charAt(0).toUpperCase()}
+                              {(comment.userDisplayName || 'U').charAt(0).toUpperCase()}
                             </div>
                             <div>
                               <span className="font-medium text-sm">
-                                {comment.userDisplayName}                                  {comment.userRole === 'teacher' && (
-                                    <span className="ml-1 text-xs bg-green-100 text-green-800 px-1 rounded">
-                                      {translate('tasksTeacherLabel')}
-                                    </span>
-                                  )}
+                                {comment.userDisplayName || 'Usuario'}
+                                {comment.userRole === 'teacher' && (
+                                  <span className="ml-1 text-xs bg-green-100 text-green-800 px-1 rounded">
+                                    {translate('tasksTeacherLabel')}
+                                  </span>
+                                )}
                               </span>
                               {comment.editedAt && (
                                 <span className="text-xs text-muted-foreground ml-2">{translate('tasksCommentEdited')}</span>
@@ -1004,11 +1005,11 @@ export default function TareasPage() {
                                   ? 'bg-gradient-to-r from-green-400 to-emerald-500' 
                                   : 'bg-gradient-to-r from-gray-400 to-gray-600'
                               }`}>
-                                {reply.userDisplayName.charAt(0).toUpperCase()}
+                                {(reply.userDisplayName || 'U').charAt(0).toUpperCase()}
                               </div>
                               <div>
                                 <span className="font-medium text-sm">
-                                  {reply.userDisplayName}
+                                  {reply.userDisplayName || 'Usuario'}
                                   {reply.userRole === 'teacher' && (
                                     <span className="ml-1 text-xs bg-green-100 text-green-800 px-1 rounded">
                                       {translate('tasksTeacherLabel')}
@@ -1093,7 +1094,7 @@ export default function TareasPage() {
                         <div className="flex items-center space-x-2">
                           <Reply className="w-4 h-4 text-blue-600" />
                           <span className="text-sm text-blue-700 dark:text-blue-300">
-                            {translate('tasksCommentReplyTo')} {comments.find(c => c.id === replyingToId)?.userDisplayName}
+                            {translate('tasksCommentReplyTo')} {comments.find(c => c.id === replyingToId)?.userDisplayName || 'Usuario'}
                           </span>
                         </div>
                         <Button
