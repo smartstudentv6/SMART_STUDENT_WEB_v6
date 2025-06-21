@@ -52,6 +52,14 @@ const featureCards = [
     icon: ClipboardList,
     colorClass: 'purple',
   },
+  {
+    titleKey: 'cardTasksTitle',
+    descKey: 'cardTasksDesc',
+    btnKey: 'cardTasksBtn',
+    targetPage: '/dashboard/tareas',
+    icon: MessageSquare,
+    colorClass: 'indigo',
+  },
 ];
 
 const adminCards = [
@@ -70,14 +78,6 @@ const adminCards = [
     targetPage: '/dashboard/solicitudes',
     icon: ClipboardCheck,
     colorClass: 'red',
-  },
-  {
-    titleKey: 'cardTasksTitle',
-    descKey: 'cardTasksDesc',
-    btnKey: 'cardTasksBtn',
-    targetPage: '/dashboard/tareas',
-    icon: MessageSquare,
-    colorClass: 'indigo',
   },
 ];
 

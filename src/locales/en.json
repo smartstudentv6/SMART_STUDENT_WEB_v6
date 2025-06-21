@@ -252,7 +252,21 @@
     "openingBook": "Opening {{title}}",
     "adminRole": "👑 Administrator",
     "teacherRole": "👨‍🏫 Teacher",
-    "studentRole": "🎓 Student"
+    "studentRole": "🎓 Student",
+    "userManagementPageTitle": "User Management",
+    "userManagementPageDescription": "Manage users, roles and system permissions",
+    "roleLabel": "Role *",
+    "selectRole": "Select a role",
+    "studentOption": "Student",
+    "teacherOption": "Teacher",
+    "adminOption": "Administrator",
+    "selectCourseFirst": "Select the main course first",
+    "selectTeacher": "Select a teacher",
+    "userManagementAdministrators": "Administrators",
+    "userManagementTeachers": "Teachers",
+    "userManagementStudents": "Students",
+    "userManagementCreateUser": "Create User",
+    "userManagementStudentsCount": "assigned students"
 }
 
 

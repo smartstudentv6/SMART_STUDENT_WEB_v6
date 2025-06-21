@@ -252,6 +252,20 @@
     "openingBook": "Abriendo {{title}}",
     "adminRole": "👑 Administrador",
     "teacherRole": "👨‍🏫 Profesor", 
-    "studentRole": "🎓 Estudiante"
+    "studentRole": "🎓 Estudiante",
+    "userManagementPageTitle": "Gestión de Usuarios",
+    "userManagementPageDescription": "Administra usuarios, roles y permisos del sistema",
+    "roleLabel": "Rol *",
+    "selectRole": "Selecciona un rol",
+    "studentOption": "Estudiante",
+    "teacherOption": "Profesor",
+    "adminOption": "Administrador",
+    "selectCourseFirst": "Selecciona primero el curso principal",
+    "selectTeacher": "Selecciona un profesor",
+    "userManagementAdministrators": "Administradores",
+    "userManagementTeachers": "Profesores",
+    "userManagementStudents": "Estudiantes",
+    "userManagementCreateUser": "Crear Usuario",
+    "userManagementStudentsCount": "estudiantes asignados"
 }
 

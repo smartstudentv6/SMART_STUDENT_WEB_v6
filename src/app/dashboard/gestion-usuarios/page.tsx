@@ -959,16 +959,16 @@ export default function GestionUsuariosPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">
-                Rol *
+                {translate('roleLabel')}
               </Label>
               <Select value={formData.role} onValueChange={(value: UserRole) => setFormData(prev => ({ ...prev, role: value }))}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecciona un rol" />
+                  <SelectValue placeholder={translate('selectRole')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="student">Estudiante</SelectItem>
-                  <SelectItem value="teacher">Profesor</SelectItem>
-                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="student">{translate('studentOption')}</SelectItem>
+                  <SelectItem value="teacher">{translate('teacherOption')}</SelectItem>
+                  <SelectItem value="admin">{translate('adminOption')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -986,7 +986,7 @@ export default function GestionUsuariosPage() {
                       onValueChange={(value) => handleCourseSelection(value)}
                     >
                       <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Selecciona primero el curso principal" />
+                        <SelectValue placeholder={translate('selectCourseFirst')} />
                       </SelectTrigger>
                       <SelectContent>
                         {availableCourses.map(course => (
@@ -1099,7 +1099,7 @@ export default function GestionUsuariosPage() {
                       onValueChange={(value) => setFormData(prev => ({ ...prev, assignedTeacher: value }))}
                     >
                       <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Selecciona un profesor" />
+                        <SelectValue placeholder={translate('selectTeacher')} />
                       </SelectTrigger>
                       <SelectContent>
                         {getTeachersForCourse(formData.activeCourses[0]).map(teacher => (
