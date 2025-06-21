@@ -4,7 +4,7 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
-import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Crown, GraduationCap, Users } from 'lucide-react';
+import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Crown, GraduationCap, Users, Settings, ClipboardCheck, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,33 @@ const featureCards = [
   },
 ];
 
+const adminCards = [
+  {
+    titleKey: 'cardUserManagementTitle',
+    descKey: 'cardUserManagementDesc',
+    btnKey: 'cardUserManagementBtn',
+    targetPage: '/dashboard/gestion-usuarios',
+    icon: Settings,
+    colorClass: 'orange',
+  },
+  {
+    titleKey: 'cardPasswordRequestsTitle',
+    descKey: 'cardPasswordRequestsDesc',
+    btnKey: 'cardPasswordRequestsBtn',
+    targetPage: '/dashboard/solicitudes',
+    icon: ClipboardCheck,
+    colorClass: 'red',
+  },
+  {
+    titleKey: 'cardTasksTitle',
+    descKey: 'cardTasksDesc',
+    btnKey: 'cardTasksBtn',
+    targetPage: '/dashboard/tareas',
+    icon: MessageSquare,
+    colorClass: 'indigo',
+  },
+];
+
 export default function DashboardHomePage() {
   const { translate } = useLanguage();
   const { user } = useAuth();
@@ -92,6 +119,9 @@ export default function DashboardHomePage() {
       case 'yellow': return 'home-card-button-yellow';
       case 'cyan': return 'home-card-button-cyan';
       case 'purple': return 'home-card-button-purple';
+      case 'orange': return 'home-card-button-orange';
+      case 'red': return 'home-card-button-red';
+      case 'indigo': return 'home-card-button-indigo';
       default: return '';
     }
   };
@@ -103,6 +133,9 @@ export default function DashboardHomePage() {
       case 'yellow': return 'text-yellow-500 dark:text-yellow-400';
       case 'cyan': return 'text-cyan-500 dark:text-cyan-400';
       case 'purple': return 'text-purple-500 dark:text-purple-400';
+      case 'orange': return 'text-orange-500 dark:text-orange-400';
+      case 'red': return 'text-red-500 dark:text-red-400';
+      case 'indigo': return 'text-indigo-500 dark:text-indigo-400';
       default: return 'text-muted-foreground';
     }
   };
@@ -140,6 +173,32 @@ export default function DashboardHomePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {featureCards.map((card) => (
           <Card key={card.titleKey} className="flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300">
+            <CardHeader className="items-center">
+              <card.icon className={`w-10 h-10 mb-3 ${getIconColorClass(card.colorClass)}`} />
+              <CardTitle className="text-lg font-semibold font-headline">{translate(card.titleKey)}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col flex-grow">
+              <CardDescription className="text-sm mb-4 flex-grow">
+                {translate(card.descKey)}
+              </CardDescription>
+              <Button
+                variant="outline"
+                asChild
+                className={cn(
+                  "home-card-button",
+                  getButtonColorClass(card.colorClass),
+                  "hover:shadow-lg hover:scale-105 transition-all duration-200"
+                )}
+              >
+                <Link href={card.targetPage}>{translate(card.btnKey)}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+        
+        {/* Admin specific cards */}
+        {user?.role === 'admin' && adminCards.map((card) => (
+          <Card key={card.titleKey} className="flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300 border-yellow-200 dark:border-yellow-800">
             <CardHeader className="items-center">
               <card.icon className={`w-10 h-10 mb-3 ${getIconColorClass(card.colorClass)}`} />
               <CardTitle className="text-lg font-semibold font-headline">{translate(card.titleKey)}</CardTitle>
