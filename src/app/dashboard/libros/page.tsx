@@ -25,7 +25,7 @@ export default function LibrosPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando biblioteca...</p>
+          <p className="text-muted-foreground">{translate('loadingLibrary')}</p>
         </div>
       </div>
     );
@@ -87,8 +87,8 @@ export default function LibrosPage() {
     // Verify user has access to this book's course
     if (!hasAccessToCourse(book.course)) {
       toast({
-        title: 'Acceso Denegado',
-        description: 'No tienes permisos para acceder a este libro.',
+        title: translate('accessDenied'),
+        description: translate('noBookPermissions'),
         variant: 'destructive'
       });
       return;
@@ -96,8 +96,8 @@ export default function LibrosPage() {
 
     window.open(book.pdfUrl, '_blank');
     toast({
-      title: 'PDF Abierto',
-      description: `Abriendo ${book.title}`,
+      title: translate('pdfOpened'),
+      description: translate('openingBook', { title: book.title }),
       variant: 'default'
     });
   };
@@ -123,10 +123,10 @@ export default function LibrosPage() {
           <div className="text-center py-12">
             <Library className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-muted-foreground mb-2">
-              No tienes acceso a libros
+              {translate('noAccessToBooks')}
             </h3>
             <p className="text-muted-foreground">
-              Contacta al administrador para obtener acceso a los cursos y sus libros.
+              {translate('contactAdminForAccess')}
             </p>
           </div>
         ) : (
@@ -137,7 +137,7 @@ export default function LibrosPage() {
                 <GraduationCap className="w-6 h-6 text-green-600" />
                 <h2 className="text-2xl font-bold text-foreground">{course}</h2>
                 <Badge variant="secondary" className="ml-auto">
-                  {books.length} {books.length === 1 ? 'libro' : 'libros'}
+                  {books.length} {books.length === 1 ? translate('bookSingular') : translate('bookPlural')}
                 </Badge>
               </div>
 

@@ -1,11 +1,10 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
-import { usePendingTasks } from '@/hooks/use-pending-tasks';
-import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Users, Mail, CheckSquare } from 'lucide-react';
+import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Crown, GraduationCap, Users } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,79 +52,37 @@ const featureCards = [
     icon: ClipboardList,
     colorClass: 'purple',
   },
-  {
-    titleKey: 'cardTasksTitle',
-    descKey: 'cardTasksDesc',
-    btnKey: 'cardTasksBtn',
-    targetPage: '/dashboard/tareas',
-    icon: CheckSquare,
-    colorClass: 'teal',
-  },
-];
-
-// Admin-only cards
-const adminCards = [
-  {
-    titleKey: 'cardUserManagementTitle',
-    descKey: 'cardUserManagementDesc',
-    btnKey: 'cardUserManagementBtn',
-    targetPage: '/dashboard/gestion-usuarios',
-    icon: Users,
-    colorClass: 'red',
-  },
-  {
-    titleKey: 'cardPasswordRequestsTitle',
-    descKey: 'cardPasswordRequestsDesc',
-    btnKey: 'cardPasswordRequestsBtn',
-    targetPage: '/dashboard/solicitudes',
-    icon: Mail,
-    colorClass: 'orange',
-  },
 ];
 
 export default function DashboardHomePage() {
   const { translate } = useLanguage();
-  const { user, isAdmin } = useAuth();
-  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-  
-  // Hook para tareas pendientes (solo para estudiantes)
-  const { pendingCount: pendingTasksCount } = usePendingTasks(
-    user?.role === 'student' ? user.username : undefined,
-    user?.role === 'student' ? user.activeCourses : undefined
-  );
+  const { user } = useAuth();
 
-  // Function to get pending password reset requests count
-  useEffect(() => {
-    if (isAdmin()) {
-      const updatePendingCount = () => {
-        try {
-          const requestsData = localStorage.getItem('password-reset-requests');
-          if (requestsData) {
-            const requests = JSON.parse(requestsData);
-            const pendingCount = requests.filter((request: any) => request.status === 'pending').length;
-            setPendingRequestsCount(pendingCount);
-          } else {
-            setPendingRequestsCount(0);
-          }
-        } catch (error) {
-          console.error('Error counting pending requests:', error);
-          setPendingRequestsCount(0);
-        }
-      };
-
-      // Initial count
-      updatePendingCount();
-
-      // Set up interval to check for changes
-      const interval = setInterval(updatePendingCount, 2000);
-
-      return () => clearInterval(interval);
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin': return Crown;
+      case 'teacher': return Users;
+      case 'student': return GraduationCap;
+      default: return Home;
     }
-  }, [isAdmin]);
+  };
 
-  // Función para extraer solo el primer nombre
-  const getFirstName = (fullName: string) => {
-    return fullName.split(' ')[0];
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'text-yellow-600 dark:text-yellow-400';
+      case 'teacher': return 'text-blue-600 dark:text-blue-400';
+      case 'student': return 'text-green-600 dark:text-green-400';
+      default: return 'text-foreground';
+    }
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'teacher': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'student': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+    }
   };
 
   const getButtonColorClass = (color: string) => {
@@ -135,9 +92,6 @@ export default function DashboardHomePage() {
       case 'yellow': return 'home-card-button-yellow';
       case 'cyan': return 'home-card-button-cyan';
       case 'purple': return 'home-card-button-purple';
-      case 'red': return 'home-card-button-red';
-      case 'orange': return 'home-card-button-orange';
-      case 'teal': return 'home-card-button-teal';
       default: return '';
     }
   };
@@ -149,15 +103,9 @@ export default function DashboardHomePage() {
       case 'yellow': return 'text-yellow-500 dark:text-yellow-400';
       case 'cyan': return 'text-cyan-500 dark:text-cyan-400';
       case 'purple': return 'text-purple-500 dark:text-purple-400';
-      case 'red': return 'text-red-500 dark:text-red-400';
-      case 'orange': return 'text-orange-500 dark:text-orange-400';
-      case 'teal': return 'text-teal-500 dark:text-teal-400';
       default: return 'text-muted-foreground';
     }
   };
-
-  // Combine cards: regular cards + admin cards if user is admin
-  const allCards = [...featureCards, ...(isAdmin() ? adminCards : [])];
 
 
   return (
@@ -166,38 +114,34 @@ export default function DashboardHomePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center justify-start gap-3">
             <h1 className="text-3xl font-bold text-foreground font-headline">
-              {translate('dashboardWelcome')} {user?.displayName ? getFirstName(user.displayName) : translate('dashboardDefaultUser')}
+              {translate('welcomeMessage', { 
+                name: user?.displayName 
+                  ? user.displayName.charAt(0).toUpperCase() + user.displayName.slice(1).toLowerCase()
+                  : 'Usuario' 
+              })}
             </h1>
             <Home className="w-8 h-8 text-foreground" />
           </div>
+          {user && (
+            <div className="flex items-center gap-3">
+              <Badge className={cn("text-sm font-medium", getRoleBadgeColor(user.role))}>
+                {user.role === 'admin' && translate('adminRole')}
+                {user.role === 'teacher' && translate('teacherRole')}
+                {user.role === 'student' && translate('studentRole')}
+              </Badge>
+              {React.createElement(getRoleIcon(user.role), {
+                className: cn("w-6 h-6", getRoleColor(user.role))
+              })}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-        {allCards.map((card) => (
+        {featureCards.map((card) => (
           <Card key={card.titleKey} className="flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300">
             <CardHeader className="items-center">
-              <div className="relative">
-                <card.icon className={`w-10 h-10 mb-3 ${getIconColorClass(card.colorClass)}`} />
-                {/* Show notification badge for Solicitudes card if there are pending requests */}
-                {card.titleKey === 'cardPasswordRequestsTitle' && pendingRequestsCount > 0 && (
-                  <Badge 
-                    variant="destructive" 
-                    className="absolute -top-1 -right-1 w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white border-2 border-white dark:border-gray-800"
-                  >
-                    {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
-                  </Badge>
-                )}
-                {/* Show notification badge for Tasks card if there are pending tasks */}
-                {card.titleKey === 'cardTasksTitle' && pendingTasksCount > 0 && (
-                  <Badge 
-                    variant="destructive" 
-                    className="absolute -top-1 -right-1 w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs font-bold bg-teal-500 hover:bg-teal-600 text-white border-2 border-white dark:border-gray-800"
-                  >
-                    {pendingTasksCount > 99 ? '99+' : pendingTasksCount}
-                  </Badge>
-                )}
-              </div>
+              <card.icon className={`w-10 h-10 mb-3 ${getIconColorClass(card.colorClass)}`} />
               <CardTitle className="text-lg font-semibold font-headline">{translate(card.titleKey)}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col flex-grow">
