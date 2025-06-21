@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit2, Reply, Trash2, Check, X } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit2, Reply, Trash2, Check, X, Paperclip, Upload, Download, FileText, Image, File } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Task {
@@ -30,18 +30,31 @@ interface Task {
   createdAt: string;
   status: 'pending' | 'submitted' | 'reviewed';
   priority: 'low' | 'medium' | 'high';
+  attachments?: TaskAttachment[]; // files attached by teacher when creating task
 }
 
 interface TaskComment {
   id: string;
   taskId: string;
-  studentUsername: string;
-  studentName: string;
+  username: string; // can be student or teacher
+  userDisplayName: string;
+  userRole: 'student' | 'teacher' | 'admin';
   comment: string;
   timestamp: string;
   isSubmission: boolean; // true if this is the student's submission
   replyToId?: string; // ID of comment this is replying to
   editedAt?: string; // timestamp of last edit
+  attachments?: TaskAttachment[]; // file attachments
+}
+
+interface TaskAttachment {
+  id: string;
+  name: string;
+  type: string; // file type (pdf, doc, image, etc.)
+  size: number; // file size in bytes
+  url: string; // file URL or base64 data
+  uploadedBy: string;
+  uploadedAt: string;
 }
 
 export default function TareasPage() {
@@ -60,6 +73,8 @@ export default function TareasPage() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -69,7 +84,8 @@ export default function TareasPage() {
     assignedTo: 'course' as 'course' | 'student',
     assignedStudents: [] as string[],
     dueDate: '',
-    priority: 'medium' as 'low' | 'medium' | 'high'
+    priority: 'medium' as 'low' | 'medium' | 'high',
+    attachments: [] as TaskAttachment[]
   });
 
   // Load tasks and comments
@@ -100,6 +116,73 @@ export default function TareasPage() {
   const saveComments = (newComments: TaskComment[]) => {
     localStorage.setItem('smart-student-task-comments', JSON.stringify(newComments));
     setComments(newComments);
+  };
+
+  // File handling functions
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const convertFileToAttachment = async (file: File): Promise<TaskAttachment> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve({
+          id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          url: reader.result as string,
+          uploadedBy: user?.username || '',
+          uploadedAt: new Date().toISOString()
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const processSelectedFiles = async (): Promise<TaskAttachment[]> => {
+    if (selectedFiles.length === 0) return [];
+    
+    setUploadingFiles(true);
+    try {
+      const attachments = await Promise.all(
+        selectedFiles.map(file => convertFileToAttachment(file))
+      );
+      return attachments;
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) return <Image className="w-4 h-4" />;
+    if (fileType.includes('pdf')) return <FileText className="w-4 h-4" />;
+    return <File className="w-4 h-4" />;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const downloadFile = (attachment: TaskAttachment) => {
+    const link = document.createElement('a');
+    link.href = attachment.url;
+    link.download = attachment.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Get available courses and subjects for teacher
@@ -145,7 +228,7 @@ export default function TareasPage() {
     return [];
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = async () => {
     if (!formData.title || !formData.description || !formData.course || !formData.dueDate) {
       toast({
         title: "Error",
@@ -165,6 +248,9 @@ export default function TareasPage() {
       return;
     }
 
+    // Process selected files
+    const attachments = await processSelectedFiles();
+
     const newTask: Task = {
       id: `task_${Date.now()}`,
       title: formData.title,
@@ -178,7 +264,8 @@ export default function TareasPage() {
       dueDate: formData.dueDate,
       createdAt: new Date().toISOString(),
       status: 'pending',
-      priority: formData.priority
+      priority: formData.priority,
+      attachments: attachments.length > 0 ? attachments : undefined
     };
 
     const updatedTasks = [...tasks, newTask];
@@ -191,7 +278,7 @@ export default function TareasPage() {
 
     toast({
       title: "Tarea creada",
-      description: `Tarea "${formData.title}" asignada a ${assignedCount} estudiante(s).`,
+      description: `Tarea "${formData.title}" asignada a ${assignedCount} estudiante(s)${attachments.length > 0 ? ` con ${attachments.length} archivo(s) adjunto(s)` : ''}.`,
     });
 
     // Reset form
@@ -203,23 +290,30 @@ export default function TareasPage() {
       assignedTo: 'course',
       assignedStudents: [],
       dueDate: '',
-      priority: 'medium'
+      priority: 'medium',
+      attachments: []
     });
+    setSelectedFiles([]);
     setShowCreateDialog(false);
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim() || !selectedTask) return;
+
+    // Process selected files for attachment
+    const attachments = await processSelectedFiles();
 
     const comment: TaskComment = {
       id: `comment_${Date.now()}`,
       taskId: selectedTask.id,
-      studentUsername: user?.username || '',
-      studentName: user?.displayName || '',
+      username: user?.username || '',
+      userDisplayName: user?.displayName || '',
+      userRole: user?.role || 'student',
       comment: newComment,
       timestamp: new Date().toISOString(),
       isSubmission: isSubmission,
-      replyToId: replyingToId || undefined
+      replyToId: replyingToId || undefined,
+      attachments: attachments.length > 0 ? attachments : undefined
     };
 
     const updatedComments = [...comments, comment];
@@ -238,6 +332,7 @@ export default function TareasPage() {
     setNewComment('');
     setIsSubmission(false);
     setReplyingToId(null);
+    setSelectedFiles([]);
 
     toast({
       title: isSubmission ? "Tarea enviada" : replyingToId ? "Respuesta agregada" : "Comentario agregado",
@@ -292,12 +387,12 @@ export default function TareasPage() {
     setReplyingToId(commentId);
     const comment = comments.find(c => c.id === commentId);
     if (comment) {
-      setNewComment(`@${comment.studentName} `);
+      setNewComment(`@${comment.userDisplayName} `);
     }
   };
 
   const canEditComment = (comment: TaskComment) => {
-    if (comment.studentUsername !== user?.username) return false;
+    if (comment.username !== user?.username) return false;
     const commentTime = new Date(comment.timestamp);
     const now = new Date();
     const diffMinutes = (now.getTime() - commentTime.getTime()) / (1000 * 60);
@@ -305,7 +400,7 @@ export default function TareasPage() {
   };
 
   const canDeleteComment = (comment: TaskComment) => {
-    return comment.studentUsername === user?.username || user?.role === 'teacher';
+    return comment.username === user?.username || user?.role === 'teacher';
   };
 
   const getTaskComments = (taskId: string) => {
@@ -629,6 +724,68 @@ export default function TareasPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Sección de archivos adjuntos */}
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">Archivos adjuntos</Label>
+              <div className="col-span-3 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="file"
+                    id="taskFileUpload"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar"
+                  />                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('taskFileUpload')?.click()}
+                      disabled={uploadingFiles}
+                    >
+                      <Paperclip className="w-4 h-4 mr-2" />
+                      {translate('tasksAttachFiles')}
+                    </Button>
+                    {selectedFiles.length > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        {selectedFiles.length} {translate('tasksFilesSelected')}
+                      </span>
+                    )}
+                </div>
+                
+                {/* Preview de archivos seleccionados */}
+                {selectedFiles.length > 0 && (
+                  <div className="space-y-2 max-h-32 overflow-y-auto border rounded p-2">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                        <div className="flex items-center space-x-2">
+                          {getFileIcon(file.type)}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(file.size)}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeSelectedFile(index)}
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="text-xs text-muted-foreground">
+                  {translate('tasksFileFormats')}
+                </div>
+              </div>
+            </div>
           </div>
           
           <DialogFooter>
@@ -657,6 +814,36 @@ export default function TareasPage() {
               <div>
                 <h4 className="font-medium mb-2">Descripción</h4>
                 <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
+                
+                {/* Mostrar archivos adjuntos de la tarea si los hay */}
+                {selectedTask.attachments && selectedTask.attachments.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <h5 className="font-medium text-sm">{translate('tasksTeacherFiles')}</h5>
+                    <div className="grid grid-cols-1 gap-2">
+                      {selectedTask.attachments.map((attachment) => (
+                        <div key={attachment.id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                          <div className="flex items-center space-x-2">
+                            {getFileIcon(attachment.type)}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{attachment.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatFileSize(attachment.size)} • Subido por {attachment.uploadedBy}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => downloadFile(attachment)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="flex space-x-4 text-sm">
@@ -687,11 +874,21 @@ export default function TareasPage() {
                       }`}>
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex items-center space-x-2">
-                            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                              {comment.studentName.charAt(0).toUpperCase()}
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
+                              comment.userRole === 'teacher' 
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
+                                : 'bg-gradient-to-r from-blue-500 to-purple-600'
+                            }`}>
+                              {comment.userDisplayName.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <span className="font-medium text-sm">{comment.studentName}</span>
+                              <span className="font-medium text-sm">
+                                {comment.userDisplayName}                                  {comment.userRole === 'teacher' && (
+                                    <span className="ml-1 text-xs bg-green-100 text-green-800 px-1 rounded">
+                                      {translate('tasksTeacherLabel')}
+                                    </span>
+                                  )}
+                              </span>
                               {comment.editedAt && (
                                 <span className="text-xs text-muted-foreground ml-2">{translate('tasksCommentEdited')}</span>
                               )}
@@ -717,7 +914,7 @@ export default function TareasPage() {
                                   <Edit2 className="w-3 h-3" />
                                 </Button>
                               )}
-                              {user?.role === 'student' && comment.studentUsername !== user.username && (
+                              {(user?.role === 'student' || user?.role === 'teacher') && comment.username !== user.username && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -761,7 +958,39 @@ export default function TareasPage() {
                             </div>
                           </div>
                         ) : (
-                          <p className="text-sm">{comment.comment}</p>
+                          <div className="space-y-2">
+                            <p className="text-sm">{comment.comment}</p>
+                            
+                            {/* Show attachments if any */}
+                            {comment.attachments && comment.attachments.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-xs text-muted-foreground">{translate('tasksAttachedFiles')}</div>
+                                <div className="grid grid-cols-1 gap-2">
+                                  {comment.attachments.map((attachment) => (
+                                    <div key={attachment.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded border">
+                                      <div className="flex items-center space-x-2">
+                                        {getFileIcon(attachment.type)}
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium truncate">{attachment.name}</p>
+                                          <p className="text-xs text-muted-foreground">
+                                            {formatFileSize(attachment.size)}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => downloadFile(attachment)}
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Download className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                       
@@ -770,11 +999,22 @@ export default function TareasPage() {
                         <div key={reply.id} className="ml-8 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border-l-2 border-l-gray-300">
                           <div className="flex justify-between items-start mb-2">
                             <div className="flex items-center space-x-2">
-                              <div className="w-6 h-6 bg-gradient-to-r from-gray-400 to-gray-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                                {reply.studentName.charAt(0).toUpperCase()}
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium ${
+                                reply.userRole === 'teacher' 
+                                  ? 'bg-gradient-to-r from-green-400 to-emerald-500' 
+                                  : 'bg-gradient-to-r from-gray-400 to-gray-600'
+                              }`}>
+                                {reply.userDisplayName.charAt(0).toUpperCase()}
                               </div>
                               <div>
-                                <span className="font-medium text-sm">{reply.studentName}</span>
+                                <span className="font-medium text-sm">
+                                  {reply.userDisplayName}
+                                  {reply.userRole === 'teacher' && (
+                                    <span className="ml-1 text-xs bg-green-100 text-green-800 px-1 rounded">
+                                      {translate('tasksTeacherLabel')}
+                                    </span>
+                                  )}
+                                </span>
                                 {reply.editedAt && (
                                   <span className="text-xs text-muted-foreground ml-2">{translate('tasksCommentEdited')}</span>
                                 )}
@@ -797,6 +1037,36 @@ export default function TareasPage() {
                             </div>
                           </div>
                           <p className="text-sm">{reply.comment}</p>
+                          
+                          {/* Show attachments In replies if any */}
+                          {reply.attachments && reply.attachments.length > 0 && (
+                            <div className="mt-2 space-y-2">
+                              <div className="text-xs text-muted-foreground">{translate('tasksAttachedFiles')}</div>
+                              <div className="grid grid-cols-1 gap-1">
+                                {reply.attachments.map((attachment) => (
+                                  <div key={attachment.id} className="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-700 rounded border">
+                                    <div className="flex items-center space-x-2">
+                                      {getFileIcon(attachment.type)}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-medium truncate">{attachment.name}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {formatFileSize(attachment.size)}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => downloadFile(attachment)}
+                                      className="h-6 w-6 p-0"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -823,7 +1093,7 @@ export default function TareasPage() {
                         <div className="flex items-center space-x-2">
                           <Reply className="w-4 h-4 text-blue-600" />
                           <span className="text-sm text-blue-700 dark:text-blue-300">
-                            {translate('tasksCommentReplyTo')} {comments.find(c => c.id === replyingToId)?.studentName}
+                            {translate('tasksCommentReplyTo')} {comments.find(c => c.id === replyingToId)?.userDisplayName}
                           </span>
                         </div>
                         <Button
@@ -857,6 +1127,62 @@ export default function TareasPage() {
                       className="mt-1"
                       rows={3}
                     />
+                    
+                    {/* File upload section */}
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="file"
+                          id="fileUpload"
+                          multiple
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('fileUpload')?.click()}
+                          disabled={uploadingFiles}
+                        >
+                          <Paperclip className="w-4 h-4 mr-2" />
+                          {translate('tasksAttachFiles')}
+                        </Button>
+                        {selectedFiles.length > 0 && (
+                          <span className="text-sm text-muted-foreground">
+                            {selectedFiles.length} {translate('tasksFilesSelected')}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Selected files preview */}
+                      {selectedFiles.length > 0 && (
+                        <div className="space-y-2 max-h-32 overflow-y-auto border rounded p-2">
+                          {selectedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                              <div className="flex items-center space-x-2">
+                                {getFileIcon(file.type)}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{file.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatFileSize(file.size)}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeSelectedFile(index)}
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex justify-between items-center mt-3">
                       <div className="flex items-center space-x-4">
                         {!replyingToId && user?.role === 'student' && (
@@ -879,12 +1205,21 @@ export default function TareasPage() {
                       </div>
                       <Button 
                         onClick={handleAddComment} 
-                        disabled={!newComment.trim() || newComment.length > 500}
+                        disabled={(!newComment.trim() && selectedFiles.length === 0) || newComment.length > 500 || uploadingFiles}
                         size="sm"
                       >
-                        <Send className="w-4 h-4 mr-2" />
-                        {replyingToId ? 'Responder' : 
-                         isSubmission ? 'Entregar' : 'Comentar'}
+                        {uploadingFiles ? (
+                          <>
+                            <Upload className="w-4 h-4 mr-2 animate-spin" />
+                            {translate('tasksUploading')}
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            {replyingToId ? 'Responder' : 
+                             isSubmission ? 'Entregar' : 'Comentar'}
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
