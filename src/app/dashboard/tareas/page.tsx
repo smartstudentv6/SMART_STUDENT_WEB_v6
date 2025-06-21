@@ -150,6 +150,16 @@ export default function TareasPage() {
       return;
     }
 
+    // Validar que si se asigna a estudiantes específicos, haya al menos uno seleccionado
+    if (formData.assignedTo === 'student' && formData.assignedStudents.length === 0) {
+      toast({
+        title: "Error",
+        description: "Debes seleccionar al menos un estudiante para asignar la tarea.",
+        variant: 'destructive'
+      });
+      return;
+    }
+
     const newTask: Task = {
       id: `task_${Date.now()}`,
       title: formData.title,
@@ -169,9 +179,14 @@ export default function TareasPage() {
     const updatedTasks = [...tasks, newTask];
     saveTasks(updatedTasks);
 
+    // Determinar cuántos estudiantes se asignaron
+    const assignedCount = formData.assignedTo === 'course' 
+      ? getStudentsForCourse(formData.course).length 
+      : formData.assignedStudents.length;
+
     toast({
       title: "Tarea creada",
-      description: `Tarea "${formData.title}" asignada exitosamente.`,
+      description: `Tarea "${formData.title}" asignada a ${assignedCount} estudiante(s).`,
     });
 
     // Reset form
@@ -394,6 +409,30 @@ export default function TareasPage() {
               />
             </div>
             
+            {/* Primero el curso */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="course" className="text-right">Curso *</Label>
+              <Select 
+                value={formData.course} 
+                onValueChange={(value) => setFormData(prev => ({ 
+                  ...prev, 
+                  course: value,
+                  // Reset student selection when course changes
+                  assignedStudents: []
+                }))}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecciona un curso" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableCourses().map(course => (
+                    <SelectItem key={course} value={course}>{course}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Luego la asignatura */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="subject" className="text-right">Asignatura</Label>
               <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}>
@@ -409,22 +448,16 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="course" className="text-right">Curso *</Label>
-              <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecciona un curso" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getAvailableCourses().map(course => (
-                    <SelectItem key={course} value={course}>{course}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">Asignar a</Label>
-              <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value }))}>
+              <Select 
+                value={formData.assignedTo} 
+                onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ 
+                  ...prev, 
+                  assignedTo: value,
+                  // Reset student selection when assignment type changes
+                  assignedStudents: []
+                }))}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
                 </SelectTrigger>
@@ -434,6 +467,59 @@ export default function TareasPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Mostrar selector de estudiantes específicos cuando se selecciona esa opción */}
+            {formData.assignedTo === 'student' && formData.course && (
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right pt-2">Estudiantes *</Label>
+                <div className="col-span-3 space-y-2">
+                  <div className="text-sm text-muted-foreground mb-2">
+                    Selecciona los estudiantes de {formData.course}:
+                  </div>
+                  <div className="border rounded-md p-3 max-h-32 overflow-y-auto">
+                    {getStudentsForCourse(formData.course).map((student: any) => (
+                      <div key={student.username} className="flex items-center space-x-2 py-1">
+                        <input
+                          type="checkbox"
+                          id={`student-${student.username}`}
+                          checked={formData.assignedStudents.includes(student.username)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData(prev => ({
+                                ...prev,
+                                assignedStudents: [...prev.assignedStudents, student.username]
+                              }));
+                            } else {
+                              setFormData(prev => ({
+                                ...prev,
+                                assignedStudents: prev.assignedStudents.filter(s => s !== student.username)
+                              }));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <label 
+                          htmlFor={`student-${student.username}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          {student.displayName}
+                        </label>
+                      </div>
+                    ))}
+                    {getStudentsForCourse(formData.course).length === 0 && (
+                      <div className="text-sm text-muted-foreground text-center py-2">
+                        No hay estudiantes en este curso
+                      </div>
+                    )}
+                  </div>
+                  {formData.assignedStudents.length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      {formData.assignedStudents.length} estudiante(s) seleccionado(s)
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="dueDate" className="text-right">Fecha límite *</Label>

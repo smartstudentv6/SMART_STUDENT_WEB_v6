@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
+import { usePendingTasks } from '@/hooks/use-pending-tasks';
 import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Users, Mail, CheckSquare } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -86,7 +87,12 @@ export default function DashboardHomePage() {
   const { translate } = useLanguage();
   const { user, isAdmin } = useAuth();
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-  const [pendingTasksCount, setPendingTasksCount] = useState(0);
+  
+  // Hook para tareas pendientes (solo para estudiantes)
+  const { pendingCount: pendingTasksCount } = usePendingTasks(
+    user?.role === 'student' ? user.username : undefined,
+    user?.role === 'student' ? user.activeCourses : undefined
+  );
 
   // Function to get pending password reset requests count
   useEffect(() => {
@@ -116,51 +122,6 @@ export default function DashboardHomePage() {
       return () => clearInterval(interval);
     }
   }, [isAdmin]);
-
-  // Function to get pending tasks count
-  useEffect(() => {
-    const updatePendingTasksCount = () => {
-      try {
-        const tasksData = localStorage.getItem('tasks');
-        if (tasksData && user) {
-          const tasks = JSON.parse(tasksData);
-          let pendingCount = 0;
-          
-          tasks.forEach((task: any) => {
-            // Check if this task is assigned to the current user
-            const isAssignedToUser = task.assignedTo === 'all' || 
-              (task.assignedTo === 'course' && user.activeCourses?.includes(task.course)) ||
-              (Array.isArray(task.assignedStudents) && task.assignedStudents.includes(user.username));
-            
-            if (isAssignedToUser) {
-              // Check if user has submitted this task
-              const submissions = task.submissions || [];
-              const userSubmission = submissions.find((sub: any) => sub.username === user.username);
-              
-              if (!userSubmission) {
-                pendingCount++;
-              }
-            }
-          });
-          
-          setPendingTasksCount(pendingCount);
-        } else {
-          setPendingTasksCount(0);
-        }
-      } catch (error) {
-        console.error('Error counting pending tasks:', error);
-        setPendingTasksCount(0);
-      }
-    };
-
-    // Initial count
-    updatePendingTasksCount();
-
-    // Set up interval to check for changes
-    const interval = setInterval(updatePendingTasksCount, 2000);
-
-    return () => clearInterval(interval);
-  }, [user]);
 
   // Función para extraer solo el primer nombre
   const getFirstName = (fullName: string) => {
