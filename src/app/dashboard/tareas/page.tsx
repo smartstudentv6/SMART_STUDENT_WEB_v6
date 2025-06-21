@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Task {
@@ -52,7 +52,10 @@ export default function TareasPage() {
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [newComment, setNewComment] = useState('');
   const [isSubmission, setIsSubmission] = useState(false);
 
@@ -143,8 +146,8 @@ export default function TareasPage() {
   const handleCreateTask = () => {
     if (!formData.title || !formData.description || !formData.course || !formData.dueDate) {
       toast({
-        title: "Error",
-        description: "Por favor completa todos los campos obligatorios.",
+        title: translate('error'),
+        description: translate('completeAllFields'),
         variant: 'destructive'
       });
       return;
@@ -170,8 +173,8 @@ export default function TareasPage() {
     saveTasks(updatedTasks);
 
     toast({
-      title: "Tarea creada",
-      description: `Tarea "${formData.title}" asignada exitosamente.`,
+      title: translate('taskCreated'),
+      description: translate('taskCreatedDesc', { title: formData.title }),
     });
 
     // Reset form
@@ -218,9 +221,95 @@ export default function TareasPage() {
     setIsSubmission(false);
 
     toast({
-      title: isSubmission ? "Tarea enviada" : "Comentario agregado",
-      description: isSubmission ? "Tu tarea ha sido enviada al profesor." : "Comentario agregado exitosamente.",
+      title: isSubmission ? translate('taskSubmitted') : translate('commentAdded'),
+      description: isSubmission ? translate('taskSubmittedDesc') : translate('commentAddedDesc'),
     });
+  };
+
+  const handleEditTask = (task: Task) => {
+    setSelectedTask(task);
+    setFormData({
+      title: task.title,
+      description: task.description,
+      subject: task.subject,
+      course: task.course,
+      assignedTo: task.assignedTo,
+      assignedStudents: task.assignedStudents || [],
+      dueDate: task.dueDate,
+      priority: task.priority
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateTask = () => {
+    if (!selectedTask || !formData.title || !formData.description || !formData.course || !formData.dueDate) {
+      toast({
+        title: translate('error'),
+        description: translate('completeAllFields'),
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const updatedTask: Task = {
+      ...selectedTask,
+      title: formData.title,
+      description: formData.description,
+      subject: formData.subject,
+      course: formData.course,
+      assignedTo: formData.assignedTo,
+      assignedStudents: formData.assignedTo === 'student' ? formData.assignedStudents : undefined,
+      dueDate: formData.dueDate,
+      priority: formData.priority
+    };
+
+    const updatedTasks = tasks.map(task => 
+      task.id === selectedTask.id ? updatedTask : task
+    );
+    saveTasks(updatedTasks);
+
+    toast({
+      title: translate('taskUpdated'),
+      description: translate('taskUpdatedDesc', { title: formData.title }),
+    });
+
+    // Reset form
+    setFormData({
+      title: '',
+      description: '',
+      subject: '',
+      course: '',
+      assignedTo: 'course',
+      assignedStudents: [],
+      dueDate: '',
+      priority: 'medium'
+    });
+    setSelectedTask(null);
+    setShowEditDialog(false);
+  };
+
+  const handleDeleteTask = (task: Task) => {
+    setTaskToDelete(task);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteTask = () => {
+    if (!taskToDelete) return;
+
+    const updatedTasks = tasks.filter(task => task.id !== taskToDelete.id);
+    saveTasks(updatedTasks);
+
+    // Also remove related comments
+    const updatedComments = comments.filter(comment => comment.taskId !== taskToDelete.id);
+    saveComments(updatedComments);
+
+    toast({
+      title: translate('taskDeleted'),
+      description: translate('taskDeletedDesc', { title: taskToDelete.title }),
+    });
+
+    setTaskToDelete(null);
+    setShowDeleteDialog(false);
   };
 
   const getTaskComments = (taskId: string) => {
@@ -276,7 +365,7 @@ export default function TareasPage() {
         {user?.role === 'teacher' && (
           <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Nueva Tarea
+            {translate('newTask')}
           </Button>
         )}
       </div>
@@ -305,24 +394,46 @@ export default function TareasPage() {
                     <div className="flex items-center space-x-2 mt-2">
                       <Badge variant="outline">{task.subject}</Badge>
                       <Badge className={getPriorityColor(task.priority)}>
-                        {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}
+                        {task.priority === 'high' ? translate('priorityHigh') : task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                       </Badge>
                       <Badge className={getStatusColor(task.status)}>
-                        {task.status === 'pending' ? 'Pendiente' : 
-                         task.status === 'submitted' ? 'Enviada' : 'Revisada'}
+                        {task.status === 'pending' ? translate('statusPending') : 
+                         task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
                       </Badge>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedTask(task);
-                      setShowTaskDialog(true);
-                    }}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center space-x-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedTask(task);
+                        setShowTaskDialog(true);
+                      }}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    {user?.role === 'teacher' && task.assignedBy === user.username && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditTask(task)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteTask(task)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -333,7 +444,7 @@ export default function TareasPage() {
                   <div className="flex items-center space-x-4">
                     <span className="flex items-center">
                       <Calendar className="w-3 h-3 mr-1" />
-                      Vence: {formatDate(task.dueDate)}
+                      {translate('duePrefix')} {formatDate(task.dueDate)}
                     </span>
                     <span className="flex items-center">
                       {task.assignedTo === 'course' ? (
@@ -344,14 +455,14 @@ export default function TareasPage() {
                       ) : (
                         <>
                           <User className="w-3 h-3 mr-1" />
-                          {task.assignedStudents?.length} estudiantes
+                          {task.assignedStudents?.length} {translate('studentsCount')}
                         </>
                       )}
                     </span>
                   </div>
                   <div className="flex items-center">
                     <MessageSquare className="w-3 h-3 mr-1" />
-                    {getTaskComments(task.id).length} comentarios
+                    {getTaskComments(task.id).length} {translate('commentsCount')}
                   </div>
                 </div>
               </CardContent>
@@ -364,41 +475,41 @@ export default function TareasPage() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Crear Nueva Tarea</DialogTitle>
+            <DialogTitle>{translate('createNewTask')}</DialogTitle>
             <DialogDescription>
-              Completa la información para asignar una nueva tarea a tus estudiantes.
+              {translate('createTaskDescription')}
             </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">Título *</Label>
+              <Label htmlFor="title" className="text-right">{translate('taskTitle')} *</Label>
               <Input
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 className="col-span-3"
-                placeholder="Título de la tarea"
+                placeholder={translate('taskTitlePlaceholder')}
               />
             </div>
             
             <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="description" className="text-right pt-2">Descripción *</Label>
+              <Label htmlFor="description" className="text-right pt-2">{translate('taskDescription')} *</Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="col-span-3"
-                placeholder="Describe la tarea detalladamente..."
+                placeholder={translate('taskDescriptionPlaceholder')}
                 rows={4}
               />
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="subject" className="text-right">Asignatura</Label>
+              <Label htmlFor="subject" className="text-right">{translate('taskSubject')}</Label>
               <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecciona una asignatura" />
+                  <SelectValue placeholder={translate('selectSubject')} />
                 </SelectTrigger>
                 <SelectContent>
                   {getAvailableSubjects().map(subject => (
@@ -409,10 +520,10 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="course" className="text-right">Curso *</Label>
+              <Label htmlFor="course" className="text-right">{translate('taskCourse')} *</Label>
               <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecciona un curso" />
+                  <SelectValue placeholder={translate('selectCourse')} />
                 </SelectTrigger>
                 <SelectContent>
                   {getAvailableCourses().map(course => (
@@ -423,20 +534,20 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Asignar a</Label>
+              <Label className="text-right">{translate('assignTo')}</Label>
               <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value }))}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="course">Todo el curso</SelectItem>
-                  <SelectItem value="student">Estudiantes específicos</SelectItem>
+                  <SelectItem value="course">{translate('assignToCourse')}</SelectItem>
+                  <SelectItem value="student">{translate('assignToStudents')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="dueDate" className="text-right">Fecha límite *</Label>
+              <Label htmlFor="dueDate" className="text-right">{translate('dueDate')} *</Label>
               <Input
                 id="dueDate"
                 type="datetime-local"
@@ -447,15 +558,15 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Prioridad</Label>
+              <Label className="text-right">{translate('priority')}</Label>
               <Select value={formData.priority} onValueChange={(value: 'low' | 'medium' | 'high') => setFormData(prev => ({ ...prev, priority: value }))}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Baja</SelectItem>
-                  <SelectItem value="medium">Media</SelectItem>
-                  <SelectItem value="high">Alta</SelectItem>
+                  <SelectItem value="low">{translate('priorityLow')}</SelectItem>
+                  <SelectItem value="medium">{translate('priorityMedium')}</SelectItem>
+                  <SelectItem value="high">{translate('priorityHigh')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -463,10 +574,10 @@ export default function TareasPage() {
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-              Cancelar
+              {translate('cancel')}
             </Button>
             <Button onClick={handleCreateTask}>
-              Crear Tarea
+              {translate('createTask')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -485,19 +596,19 @@ export default function TareasPage() {
           {selectedTask && (
             <div className="space-y-4">
               <div>
-                <h4 className="font-medium mb-2">Descripción</h4>
+                <h4 className="font-medium mb-2">{translate('taskDescriptionDetail')}</h4>
                 <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
               </div>
               
               <div className="flex space-x-4 text-sm">
                 <span>
-                  <strong>Fecha límite:</strong> {formatDate(selectedTask.dueDate)}
+                  <strong>{translate('taskDueDateLabel')}</strong> {formatDate(selectedTask.dueDate)}
                 </span>
                 <span>
-                  <strong>Estado:</strong> 
+                  <strong>{translate('taskStatusLabel')}</strong> 
                   <Badge className={`ml-1 ${getStatusColor(selectedTask.status)}`}>
-                    {selectedTask.status === 'pending' ? 'Pendiente' : 
-                     selectedTask.status === 'submitted' ? 'Enviada' : 'Revisada'}
+                    {selectedTask.status === 'pending' ? translate('statusPending') : 
+                     selectedTask.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
                   </Badge>
                 </span>
               </div>
@@ -505,7 +616,7 @@ export default function TareasPage() {
               <Separator />
               
               <div>
-                <h4 className="font-medium mb-3">Comentarios y Entregas</h4>
+                <h4 className="font-medium mb-3">{translate('commentsAndSubmissions')}</h4>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {getTaskComments(selectedTask.id).map(comment => (
                     <div key={comment.id} className="bg-muted p-3 rounded-lg">
@@ -513,7 +624,7 @@ export default function TareasPage() {
                         <span className="font-medium text-sm">{comment.studentName}</span>
                         <div className="flex items-center space-x-2">
                           {comment.isSubmission && (
-                            <Badge variant="secondary" className="text-xs">Entrega</Badge>
+                            <Badge variant="secondary" className="text-xs">{translate('submission')}</Badge>
                           )}
                           <span className="text-xs text-muted-foreground">
                             {formatDate(comment.timestamp)}
@@ -526,7 +637,7 @@ export default function TareasPage() {
                   
                   {getTaskComments(selectedTask.id).length === 0 && (
                     <p className="text-center text-sm text-muted-foreground py-4">
-                      No hay comentarios aún
+                      {translate('noCommentsYet')}
                     </p>
                   )}
                 </div>
@@ -537,13 +648,13 @@ export default function TareasPage() {
                   <Separator />
                   <div>
                     <Label htmlFor="newComment">
-                      {isSubmission ? 'Entregar tarea' : 'Agregar comentario'}
+                      {isSubmission ? translate('submitTask') : translate('addComment')}
                     </Label>
                     <Textarea
                       id="newComment"
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder={isSubmission ? 'Describe tu entrega...' : 'Escribe un comentario...'}
+                      placeholder={isSubmission ? translate('submissionPlaceholder') : translate('commentPlaceholder')}
                       className="mt-1"
                     />
                     <div className="flex justify-between items-center mt-2">
@@ -556,12 +667,12 @@ export default function TareasPage() {
                           className="rounded"
                         />
                         <Label htmlFor="isSubmission" className="text-sm">
-                          Marcar como entrega final
+                          {translate('markAsFinalSubmission')}
                         </Label>
                       </div>
                       <Button onClick={handleAddComment} disabled={!newComment.trim()}>
                         <Send className="w-4 h-4 mr-2" />
-                        {isSubmission ? 'Entregar' : 'Comentar'}
+                        {isSubmission ? translate('submit') : translate('comment')}
                       </Button>
                     </div>
                   </div>
@@ -569,6 +680,142 @@ export default function TareasPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>{translate('editTask')}</DialogTitle>
+            <DialogDescription>
+              {translate('editTaskDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">{translate('taskTitle')} *</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                className="col-span-3"
+                placeholder={translate('taskTitlePlaceholder')}
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="description" className="text-right pt-2">{translate('taskDescription')} *</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                className="col-span-3"
+                placeholder={translate('taskDescriptionPlaceholder')}
+                rows={4}
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="subject" className="text-right">{translate('taskSubject')}</Label>
+              <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder={translate('selectSubject')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableSubjects().map(subject => (
+                    <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="course" className="text-right">{translate('taskCourse')} *</Label>
+              <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder={translate('selectCourse')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableCourses().map(course => (
+                    <SelectItem key={course} value={course}>{course}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">{translate('assignTo')}</Label>
+              <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value }))}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="course">{translate('assignToCourse')}</SelectItem>
+                  <SelectItem value="student">{translate('assignToStudents')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="dueDate" className="text-right">{translate('dueDate')} *</Label>
+              <Input
+                id="dueDate"
+                type="datetime-local"
+                value={formData.dueDate}
+                onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">{translate('priority')}</Label>
+              <Select value={formData.priority} onValueChange={(value: 'low' | 'medium' | 'high') => setFormData(prev => ({ ...prev, priority: value }))}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">{translate('priorityLow')}</SelectItem>
+                  <SelectItem value="medium">{translate('priorityMedium')}</SelectItem>
+                  <SelectItem value="high">{translate('priorityHigh')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              {translate('cancel')}
+            </Button>
+            <Button onClick={handleUpdateTask}>
+              {translate('updateTask')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Task Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{translate('confirmDelete')}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              {translate('taskDeleteConfirm', { title: taskToDelete?.title || '' })}
+            </p>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              {translate('cancel')}
+            </Button>
+            <Button onClick={confirmDeleteTask} variant="destructive">
+              {translate('deleteTask')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

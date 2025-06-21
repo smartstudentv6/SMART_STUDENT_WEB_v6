@@ -219,7 +219,7 @@ export default function GestionUsuariosPage() {
     if (formData.role === 'teacher' && (!formData.teachingSubjects || formData.teachingSubjects.length === 0)) {
       toast({
         title: "Error",
-        description: "Los profesores deben tener al menos una asignatura asignada.",
+        description: translate('teacherMustHaveSubjects'),
         variant: 'destructive'
       });
       return;
@@ -409,9 +409,9 @@ export default function GestionUsuariosPage() {
 
   const getRoleDisplayName = (role: UserRole) => {
     switch (role) {
-      case 'admin': return 'Administrador';
-      case 'teacher': return 'Profesor';
-      case 'student': return 'Estudiante';
+      case 'admin': return translate('adminOption');
+      case 'teacher': return translate('teacherOption');
+      case 'student': return translate('studentOption');
       default: return role;
     }
   };
@@ -453,7 +453,7 @@ export default function GestionUsuariosPage() {
     if (!teacher || !teacher.activeCourses.includes(course)) {
       toast({
         title: "Error",
-        description: "El profesor no enseña este curso.",
+        description: translate('teacherDoesntTeachCourse'),
         variant: 'destructive'
       });
       return;
@@ -503,7 +503,7 @@ export default function GestionUsuariosPage() {
     
     toast({
       title: "Éxito",
-      description: "Estudiante removido del profesor",
+      description: translate('studentRemovedFromTeacher'),
     });
   };
 
@@ -771,7 +771,7 @@ export default function GestionUsuariosPage() {
                                 {studentsInOtherCourses.length > 0 && (
                                   <div className="mt-3 pt-3 border-t border-yellow-200">
                                     <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-2">
-                                      Transferir estudiante desde otro profesor:
+                                      {translate('transferStudentFrom')}
                                     </p>
                                     <div className="flex gap-2 flex-wrap">
                                       {studentsInOtherCourses.map(student => {
@@ -795,7 +795,7 @@ export default function GestionUsuariosPage() {
                                       })}
                                     </div>
                                     <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 italic">
-                                      ⚠️ El estudiante será automáticamente removido de su profesor anterior
+                                      {translate('studentWillBeRemoved')}
                                     </p>
                                   </div>
                                 )}
@@ -1092,7 +1092,7 @@ export default function GestionUsuariosPage() {
                 {formData.role === 'student' && formData.activeCourses.length > 0 && (
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="assignedTeacher" className="text-right">
-                      Profesor *
+                      {translate('teacherLabel')}
                     </Label>
                     <Select 
                       value={formData.assignedTeacher || ''} 
