@@ -240,7 +240,23 @@
     "passwordRequestRejected": "Request rejected successfully",
     "passwordRequestError": "Error processing request",
     "success": "Success",
-    "error": "Error"
+    "error": "Error",
+    "userManagementAssignedStudents": "assigned students",
+    "userManagementStudentsCount": "students",
+    "userManagementPageTitle": "User Management",
+    "userManagementPageDescription": "Manage users, roles and system assignments",
+    "userManagementCreateUser": "Create User",
+    "userManagementAdministrators": "Administrators",
+    "userManagementTeachers": "Teachers",
+    "userManagementStudents": "Students",
+    "userManagementNoStudentsAssigned": "No students assigned",
+    "userManagementAvailableStudents": "Available students",
+    "userManagementStudentOneCourseRule": "Students can only be in one course at a time",
+    "userManagementSelectTeacher": "Select a teacher to assign the student",
+    "userManagementStudentOneCourseInfo": "Each student can be assigned to only one course",
+    "userManagementAccessDenied": "Access denied",
+    "userManagementAccessDeniedDesc": "You don't have permission to access this page",
+    "teacherTitle": "Teacher"
 }
 
 

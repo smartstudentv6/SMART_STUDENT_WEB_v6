@@ -240,6 +240,22 @@
     "passwordRequestRejected": "Solicitud rechazada correctamente",
     "passwordRequestError": "Error al procesar la solicitud",
     "success": "Éxito",
-    "error": "Error"
+    "error": "Error",
+    "userManagementAssignedStudents": "estudiantes asignados",
+    "userManagementStudentsCount": "estudiantes",
+    "userManagementPageTitle": "Gestión de Usuarios",
+    "userManagementPageDescription": "Administra usuarios, roles y asignaciones del sistema",
+    "userManagementCreateUser": "Crear Usuario",
+    "userManagementAdministrators": "Administradores",
+    "userManagementTeachers": "Profesores",
+    "userManagementStudents": "Estudiantes",
+    "userManagementNoStudentsAssigned": "No hay estudiantes asignados",
+    "userManagementAvailableStudents": "Estudiantes disponibles",
+    "userManagementStudentOneCourseRule": "Los estudiantes solo pueden estar en un curso a la vez",
+    "userManagementSelectTeacher": "Selecciona un profesor para asignar el estudiante",
+    "userManagementStudentOneCourseInfo": "Cada estudiante puede estar asignado a un solo curso",
+    "userManagementAccessDenied": "Acceso denegado",
+    "userManagementAccessDeniedDesc": "No tienes permisos para acceder a esta página",
+    "teacherTitle": "Profesor"
 }
 
