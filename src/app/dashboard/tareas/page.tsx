@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit2, Reply, Trash2, Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Task {
@@ -40,6 +40,8 @@ interface TaskComment {
   comment: string;
   timestamp: string;
   isSubmission: boolean; // true if this is the student's submission
+  replyToId?: string; // ID of comment this is replying to
+  editedAt?: string; // timestamp of last edit
 }
 
 export default function TareasPage() {
@@ -55,6 +57,9 @@ export default function TareasPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newComment, setNewComment] = useState('');
   const [isSubmission, setIsSubmission] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -213,7 +218,8 @@ export default function TareasPage() {
       studentName: user?.displayName || '',
       comment: newComment,
       timestamp: new Date().toISOString(),
-      isSubmission: isSubmission
+      isSubmission: isSubmission,
+      replyToId: replyingToId || undefined
     };
 
     const updatedComments = [...comments, comment];
@@ -231,15 +237,93 @@ export default function TareasPage() {
 
     setNewComment('');
     setIsSubmission(false);
+    setReplyingToId(null);
 
     toast({
-      title: isSubmission ? "Tarea enviada" : "Comentario agregado",
-      description: isSubmission ? "Tu tarea ha sido enviada al profesor." : "Comentario agregado exitosamente.",
+      title: isSubmission ? "Tarea enviada" : replyingToId ? "Respuesta agregada" : "Comentario agregado",
+      description: isSubmission ? "Tu tarea ha sido enviada al profesor." : 
+                   replyingToId ? "Tu respuesta ha sido agregada." : "Comentario agregado exitosamente.",
     });
   };
 
+  const handleEditComment = (commentId: string) => {
+    const comment = comments.find(c => c.id === commentId);
+    if (comment) {
+      setEditingCommentId(commentId);
+      setEditingCommentText(comment.comment);
+    }
+  };
+
+  const handleSaveEditComment = () => {
+    if (!editingCommentText.trim() || !editingCommentId) return;
+
+    const updatedComments = comments.map(comment => 
+      comment.id === editingCommentId 
+        ? { ...comment, comment: editingCommentText, editedAt: new Date().toISOString() }
+        : comment
+    );
+    saveComments(updatedComments);
+
+    setEditingCommentId(null);
+    setEditingCommentText('');
+
+    toast({
+      title: "Comentario actualizado",
+      description: "Tu comentario ha sido actualizado exitosamente.",
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditingCommentText('');
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    const updatedComments = comments.filter(comment => comment.id !== commentId);
+    saveComments(updatedComments);
+
+    toast({
+      title: "Comentario eliminado",
+      description: "El comentario ha sido eliminado.",
+    });
+  };
+
+  const handleReplyToComment = (commentId: string) => {
+    setReplyingToId(commentId);
+    const comment = comments.find(c => c.id === commentId);
+    if (comment) {
+      setNewComment(`@${comment.studentName} `);
+    }
+  };
+
+  const canEditComment = (comment: TaskComment) => {
+    if (comment.studentUsername !== user?.username) return false;
+    const commentTime = new Date(comment.timestamp);
+    const now = new Date();
+    const diffMinutes = (now.getTime() - commentTime.getTime()) / (1000 * 60);
+    return diffMinutes <= 5; // Allow editing for 5 minutes
+  };
+
+  const canDeleteComment = (comment: TaskComment) => {
+    return comment.studentUsername === user?.username || user?.role === 'teacher';
+  };
+
   const getTaskComments = (taskId: string) => {
-    return comments.filter(comment => comment.taskId === taskId);
+    return comments
+      .filter(comment => comment.taskId === taskId)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  };
+
+  const getCommentReplies = (commentId: string, taskId: string) => {
+    return comments.filter(comment => 
+      comment.taskId === taskId && comment.replyToId === commentId
+    );
+  };
+
+  const getMainComments = (taskId: string) => {
+    return comments.filter(comment => 
+      comment.taskId === taskId && !comment.replyToId
+    );
   };
 
   const getPriorityColor = (priority: string) => {
@@ -592,62 +676,215 @@ export default function TareasPage() {
               
               <div>
                 <h4 className="font-medium mb-3">Comentarios y Entregas</h4>
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {getTaskComments(selectedTask.id).map(comment => (
-                    <div key={comment.id} className="bg-muted p-3 rounded-lg">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-medium text-sm">{comment.studentName}</span>
-                        <div className="flex items-center space-x-2">
-                          {comment.isSubmission && (
-                            <Badge variant="secondary" className="text-xs">Entrega</Badge>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(comment.timestamp)}
-                          </span>
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                  {getMainComments(selectedTask.id).map(comment => (
+                    <div key={comment.id} className="space-y-2">
+                      {/* Main Comment */}
+                      <div className={`p-4 rounded-lg border-l-4 ${
+                        comment.isSubmission 
+                          ? 'bg-green-50 border-l-green-500 dark:bg-green-900/10' 
+                          : 'bg-muted border-l-blue-500'
+                      }`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                              {comment.studentName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <span className="font-medium text-sm">{comment.studentName}</span>
+                              {comment.editedAt && (
+                                <span className="text-xs text-muted-foreground ml-2">{translate('tasksCommentEdited')}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {comment.isSubmission && (
+                              <Badge variant="secondary" className="text-xs">
+                                Entrega
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(comment.timestamp)}
+                            </span>
+                            <div className="flex space-x-1">
+                              {canEditComment(comment) && editingCommentId !== comment.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditComment(comment.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </Button>
+                              )}
+                              {user?.role === 'student' && comment.studentUsername !== user.username && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleReplyToComment(comment.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Reply className="w-3 h-3" />
+                                </Button>
+                              )}
+                              {canDeleteComment(comment) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
                         </div>
+                        
+                        {editingCommentId === comment.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editingCommentText}
+                              onChange={(e) => setEditingCommentText(e.target.value)}
+                              className="text-sm"
+                              rows={2}
+                            />
+                            <div className="flex space-x-2">
+                              <Button size="sm" onClick={handleSaveEditComment} disabled={!editingCommentText.trim()}>
+                                <Check className="w-3 h-3 mr-1" />
+                                {translate('tasksCommentSave')}
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                                <X className="w-3 h-3 mr-1" />
+                                {translate('tasksCommentCancel')}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm">{comment.comment}</p>
+                        )}
                       </div>
-                      <p className="text-sm">{comment.comment}</p>
+                      
+                      {/* Replies */}
+                      {getCommentReplies(comment.id, selectedTask.id).map(reply => (
+                        <div key={reply.id} className="ml-8 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border-l-2 border-l-gray-300">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 bg-gradient-to-r from-gray-400 to-gray-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                {reply.studentName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <span className="font-medium text-sm">{reply.studentName}</span>
+                                {reply.editedAt && (
+                                  <span className="text-xs text-muted-foreground ml-2">{translate('tasksCommentEdited')}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(reply.timestamp)}
+                              </span>
+                              {canDeleteComment(reply) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteComment(reply.id)}
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm">{reply.comment}</p>
+                        </div>
+                      ))}
                     </div>
                   ))}
                   
-                  {getTaskComments(selectedTask.id).length === 0 && (
-                    <p className="text-center text-sm text-muted-foreground py-4">
-                      No hay comentarios aún
-                    </p>
+                  {getMainComments(selectedTask.id).length === 0 && (
+                    <div className="text-center py-8">
+                      <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {translate('tasksCommentNoComments')}
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
               
-              {user?.role === 'student' && (
+              {(user?.role === 'student' || user?.role === 'teacher') && (
                 <div className="space-y-3">
                   <Separator />
+                  
+                  {replyingToId && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-2">
+                          <Reply className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm text-blue-700 dark:text-blue-300">
+                            {translate('tasksCommentReplyTo')} {comments.find(c => c.id === replyingToId)?.studentName}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setReplyingToId(null);
+                            setNewComment('');
+                          }}
+                          className="h-6 w-6 p-0"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div>
                     <Label htmlFor="newComment">
-                      {isSubmission ? 'Entregar tarea' : 'Agregar comentario'}
+                      {replyingToId ? translate('tasksCommentAddReply') : 
+                       isSubmission ? 'Entregar tarea' : 'Agregar comentario'}
                     </Label>
                     <Textarea
                       id="newComment"
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder={isSubmission ? 'Describe tu entrega...' : 'Escribe un comentario...'}
+                      placeholder={
+                        replyingToId ? 'Escribe tu respuesta...' :
+                        isSubmission ? 'Describe tu entrega...' : 'Escribe un comentario...'
+                      }
                       className="mt-1"
+                      rows={3}
                     />
-                    <div className="flex justify-between items-center mt-2">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="isSubmission"
-                          checked={isSubmission}
-                          onChange={(e) => setIsSubmission(e.target.checked)}
-                          className="rounded"
-                        />
-                        <Label htmlFor="isSubmission" className="text-sm">
-                          Marcar como entrega final
-                        </Label>
+                    <div className="flex justify-between items-center mt-3">
+                      <div className="flex items-center space-x-4">
+                        {!replyingToId && user?.role === 'student' && (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="isSubmission"
+                              checked={isSubmission}
+                              onChange={(e) => setIsSubmission(e.target.checked)}
+                              className="rounded"
+                            />
+                            <Label htmlFor="isSubmission" className="text-sm">
+                              Marcar como entrega final
+                            </Label>
+                          </div>
+                        )}
+                        <div className="text-xs text-muted-foreground">
+                          {newComment.length}/500 {translate('tasksCommentCharacterLimit')}
+                        </div>
                       </div>
-                      <Button onClick={handleAddComment} disabled={!newComment.trim()}>
+                      <Button 
+                        onClick={handleAddComment} 
+                        disabled={!newComment.trim() || newComment.length > 500}
+                        size="sm"
+                      >
                         <Send className="w-4 h-4 mr-2" />
-                        {isSubmission ? 'Entregar' : 'Comentar'}
+                        {replyingToId ? 'Responder' : 
+                         isSubmission ? 'Entregar' : 'Comentar'}
                       </Button>
                     </div>
                   </div>
