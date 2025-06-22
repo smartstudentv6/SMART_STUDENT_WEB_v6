@@ -2,7 +2,19 @@
 
 ## ✅ **Problemas Solucionados**
 
-### 1. **Creación Automática de Profesores con Asignaturas**
+### 1. **Saludo de Bienvenida Personalizado** ⭐ **FINAL**
+- **Problema**: 
+  - Estudiante: El saludo mostraba "Bienvenido Felipe estudiante" con la palabra "estudiante" en el nombre
+  - Administrador: El saludo mostraba "Bienvenido, Administrador del Sistema" (muy largo)
+- **Solución**: 
+  - Estudiante: Actualizado a "Bienvenido, [Nombre]" con formato más personal
+  - Administrador: Actualizado a "Bienvenido, Administrador" (más conciso)
+  - Cambiado el displayName de "Felipe Estudiante" a solo "Felipe"
+  - Cambiado el displayName de "Administrador del Sistema" a solo "Administrador"
+- **Archivos modificados**:
+  - `/src/locales/es.json`: `"welcomeMessage": "Bienvenido, {{name}}"`
+
+### 2. **Creación Automática de Profesores con Asignaturas**
 - **Problema**: Al crear profesores, había que configurar manualmente las asignaciones de materias
 - **Solución**: Implementada función `createTeacher()` que automáticamente:
   - Calcula los cursos activos basándose en las asignaturas asignadas
@@ -17,7 +29,7 @@ createTeacher('jorge', 'Jorge Profesor', 'jorge@teacher.com', [
 ])
 ```
 
-### 2. **Traducciones Mejoradas**
+### 3. **Traducciones Mejoradas**
 - **Problema**: "Prof. Jorge" no se traducía correctamente a "Teacher Jorge" en inglés
 - **Solución**: 
   - Agregadas nuevas claves de traducción: `teacherTitle` y `teacherShort`
@@ -30,7 +42,7 @@ createTeacher('jorge', 'Jorge Profesor', 'jorge@teacher.com', [
 - `/src/locales/en.json` - Agregadas claves `teacherTitle` y `teacherShort`
 - `/src/app/dashboard/gestion-usuarios/page.tsx` - Uso de `translate('teacherTitle')`
 
-### 3. **Vista de Profesor en Chat Optimizada**
+### 4. **Vista de Profesor en Chat Optimizada**
 - **Problema**: Los profesores necesitaban ver directamente sus estudiantes organizados por curso
 - **Solución**: La vista ya estaba implementada correctamente pero se mejoró con:
   - Agrupación automática por curso (ej: "4to Básico", "5to Básico")
@@ -64,7 +76,7 @@ createTeacher('jorge', 'Jorge Profesor', 'jorge@teacher.com', [
 ```javascript
 {
   username: 'felipe',
-  role: 'student', 
+  role:
   displayName: 'Felipe Estudiante',
   activeCourses: ['4to Básico'],
   assignedTeachers: {

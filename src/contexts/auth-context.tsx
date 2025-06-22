@@ -52,14 +52,14 @@ const USERS: Record<string, {
   'admin': {
     password: '1234',
     role: 'admin',
-    displayName: 'Administrador del Sistema',
+    displayName: 'Administrador',
     activeCourses: [], // Admin tiene acceso a todos los cursos
     email: 'admin@smartstudent.com'
   },
   'felipe': {
     password: '1234',
     role: 'student',
-    displayName: 'Felipe Estudiante',
+    displayName: 'Felipe',
     activeCourses: ['4to Básico'], // Estudiante solo 1 curso activo
     email: 'felipe@student.com',
     assignedTeachers: {
