@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -139,6 +140,25 @@ export default function TareasPage() {
       u.activeCourses && 
       u.activeCourses.includes(course)
     );
+  };
+
+  // Get students from a specific course
+  const getStudentsFromCourse = (course: string) => {
+    if (!course) return [];
+    
+    // Get all users from localStorage or mock data
+    const users = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+    const studentUsers = Object.entries(users)
+      .filter(([_, userData]: [string, any]) => 
+        userData.role === 'student' && 
+        userData.activeCourses?.includes(course)
+      )
+      .map(([username, userData]: [string, any]) => ({
+        username,
+        displayName: userData.displayName || username
+      }));
+    
+    return studentUsers;
   };
 
   // Filter tasks based on user role
@@ -651,25 +671,22 @@ export default function TareasPage() {
                           <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
                             {translate('totalTasks')}: {stats.total}
                           </Badge>
-                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800">
-                            {translate('pendingTasks')}: {stats.pending}
-                          </Badge>
                           <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                            {translate('submittedTasks')}: {stats.submitted}
+                            {translate('statusSubmitted')}: {stats.submitted}
                           </Badge>
-                          <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800">
-                            {translate('reviewedTasks')}: {stats.reviewed}
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800">
+                            {translate('statusPending')}: {stats.pending}
                           </Badge>
                         </div>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-3">
+                    <div className="space-y-3">
                       {courseTasks.map(task => (
-                        <div key={task.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex-1">
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2 mb-1">
                               <h4 className="font-medium">{task.title}</h4>
                               <Badge className={getPriorityColor(task.priority)}>
                                 {task.priority === 'high' ? translate('priorityHigh') : 
@@ -899,7 +916,7 @@ export default function TareasPage() {
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">{translate('assignTo')}</Label>
-              <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value }))}>
+              <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value, assignedStudents: [] }))}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
                 </SelectTrigger>
@@ -909,6 +926,46 @@ export default function TareasPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {formData.assignedTo === 'student' && formData.course && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{translate('assignToStudents')}</Label>
+                <div className="col-span-3">
+                  <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
+                    {getStudentsFromCourse(formData.course).length > 0 ? (
+                      getStudentsFromCourse(formData.course).map(student => (
+                        <div key={student.username} className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`student-${student.username}`}
+                            checked={formData.assignedStudents?.includes(student.username)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedStudents: [...(prev.assignedStudents || []), student.username]
+                                }));
+                              } else {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedStudents: prev.assignedStudents?.filter(s => s !== student.username) || []
+                                }));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`student-${student.username}`} className="cursor-pointer">
+                            {student.displayName}
+                          </Label>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground py-2 text-center">
+                        {translate('noEvaluationsSubtext') || "No hay estudiantes disponibles para este curso"}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="dueDate" className="text-right">{translate('dueDate')} *</Label>
@@ -1303,6 +1360,46 @@ export default function TareasPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {formData.assignedTo === 'student' && formData.course && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{translate('assignToStudents')}</Label>
+                <div className="col-span-3">
+                  <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
+                    {getStudentsFromCourse(formData.course).length > 0 ? (
+                      getStudentsFromCourse(formData.course).map(student => (
+                        <div key={student.username} className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`student-${student.username}`}
+                            checked={formData.assignedStudents?.includes(student.username)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedStudents: [...(prev.assignedStudents || []), student.username]
+                                }));
+                              } else {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedStudents: prev.assignedStudents?.filter(s => s !== student.username) || []
+                                }));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`student-${student.username}`} className="cursor-pointer">
+                            {student.displayName}
+                          </Label>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground py-2 text-center">
+                        {translate('noEvaluationsSubtext') || "No hay estudiantes disponibles para este curso"}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="dueDate" className="text-right">{translate('dueDate')} *</Label>
