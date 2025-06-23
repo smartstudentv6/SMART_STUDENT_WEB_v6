@@ -57,8 +57,8 @@ const featureCards = [
     descKey: 'cardTasksDesc',
     btnKey: 'cardTasksBtn',
     targetPage: '/dashboard/tareas',
-    icon: MessageSquare,
-    colorClass: 'indigo',
+    icon: ClipboardCheck,
+    colorClass: 'orange',
   },
 ];
 
@@ -122,6 +122,7 @@ export default function DashboardHomePage() {
       case 'orange': return 'home-card-button-orange';
       case 'red': return 'home-card-button-red';
       case 'indigo': return 'home-card-button-indigo';
+      case 'teal': return 'home-card-button-teal';
       default: return '';
     }
   };
@@ -136,6 +137,7 @@ export default function DashboardHomePage() {
       case 'orange': return 'text-orange-500 dark:text-orange-400';
       case 'red': return 'text-red-500 dark:text-red-400';
       case 'indigo': return 'text-indigo-500 dark:text-indigo-400';
+      case 'teal': return 'text-teal-500 dark:text-teal-400';
       default: return 'text-muted-foreground';
     }
   };

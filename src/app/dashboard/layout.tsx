@@ -10,7 +10,7 @@ import ThemeToggle from '@/components/shared/theme-toggle';
 import { AIStatusIndicator } from '@/components/shared/ai-status-indicator';
 import { UserRoleBadge } from '@/components/shared/user-role-badge';
 import { Button } from '@/components/ui/button';
-import { LogOut, Home, Library, FileText, Network, FileQuestion, ClipboardList, UserCircle2, HelpCircle, Users, Mail, CheckSquare } from 'lucide-react';
+import { LogOut, Home, Library, FileText, Network, FileQuestion, ClipboardList, UserCircle2, HelpCircle, Users, Mail, ClipboardCheck } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -22,7 +22,7 @@ const navItems = [
   { href: '/dashboard/mapa-mental', labelKey: 'navMindMap', icon: Network },
   { href: '/dashboard/cuestionario', labelKey: 'navQuiz', icon: FileQuestion },
   { href: '/dashboard/evaluacion', labelKey: 'navEvaluation', icon: ClipboardList },
-  { href: '/dashboard/tareas', labelKey: 'navTasks', icon: CheckSquare },
+  { href: '/dashboard/tareas', labelKey: 'navTasks', icon: ClipboardCheck },
   { href: '/dashboard/perfil', labelKey: 'navProfile', icon: UserCircle2 },
   { href: '/dashboard/ayuda', labelKey: 'navHelp', icon: HelpCircle },
 ];
@@ -65,7 +65,7 @@ export default function DashboardLayout({
             case 'navMindMap': newTheme = 'yellow'; break;
             case 'navQuiz': newTheme = 'cyan'; break;
             case 'navEvaluation': newTheme = 'purple'; break;
-            case 'navTasks': newTheme = 'teal'; break;
+            case 'navTasks': newTheme = 'orange'; break;
             default: newTheme = 'default';
           }
         }else {
@@ -167,7 +167,7 @@ export default function DashboardLayout({
               } else if (item.labelKey === 'navEvaluation') {
                 activeStyle = 'bg-custom-purple-100 text-custom-purple-800 font-semibold';
               } else if (item.labelKey === 'navTasks') {
-                activeStyle = 'bg-custom-teal-100 text-custom-teal-800 font-semibold';
+                activeStyle = 'bg-custom-orange-100 text-custom-orange-800 font-semibold';
               } else if (item.labelKey === 'navUserManagement') {
                 activeStyle = 'bg-custom-red-100 text-custom-red-800 font-semibold';
               }
@@ -226,7 +226,7 @@ export default function DashboardLayout({
                 } else if (item.labelKey === 'navEvaluation') {
                   mobileActiveClasses = 'bg-custom-purple-100/50 text-custom-purple-800 font-semibold';
                 } else if (item.labelKey === 'navTasks') {
-                  mobileActiveClasses = 'bg-custom-teal-100/50 text-custom-teal-800 font-semibold';
+                  mobileActiveClasses = 'bg-custom-orange-100/50 text-custom-orange-800 font-semibold';
                 } else {
                   // For Home, Profile, Help
                   mobileActiveClasses = 'bg-muted text-foreground font-semibold border-2 border-transparent dark:border-white dark:bg-transparent';

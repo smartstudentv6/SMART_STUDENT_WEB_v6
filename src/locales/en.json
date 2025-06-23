@@ -357,7 +357,30 @@
     "confirmDeleteSubmission": "Are you sure you want to delete your submission? You will be able to resubmit the task.",
     "submissionDeleted": "Submission deleted",
     "submissionDeletedDesc": "Your submission has been deleted. You can now resubmit the task.",
-    "canDeleteSubmissionToResubmit": "If you need to make changes, you can delete your submission using the button in your submission comment."
+    "canDeleteSubmissionToResubmit": "If you need to make changes, you can delete your submission using the button in your submission comment.",
+    "statusCompleted": "Completed",
+    "statusInProgress": "In Progress",
+    "statusFinished": "Finished",
+    "submissionDone": "Submitted",
+    "submissionPending": "Pending",
+    "dueDateMustBeFuture": "The due date must be in the future",
+    "markAsSubmission": "Mark as final submission",
+    "sendComment": "Send comment",
+    "teacherCommentPlaceholder": "Write a comment or feedback for students...",
+    "studentsStatus": "Students Status",
+    "student": "Student",
+    "status": "Status",
+    "submissionDate": "Submission Date",
+    "pending": "Pending",
+    "completed": "Completed",
+    "selectStudents": "Select students",
+    "noStudentsInCourse": "No students in this course",
+    "wholeCourse": "Entire Course",
+    "specificStudents": "Specific Students",
+    "selectAtLeastOneStudent": "Select at least one student",
+    "noStudentsAssigned": "No students assigned to this task",
+    "course": "Course",
+    "students": "Students"
 }
 
 

@@ -222,6 +222,10 @@ html.dark.theme-accent-purple {
 .text-custom-purple-800 { @apply text-[hsl(var(--custom-purple-800))]; }
 .hover\:bg-custom-purple-100\/80:hover { @apply hover:bg-[hsl(var(--custom-purple-100-hover))]; }
 
+.bg-custom-orange-100 { @apply bg-[hsl(var(--custom-orange-100))]; }
+.text-custom-orange-800 { @apply text-[hsl(var(--custom-orange-800))]; }
+.hover\:bg-custom-orange-100\/80:hover { @apply hover:bg-[hsl(var(--custom-orange-100-hover))]; }
+
 .bg-custom-teal-100 { @apply bg-[hsl(var(--custom-teal-100))]; }
 .text-custom-teal-800 { @apply text-[hsl(var(--custom-teal-800))]; }
 .hover\:bg-custom-teal-100\/80:hover { @apply hover:bg-[hsl(var(--custom-teal-100-hover))]; }
