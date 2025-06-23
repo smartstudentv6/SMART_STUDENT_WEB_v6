@@ -82,13 +82,15 @@ export default function CuestionarioPage() {
           <title>${title}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
-            body { font-family: 'Space Grotesk', sans-serif; margin: 25px; line-height: 1.6; }
+            body { font-family: 'Space Grotesk', sans-serif; margin: 25px; line-height: 1.8; }
             h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
-            h2 { font-size: 1.5em; text-align: center; margin-bottom: 1.5em;} /* Quiz title */
-            p { margin-bottom: 0.5em; }
-            strong { font-weight: bold; }
-            hr { margin-top: 1rem; margin-bottom: 1rem; border: 0; border-top: 1px solid #e5e7eb; }
+            h2 { font-size: 1.6em; text-align: center; margin-bottom: 2em; font-weight: 700; } /* Quiz title */
+            p { margin-bottom: 1.2em; }
+            strong { font-weight: 600; }
+            hr { margin-top: 1.5rem; margin-bottom: 1.5rem; border: 0; border-top: 2px solid #e5e7eb; }
             .prose { font-size: 14px; } /* Mimic prose styles */
+            .question-block { margin-bottom: 2.5em; }
+            .answer-space { margin-top: 1em; }
           </style>
         </head>
         <body>

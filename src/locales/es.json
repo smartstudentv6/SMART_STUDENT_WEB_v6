@@ -386,5 +386,9 @@
     "summaryActionCreateQuiz": "Crear Cuestionario",
     "summaryActionCreateEval": "Crear Evaluación",
     "summaryContentTitle": "Contenido",
-    "pdfDownloadErrorPopupBlocked": "No se pudo abrir la ventana para descargar el PDF. Por favor, permite ventanas emergentes para este sitio."
+    "pdfDownloadErrorPopupBlocked": "No se pudo abrir la ventana para descargar el PDF. Por favor, permite ventanas emergentes para este sitio.",
+    "mapActionDownloadPdf": "Descargar PDF",
+    "mapActionCreateSummary": "Crear Resumen",
+    "mapActionCreateQuiz": "Crear Cuestionario",
+    "mapActionCreateEval": "Crear Evaluación"
 }

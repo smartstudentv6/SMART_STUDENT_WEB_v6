@@ -386,7 +386,11 @@
     "summaryActionCreateQuiz": "Create Quiz",
     "summaryActionCreateEval": "Create Assessment",
     "summaryContentTitle": "Content",
-    "pdfDownloadErrorPopupBlocked": "Could not open window to download PDF. Please allow pop-ups for this site."
+    "pdfDownloadErrorPopupBlocked": "Could not open window to download PDF. Please allow pop-ups for this site.",
+    "mapActionDownloadPdf": "Download PDF",
+    "mapActionCreateSummary": "Create Summary",
+    "mapActionCreateQuiz": "Create Quiz",
+    "mapActionCreateEval": "Create Assessment"
 }
 
 

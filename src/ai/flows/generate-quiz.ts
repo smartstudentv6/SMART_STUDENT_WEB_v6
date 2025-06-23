@@ -39,6 +39,12 @@ const GenerateQuizOutputSchema = z.object({
 });
 export type GenerateQuizOutput = z.infer<typeof GenerateQuizOutputSchema>;
 
+// Helper function to capitalize the first letter of a string
+function capitalizeFirstLetter(text: string): string {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 
 export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQuizOutput> {
   // Mock mode for development when AI is not available
@@ -59,7 +65,7 @@ export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQu
       },
       {
         questionText: isSpanish ? `¿Cómo se relaciona ${input.topic} con otros temas del curso?` : `How does ${input.topic} relate to other course topics?`,
-        expectedAnswer: isSpanish ? `${input.topic} se conecta con múltiples áreas del conocimiento a través de sus aplicaciones prácticas.` : `${input.topic} connects with multiple knowledge areas through its practical applications.`
+        expectedAnswer: isSpanish ? `${capitalizeFirstLetter(input.topic)} se conecta con múltiples áreas del conocimiento a través de sus aplicaciones prácticas.` : `${capitalizeFirstLetter(input.topic)} connects with multiple knowledge areas through its practical applications.`
       },
       {
         questionText: isSpanish ? `¿Cuáles son las aplicaciones prácticas de ${input.topic}?` : `What are the practical applications of ${input.topic}?`,
@@ -72,8 +78,8 @@ export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQu
     for (let i = 0; i < 15; i++) {
       const baseQuestion = mockQuestions[i % mockQuestions.length];
       questions.push({
-        questionText: `${i + 1}. ${baseQuestion.questionText}`,
-        expectedAnswer: baseQuestion.expectedAnswer
+        questionText: `${baseQuestion.questionText}`,
+        expectedAnswer: capitalizeFirstLetter(baseQuestion.expectedAnswer)
       });
     }
     
@@ -82,14 +88,15 @@ export async function generateQuiz(input: GenerateQuizInput): Promise<GenerateQu
         <h1>${titlePrefix} - ${topicUpper}</h1>
         <p><strong>${isSpanish ? 'Libro:' : 'Book:'}</strong> ${input.bookTitle}</p>
         <p><strong>${isSpanish ? 'Curso:' : 'Course:'}</strong> ${input.courseName}</p>
-        <hr>
+        
+        <br />
+        
         ${questions.map((q, index) => `
-          <div class="question-block">
-            <h3>${isSpanish ? 'Pregunta' : 'Question'} ${index + 1}</h3>
-            <p><strong>${q.questionText}</strong></p>
+          <div class="question-block" style="margin-bottom: 2em;">
+            <p style="margin-bottom: 1em;"><strong>${index + 1}. ${q.questionText}</strong></p>
             <div class="answer-space">
-              <p><strong>${isSpanish ? 'Respuesta esperada:' : 'Expected answer:'}</strong></p>
-              <p>${q.expectedAnswer}</p>
+              <p style="margin-bottom: 0.5em;"><strong>${isSpanish ? 'Respuesta esperada:' : 'Expected answer:'}</strong></p>
+              <p style="margin-bottom: 1.5em; text-align: justify;">${q.expectedAnswer}</p>
             </div>
           </div>
         `).join('')}
@@ -139,17 +146,22 @@ const generateQuizFlow = ai.defineFlow(
       throw new Error('AI failed to generate quiz questions.');
     }
 
-    let formattedQuizHtml = `<h2>${output.quizTitle}</h2><br />`;
+    const isSpanish = input.language === 'es';
+    let formattedQuizHtml = `<h2>${output.quizTitle}</h2>`;
+    formattedQuizHtml += `<p><strong>${isSpanish ? 'Libro:' : 'Book:'}</strong> ${input.bookTitle}</p>`;
+    formattedQuizHtml += `<p><strong>${isSpanish ? 'Curso:' : 'Course:'}</strong> ${input.courseName}</p>`;
+    formattedQuizHtml += `<br /><br />`;
+    
     output.questions.forEach((q, index) => {
-      formattedQuizHtml += `<p><strong>${index + 1}. ${q.questionText}</strong></p>`;
-      const answerLabel = input.language === 'es' ? 'Respuesta Esperada' : 'Expected Answer';
-      formattedQuizHtml += `<p style="margin-top: 0.5em;"><strong>${answerLabel}:</strong></p>`;
+      formattedQuizHtml += `<p style="margin-bottom: 1em;"><strong>${index + 1}. ${q.questionText}</strong></p>`;
+      const answerLabel = input.language === 'es' ? 'Respuesta esperada' : 'Expected answer';
+      formattedQuizHtml += `<p style="margin-top: 0.5em; margin-bottom: 0.5em;"><strong>${answerLabel}:</strong></p>`;
       // Format the expected answer for better readability, e.g., convert newlines to <br>
-      const formattedAnswer = q.expectedAnswer.replace(/\n/g, '<br />');
-      formattedQuizHtml += `<p style="margin-top: 0.25em; margin-bottom: 1em; text-align: justify;">${formattedAnswer}</p>`;
+      const formattedAnswer = capitalizeFirstLetter(q.expectedAnswer.replace(/\n/g, '<br />'));
+      formattedQuizHtml += `<p style="margin-top: 0.25em; margin-bottom: 2em; text-align: justify;">${formattedAnswer}</p>`;
       
       if (index < output.questions.length - 1) {
-        formattedQuizHtml += '<hr style="margin-top: 1rem; margin-bottom: 1rem; border-top: 1px solid #e5e7eb;" /><br />';
+        formattedQuizHtml += '<hr style="margin-top: 1rem; margin-bottom: 1.5rem; border-top: 1px solid #e5e7eb;" />';
       }
     });
 
