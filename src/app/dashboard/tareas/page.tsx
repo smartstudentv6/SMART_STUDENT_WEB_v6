@@ -51,6 +51,16 @@ interface TaskComment {
   timestamp: string;
   isSubmission: boolean; // true if this is the student's submission
   attachments?: TaskFile[]; // Files attached to this comment/submission
+  grade?: TaskGrade; // Grade assigned by teacher (only for submissions)
+}
+
+interface TaskGrade {
+  id: string;
+  percentage: number; // 0-100
+  feedback?: string; // Optional feedback from teacher
+  gradedBy: string; // teacher username
+  gradedByName: string; // teacher display name
+  gradedAt: string; // timestamp
 }
 
 interface TaskFile {
@@ -84,6 +94,12 @@ export default function TareasPage() {
   const [commentAttachments, setCommentAttachments] = useState<TaskFile[]>([]);
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'course'>('list');
+  
+  // Grading states
+  const [showGradeDialog, setShowGradeDialog] = useState(false);
+  const [submissionToGrade, setSubmissionToGrade] = useState<TaskComment | null>(null);
+  const [gradePercentage, setGradePercentage] = useState<number>(0);
+  const [gradeFeedback, setGradeFeedback] = useState<string>('');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -556,6 +572,76 @@ export default function TareasPage() {
     );
   };
 
+  // Grading functions
+  const handleGradeSubmission = (submission: TaskComment) => {
+    if (user?.role !== 'teacher') return;
+    
+    setSubmissionToGrade(submission);
+    setGradePercentage(submission.grade?.percentage || 0);
+    setGradeFeedback(submission.grade?.feedback || '');
+    setShowGradeDialog(true);
+  };
+
+  const handleSaveGrade = () => {
+    if (!submissionToGrade || !user || user.role !== 'teacher') return;
+
+    if (gradePercentage < 0 || gradePercentage > 100) {
+      toast({
+        title: translate('error'),
+        description: translate('gradePercentageInvalid'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const grade: TaskGrade = {
+      id: `grade_${Date.now()}`,
+      percentage: gradePercentage,
+      feedback: gradeFeedback.trim(),
+      gradedBy: user.username,
+      gradedByName: user.displayName,
+      gradedAt: new Date().toISOString()
+    };
+
+    const updatedComments = comments.map(comment => 
+      comment.id === submissionToGrade.id 
+        ? { ...comment, grade }
+        : comment
+    );
+
+    setComments(updatedComments);
+    saveComments(updatedComments);
+
+    toast({
+      title: translate('gradeAssigned'),
+      description: translate('gradeAssignedDesc', { 
+        student: submissionToGrade.studentName,
+        percentage: gradePercentage.toString()
+      }),
+    });
+
+    setShowGradeDialog(false);
+    setSubmissionToGrade(null);
+    setGradePercentage(0);
+    setGradeFeedback('');
+  };
+
+  const getSubmissionGrade = (taskId: string, studentUsername: string): TaskGrade | undefined => {
+    const submission = comments.find(comment => 
+      comment.taskId === taskId && 
+      comment.studentUsername === studentUsername && 
+      comment.isSubmission
+    );
+    return submission?.grade;
+  };
+
+  const getGradeColor = (percentage: number): string => {
+    if (percentage >= 90) return 'text-green-600 dark:text-green-400';
+    if (percentage >= 70) return 'text-yellow-600 dark:text-yellow-400';
+    if (percentage >= 50) return 'text-orange-600 dark:text-orange-400';
+    return 'text-red-600 dark:text-red-400';
+  };
+
   const handleAddComment = () => {
     if (!newComment.trim() || !selectedTask) return;
 
@@ -796,7 +882,17 @@ export default function TareasPage() {
   };
 
   const getTaskComments = (taskId: string) => {
-    return comments.filter(comment => comment.taskId === taskId);
+    const taskComments = comments.filter(comment => comment.taskId === taskId);
+    
+    // For students, show only their own comments (including submission and follow-up comments)
+    if (user?.role === 'student') {
+      return taskComments.filter(comment => 
+        comment.studentUsername === user.username
+      );
+    }
+    
+    // For teachers, show all comments
+    return taskComments;
   };
 
   const getPriorityColor = (priority: string) => {
@@ -1445,6 +1541,8 @@ export default function TareasPage() {
                             <th className="py-2 px-3 text-left font-medium">{translate('student')}</th>
                             <th className="py-2 px-3 text-left font-medium">{translate('status')}</th>
                             <th className="py-2 px-3 text-left font-medium">{translate('submissionDate')}</th>
+                            <th className="py-2 px-3 text-left font-medium">{translate('grade')}</th>
+                            <th className="py-2 px-3 text-left font-medium">{translate('actions')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-muted">
@@ -1455,7 +1553,7 @@ export default function TareasPage() {
                             if (students.length === 0) {
                               return (
                                 <tr>
-                                  <td colSpan={3} className="py-4 px-3 text-center text-muted-foreground">
+                                  <td colSpan={5} className="py-4 px-3 text-center text-muted-foreground">
                                     {selectedTask.assignedTo === 'course' 
                                       ? translate('noStudentsInCourse')
                                       : translate('noStudentsAssigned')
@@ -1474,6 +1572,8 @@ export default function TareasPage() {
                                 comment.isSubmission
                               );
                               
+                              const grade = submission?.grade;
+                              
                               return (
                                 <tr key={student.username} className="hover:bg-muted/50">
                                   <td className="py-2 px-3">{student.displayName || student.username}</td>
@@ -1490,6 +1590,38 @@ export default function TareasPage() {
                                       ? formatDate(submission.timestamp) 
                                       : '-'
                                     }
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    {grade ? (
+                                      <div className="flex items-center space-x-2">
+                                        <span className={`font-semibold ${getGradeColor(grade.percentage)}`}>
+                                          {grade.percentage}%
+                                        </span>
+                                        {grade.feedback && (
+                                          <span className="text-xs text-muted-foreground" title={grade.feedback}>
+                                            💬
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      student.hasSubmitted ? (
+                                        <span className="text-muted-foreground text-xs">{translate('notGraded')}</span>
+                                      ) : '-'
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    {submission ? (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleGradeSubmission(submission)}
+                                        className="text-xs"
+                                      >
+                                        {grade ? translate('editGrade') : translate('gradeSubmission')}
+                                      </Button>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">-</span>
+                                    )}
                                   </td>
                                 </tr>
                               );
@@ -1547,24 +1679,53 @@ export default function TareasPage() {
                       
                       {/* Show submission notice for students who submitted */}
                       {comment.isSubmission && user?.role === 'student' && comment.studentUsername === user.username && (
-                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <span className="font-medium">✓ {translate('finalSubmissionMade')}</span>
-                              <br />
-                              <span>{translate('cannotModifySubmission')}</span>
+                        <div className="mt-2 space-y-2">
+                          <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <span className="font-medium">✓ {translate('finalSubmissionMade')}</span>
+                                <br />
+                                <span>{translate('cannotModifySubmission')}</span>
+                              </div>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteSubmission(comment.id)}
+                                className="ml-2 h-6 px-2 text-xs"
+                                title={translate('deleteSubmission')}
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                {translate('deleteSubmission')}
+                              </Button>
                             </div>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteSubmission(comment.id)}
-                              className="ml-2 h-6 px-2 text-xs"
-                              title={translate('deleteSubmission')}
-                            >
-                              <Trash2 className="w-3 h-3 mr-1" />
-                              {translate('deleteSubmission')}
-                            </Button>
                           </div>
+                          
+                          {/* Show grade if the submission has been graded */}
+                          {comment.grade && (
+                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                  📊 {translate('gradeReceived')}
+                                </span>
+                                <span className={`text-lg font-bold ${getGradeColor(comment.grade.percentage)}`}>
+                                  {comment.grade.percentage}%
+                                </span>
+                              </div>
+                              {comment.grade.feedback && (
+                                <div className="mt-2">
+                                  <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+                                    {translate('teacherFeedback')}:
+                                  </p>
+                                  <p className="text-sm text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 p-2 rounded">
+                                    {comment.grade.feedback}
+                                  </p>
+                                </div>
+                              )}
+                              <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                                {translate('gradedBy')} {comment.grade.gradedByName} • {formatDate(comment.grade.gradedAt)}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1845,6 +2006,74 @@ export default function TareasPage() {
             </Button>
             <Button onClick={confirmDeleteTask} variant="destructive">
               {translate('deleteTask')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Grade Submission Dialog */}
+      <Dialog open={showGradeDialog} onOpenChange={setShowGradeDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{translate('gradeSubmission')}</DialogTitle>
+            <DialogDescription>
+              {submissionToGrade && (
+                translate('gradeSubmissionDesc', { student: submissionToGrade.studentName })
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="gradePercentage">{translate('gradePercentage')} (0-100%)</Label>
+              <Input
+                id="gradePercentage"
+                type="number"
+                min="0"
+                max="100"
+                value={gradePercentage}
+                onChange={(e) => setGradePercentage(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                placeholder="0"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="gradeFeedback">{translate('gradeFeedback')} ({translate('optional')})</Label>
+              <Textarea
+                id="gradeFeedback"
+                value={gradeFeedback}
+                onChange={(e) => setGradeFeedback(e.target.value)}
+                placeholder={translate('gradeFeedbackPlaceholder')}
+                rows={3}
+              />
+            </div>
+
+            {submissionToGrade && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-2">{translate('studentSubmission')}</h4>
+                <div className="bg-muted p-3 rounded-lg max-h-32 overflow-y-auto">
+                  <p className="text-sm">{submissionToGrade.comment}</p>
+                  {submissionToGrade.attachments && submissionToGrade.attachments.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {submissionToGrade.attachments.map((file) => (
+                        <div key={file.id} className="flex items-center space-x-2 text-xs">
+                          <Paperclip className="w-3 h-3" />
+                          <span>{file.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGradeDialog(false)}>
+              {translate('cancel')}
+            </Button>
+            <Button onClick={handleSaveGrade} className="bg-orange-600 hover:bg-orange-700 text-white">
+              {translate('saveGrade')}
             </Button>
           </DialogFooter>
         </DialogContent>

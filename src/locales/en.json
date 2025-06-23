@@ -390,7 +390,24 @@
     "mapActionDownloadPdf": "Download PDF",
     "mapActionCreateSummary": "Create Summary",
     "mapActionCreateQuiz": "Create Quiz",
-    "mapActionCreateEval": "Create Assessment"
+    "mapActionCreateEval": "Create Assessment",
+    "grade": "Grade",
+    "notGraded": "Not graded",
+    "gradeSubmission": "Grade Submission",
+    "editGrade": "Edit Grade",
+    "gradeSubmissionDesc": "Grade {{student}}'s submission",
+    "gradePercentage": "Grade percentage",
+    "gradeFeedback": "Feedback comments",
+    "optional": "optional",
+    "gradeFeedbackPlaceholder": "Optional comments about the student's submission...",
+    "studentSubmission": "Student submission",
+    "saveGrade": "Save Grade",
+    "gradeAssigned": "Grade assigned",
+    "gradeAssignedDesc": "Assigned {{percentage}}% to {{student}}",
+    "gradePercentageInvalid": "Percentage must be between 0 and 100",
+    "gradeReceived": "Grade Received",
+    "teacherFeedback": "Teacher Feedback",
+    "gradedBy": "Graded by"
 }
 
 

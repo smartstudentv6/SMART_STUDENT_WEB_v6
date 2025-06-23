@@ -390,5 +390,22 @@
     "mapActionDownloadPdf": "Descargar PDF",
     "mapActionCreateSummary": "Crear Resumen",
     "mapActionCreateQuiz": "Crear Cuestionario",
-    "mapActionCreateEval": "Crear Evaluación"
+    "mapActionCreateEval": "Crear Evaluación",
+    "grade": "Calificación",
+    "notGraded": "Sin calificar",
+    "gradeSubmission": "Calificar Entrega",
+    "editGrade": "Editar Calificación",
+    "gradeSubmissionDesc": "Calificar la entrega de {{student}}",
+    "gradePercentage": "Porcentaje de calificación",
+    "gradeFeedback": "Comentarios de retroalimentación",
+    "optional": "opcional",
+    "gradeFeedbackPlaceholder": "Comentarios opcionales sobre la entrega del estudiante...",
+    "studentSubmission": "Entrega del estudiante",
+    "saveGrade": "Guardar Calificación",
+    "gradeAssigned": "Calificación asignada",
+    "gradeAssignedDesc": "Se asignó {{percentage}}% a {{student}}",
+    "gradePercentageInvalid": "El porcentaje debe estar entre 0 y 100",
+    "gradeReceived": "Calificación Recibida",
+    "teacherFeedback": "Comentarios del Profesor",
+    "gradedBy": "Calificado por"
 }
