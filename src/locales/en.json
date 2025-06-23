@@ -380,7 +380,11 @@
     "selectAtLeastOneStudent": "Select at least one student",
     "noStudentsAssigned": "No students assigned to this task",
     "course": "Course",
-    "students": "Students"
+    "students": "Students",
+    "summaryActionDownloadPdf": "Download PDF",
+    "summaryActionCreateMap": "Create Mind Map",
+    "summaryActionCreateQuiz": "Create Quiz",
+    "summaryActionCreateEval": "Create Assessment"
 }
 
 

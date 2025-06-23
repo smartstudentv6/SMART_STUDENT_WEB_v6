@@ -380,5 +380,9 @@
     "selectAtLeastOneStudent": "Selecciona al menos un estudiante",
     "noStudentsAssigned": "No hay estudiantes asignados a esta tarea",
     "course": "Curso",
-    "students": "Estudiantes"
+    "students": "Estudiantes",
+    "summaryActionDownloadPdf": "Descargar PDF",
+    "summaryActionCreateMap": "Crear Mapa Mental",
+    "summaryActionCreateQuiz": "Crear Cuestionario",
+    "summaryActionCreateEval": "Crear Evaluación"
 }
