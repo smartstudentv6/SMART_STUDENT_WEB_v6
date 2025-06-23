@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from '@/contexts/language-context';
+import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -16,7 +17,7 @@ import { cn } from '@/lib/utils';
 const userProfileData: UserProfile = {
   name: "Felipe",
   levelKey: "profileLevelValue",
-  activeCoursesKey: "profileCourse8thGradeValue", 
+  activeCoursesKey: "profileCourse4thGradeValue", 
   subjects: [
     { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
     { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
@@ -32,6 +33,10 @@ const learningStatsTemplate: SubjectProgress[] = [
   { nameKey: "subjectScience", progress: 0, colorClass: "bg-gradient-to-r from-green-300 via-green-400 to-green-600" },
   { nameKey: "subjectHistory", progress: 0, colorClass: "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-600" }, 
   { nameKey: "subjectLanguage", progress: 0, colorClass: "bg-gradient-to-r from-red-300 via-red-400 to-red-600" },
+  { nameKey: "subjectPhysics", progress: 0, colorClass: "bg-gradient-to-r from-purple-300 via-purple-400 to-purple-600" },
+  { nameKey: "subjectChemistry", progress: 0, colorClass: "bg-gradient-to-r from-emerald-300 via-emerald-400 to-emerald-600" },
+  { nameKey: "subjectBiology", progress: 0, colorClass: "bg-gradient-to-r from-teal-300 via-teal-400 to-teal-600" },
+  { nameKey: "subjectEnglish", progress: 0, colorClass: "bg-gradient-to-r from-indigo-300 via-indigo-400 to-indigo-600" },
 ];
 
 // Template for profile stats cards
@@ -45,6 +50,7 @@ const profileStatsCardsTemplate = [
 
 export default function PerfilClient() {
   const { translate, language } = useLanguage();
+  const { user } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [evaluationHistory, setEvaluationHistory] = useState<EvaluationHistoryItem[]>([]);
@@ -55,6 +61,9 @@ export default function PerfilClient() {
 
   const [dynamicLearningStats, setDynamicLearningStats] = useState<SubjectProgress[]>(learningStatsTemplate);
   const [dynamicProfileCards, setDynamicProfileCards] = useState(profileStatsCardsTemplate);
+  
+  // Crear perfil dinámico basado en el usuario autenticado
+  const [dynamicUserProfileData, setDynamicUserProfileData] = useState<UserProfile>(userProfileData);
 
   // Function to translate book titles based on current language
   const translateBookTitle = (bookTitle: string): string => {
@@ -146,8 +155,8 @@ export default function PerfilClient() {
     
     const subjectMappings: Record<string, { es: string[], en: string[] }> = {
       subjectScience: {
-        es: ["Ciencias", "Ciencias Naturales", "Biología", "Física", "Química", "Ciencias para la Ciudadanía"],
-        en: ["Science", "Natural Sciences", "Biology", "Physics", "Chemistry", "Science for Citizenship"]
+        es: ["Ciencias", "Ciencias Naturales", "Ciencias para la Ciudadanía"],
+        en: ["Science", "Natural Sciences", "Science for Citizenship"]
       },
       subjectHistory: {
         es: ["Historia", "Historia, Geografía y Ciencias Sociales", "Educación Ciudadana", "Filosofía"],
@@ -160,6 +169,22 @@ export default function PerfilClient() {
       subjectMath: {
         es: ["Matemáticas"],
         en: ["Mathematics"]
+      },
+      subjectPhysics: {
+        es: ["Física"],
+        en: ["Physics"]
+      },
+      subjectChemistry: {
+        es: ["Química"],
+        en: ["Chemistry"]
+      },
+      subjectBiology: {
+        es: ["Biología"],
+        en: ["Biology"]
+      },
+      subjectEnglish: {
+        es: ["Inglés"],
+        en: ["English"]
       }
     };
 
@@ -220,6 +245,111 @@ export default function PerfilClient() {
     setDynamicProfileCards(newProfileCards);
 
   }, [evaluationHistory, language, translate, mounted]);
+
+  // Actualizar el perfil con la información del usuario autenticado
+  useEffect(() => {
+    if (!user) return;
+    
+    // Obtener datos actualizados del usuario desde localStorage
+    let updatedUserData = user;
+    try {
+      const storedUsers = localStorage.getItem('smart-student-users');
+      if (storedUsers) {
+        const usersData = JSON.parse(storedUsers);
+        const currentUserData = usersData.find((u: any) => u.username === user.username);
+        if (currentUserData) {
+          updatedUserData = {
+            ...user,
+            activeCourses: currentUserData.activeCourses || []
+          };
+        }
+      }
+    } catch (error) {
+      console.error("Error loading updated user data:", error);
+    }
+    
+    // Mapeo de grado a clave de traducción
+    const getCourseKey = (course: string) => {
+      const courseMap: Record<string, string> = {
+        '1ro Básico': 'profileCourse1stGradeValue',
+        '2do Básico': 'profileCourse2ndGradeValue',
+        '3ro Básico': 'profileCourse3rdGradeValue',
+        '4to Básico': 'profileCourse4thGradeValue',
+        '5to Básico': 'profileCourse5thGradeValue',
+        '6to Básico': 'profileCourse6thGradeValue',
+        '7mo Básico': 'profileCourse7thGradeValue',
+        '8vo Básico': 'profileCourse8thGradeValue',
+        '1ro Medio': 'profileCourse1stHighValue',
+        '2do Medio': 'profileCourse2ndHighValue',
+        '3ro Medio': 'profileCourse3rdHighValue',
+        '4to Medio': 'profileCourse4thHighValue',
+      };
+      
+      // Si el usuario tiene cursos activos, usar el primero
+      if (updatedUserData.activeCourses && updatedUserData.activeCourses.length > 0 && updatedUserData.activeCourses[0]) {
+        const course = updatedUserData.activeCourses[0];
+        return courseMap[course] || 'profileCourseUnknownValue';
+      }
+      
+      return 'profileCourseUnknownValue';
+    };
+    
+    // Obtener asignaturas según el curso
+    const getSubjectsForCourse = (course: string) => {
+      // Asignaturas para cursos básicos (1ro a 8vo Básico)
+      if (!course || course.includes('Básico')) {
+        return [
+          { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+          { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+          { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
+          { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, 
+        ];
+      }
+      
+      // Asignaturas para cursos medios (1ro a 4to Medio)
+      if (course.includes('Medio')) {
+        return [
+          { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+          { tag: "FIS", nameKey: "subjectPhysics", colorClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300" },
+          { tag: "QUI", nameKey: "subjectChemistry", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+          { tag: "BIO", nameKey: "subjectBiology", colorClass: "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300" },
+          { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
+          { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+          { tag: "ING", nameKey: "subjectEnglish", colorClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300" },
+        ];
+      }
+      
+      // Si no se reconoce el tipo de curso, devolver asignaturas por defecto
+      return [
+        { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+        { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+        { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
+        { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, 
+      ];
+    };
+    
+    // Log para depuración
+    console.log('User Active Courses:', updatedUserData.activeCourses);
+    
+    // Obtener el curso actual del usuario, asegurando que no sea undefined
+    const currentCourse = updatedUserData.activeCourses && updatedUserData.activeCourses.length > 0 
+      ? updatedUserData.activeCourses[0] 
+      : '';
+    
+    // Determinar la clave de traducción correcta para el curso
+    const courseTranslationKey = getCourseKey(currentCourse);
+    
+    // Verificar si el curso es válido y obtener las asignaturas correspondientes
+    const subjectsForCourse = getSubjectsForCourse(currentCourse);
+    
+    setDynamicUserProfileData({
+      name: updatedUserData.displayName || updatedUserData.username,
+      levelKey: "profileLevelValue",
+      activeCoursesKey: courseTranslationKey,
+      subjects: subjectsForCourse,
+      evaluationsCompleted: evaluationHistory.length,
+    });
+  }, [user, evaluationHistory.length]);
 
   const handleDeleteHistory = () => {
     if (!mounted) return;
@@ -386,22 +516,22 @@ export default function PerfilClient() {
             <div className="space-y-4">
               <div>
                 <span className="font-semibold">{translate('profileName')}</span>
-                <span className="ml-2">{userProfileData.name}</span>
+                <span className="ml-2">{dynamicUserProfileData.name}</span>
               </div>
               <div>
                 <span className="font-semibold">{translate('profileLevel')}</span>
-                <span className="ml-2">{translate(userProfileData.levelKey)}</span>
+                <span className="ml-2">{translate(dynamicUserProfileData.levelKey)}</span>
               </div>
               <div>
                 <span className="font-semibold">{translate('profileCourses')}</span>
-                <span className="ml-2">{translate(userProfileData.activeCoursesKey)}</span>
+                <span className="ml-2">{translate(dynamicUserProfileData.activeCoursesKey)}</span>
               </div>
             </div>
             <div className="space-y-4">
               <div>
                 <span className="font-semibold">{translate('profileSubjects')}</span>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {userProfileData.subjects.map((subject, index) => (
+                  {dynamicUserProfileData.subjects.map((subject, index) => (
                     <span key={index} className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", subject.colorClass)}>
                       {subject.tag}
                     </span>
