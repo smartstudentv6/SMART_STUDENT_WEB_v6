@@ -384,7 +384,9 @@
     "summaryActionDownloadPdf": "Download PDF",
     "summaryActionCreateMap": "Create Mind Map",
     "summaryActionCreateQuiz": "Create Quiz",
-    "summaryActionCreateEval": "Create Assessment"
+    "summaryActionCreateEval": "Create Assessment",
+    "summaryContentTitle": "Content",
+    "pdfDownloadErrorPopupBlocked": "Could not open window to download PDF. Please allow pop-ups for this site."
 }
 
 

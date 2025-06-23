@@ -32,10 +32,10 @@ function simpleMarkdownToHtml(mdText: string): string {
   // Normalize line endings
   html = html.replace(/\r\n?/g, '\n');
 
-  // Headings (##, ###)
-  html = html.replace(/^### +(.*?) *(\n|$)/gm, '<h3>$1</h3>\n');
-  html = html.replace(/^## +(.*?) *(\n|$)/gm, '<h2>$1</h2>\n');
-  html = html.replace(/^# +(.*?) *(\n|$)/gm, '<h1>$1</h1>\n');
+  // Headings (##, ###) - Add proper spacing
+  html = html.replace(/^### +(.*?) *(\n|$)/gm, '<h3 class="text-lg font-semibold mt-6 mb-3">$1</h3>\n');
+  html = html.replace(/^## +(.*?) *(\n|$)/gm, '<h2 class="text-xl font-bold mt-8 mb-4">$1</h2>\n');
+  html = html.replace(/^# +(.*?) *(\n|$)/gm, '<h1 class="text-2xl font-bold mt-10 mb-6">$1</h1>\n');
 
   // Bold (**)
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -54,11 +54,11 @@ function simpleMarkdownToHtml(mdText: string): string {
         return ''; // Skip empty blocks
       }
       // If it's already an Hx tag (from our conversion above)
-      if (trimmedBlock.match(/^<(h[1-6]).*?>.*?<\/\1>/i)) {
+      if (trimmedBlock.match(/^<(h[1-6])[^>]*>.*?<\/\1>/i)) {
         return trimmedBlock; 
       }
       // Otherwise, wrap in <p> and convert internal single newlines to <br>
-      return `<p>${trimmedBlock.replace(/\n/g, '<br />')}</p>`;
+      return `<p class="mb-4">${trimmedBlock.replace(/\n/g, '<br />')}</p>`;
     })
     .join('');
 
@@ -199,16 +199,17 @@ export default function ResumenPage() {
           <title>${title}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
-            body { font-family: 'Space Grotesk', sans-serif; margin: 25px; line-height: 1.6; text-align: justify; }
+            body { font-family: 'Space Grotesk', sans-serif; margin: 25px; line-height: 1.8; text-align: justify; }
             h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
-            h1 { text-align: center; font-size: 1.5em; margin-bottom: 1em; }
-            h2 { font-size: 1.2em; margin-top: 1.5em; border-bottom: 1px solid #ccc; padding-bottom: 0.3em; }
-            h3 { font-size: 1.1em; margin-top: 1em; }
-            p { margin-bottom: 0.75em; }
-            strong { font-weight: bold; }
+            h1 { text-align: center; font-size: 1.8em; margin-bottom: 1.5em; font-weight: 700; }
+            h2 { font-size: 1.4em; margin-top: 2em; margin-bottom: 1em; font-weight: 600; border-bottom: 2px solid #333; padding-bottom: 0.5em; }
+            h3 { font-size: 1.2em; margin-top: 1.5em; margin-bottom: 0.75em; font-weight: 500; }
+            p { margin-bottom: 1.2em; text-indent: 0; }
+            strong { font-weight: 600; }
             em { font-style: italic; }
-            ul { list-style-type: disc; padding-left: 20px; }
-            li { margin-bottom: 0.3em; }
+            ul { list-style-type: disc; padding-left: 25px; margin-bottom: 1.5em; }
+            li { margin-bottom: 0.8em; line-height: 1.6; }
+            .mb-4 { margin-bottom: 1.2em; }
           </style>
         </head>
         <body>
@@ -328,10 +329,10 @@ export default function ResumenPage() {
               <div className="mt-6">
                 <h3 className="text-lg font-semibold mb-2 font-headline text-left">{translate('summaryKeyPointsTitle')}</h3>
                 {summaryResult.keyPoints && summaryResult.keyPoints.length > 0 ? (
-                  <ul className="list-disc list-inside space-y-1 text-sm font-headline text-left">
+                  <ul className="list-disc list-inside space-y-3 text-sm font-headline text-left">
                     {summaryResult.keyPoints.map((point, index) => {
                       const formattedPoint = formatInlineMarkdown(point);
-                      return <li key={index} dangerouslySetInnerHTML={{ __html: formattedPoint }} />;
+                      return <li key={index} dangerouslySetInnerHTML={{ __html: formattedPoint }} className="mb-2" />;
                     })}
                   </ul>
                 ) : (
