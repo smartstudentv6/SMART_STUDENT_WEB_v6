@@ -31,6 +31,8 @@ interface Task {
   createdAt: string;
   status: 'pending' | 'completed';  // Global status for teacher view
   priority: 'low' | 'medium' | 'high';
+  type: 'tarea' | 'evaluacion'; // Type of task
+  topic?: string; // Required for evaluations
   attachments?: TaskFile[]; // Files attached by teacher
 }
 
@@ -52,6 +54,8 @@ interface TaskComment {
   isSubmission: boolean; // true if this is the student's submission
   attachments?: TaskFile[]; // Files attached to this comment/submission
   grade?: TaskGrade; // Grade assigned by teacher (only for submissions)
+  isNew?: boolean; // true if this is a new comment that hasn't been seen yet
+  readBy?: string[]; // array of usernames who have read this comment
 }
 
 interface TaskGrade {
@@ -92,6 +96,7 @@ export default function TareasPage() {
   const [isSubmission, setIsSubmission] = useState(false);
   const [taskAttachments, setTaskAttachments] = useState<TaskFile[]>([]);
   const [commentAttachments, setCommentAttachments] = useState<TaskFile[]>([]);
+  const [readComments, setReadComments] = useState<string[]>([]); // IDs de comentarios que el usuario ha leído
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'course'>('list');
   
@@ -109,7 +114,9 @@ export default function TareasPage() {
     assignedTo: 'course' as 'course' | 'student',
     assignedStudents: [] as string[],
     dueDate: '',
-    priority: 'medium' as 'low' | 'medium' | 'high'
+    priority: 'medium' as 'low' | 'medium' | 'high',
+    type: 'tarea' as 'tarea' | 'evaluacion',
+    topic: ''
   });
 
   // Load tasks and comments
@@ -145,7 +152,19 @@ export default function TareasPage() {
         }
       }
     }
-  }, [comments, tasks.length]); // Only react to comments changes and initial tasks load
+  }, [comments, tasks, selectedTask]); // React to comments, tasks, and selectedTask changes
+  
+  // Initialize readComments based on user and comments data
+  useEffect(() => {
+    if (user && comments.length > 0) {
+      // Get all comments that the current user has read
+      const alreadyRead = comments
+        .filter(comment => comment.readBy?.includes(user.username))
+        .map(comment => comment.id);
+        
+      setReadComments(alreadyRead);
+    }
+  }, [user, comments.length]);
 
   const loadTasks = () => {
     const storedTasks = localStorage.getItem('smart-student-tasks');
@@ -499,6 +518,45 @@ export default function TareasPage() {
       });
       return;
     }
+
+    // Additional validation for evaluations
+    if (formData.type === 'evaluacion') {
+      if (!formData.subject || !formData.topic) {
+        toast({
+          title: translate('error'),
+          description: translate('evaluationRequiresSubjectTopic'),
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Check if evaluation already exists for this course/subject/topic combination
+      const existingEvaluation = tasks.find(task => 
+        task.type === 'evaluacion' &&
+        task.course === formData.course &&
+        task.subject === formData.subject &&
+        task.topic === formData.topic
+      );
+
+      if (existingEvaluation) {
+        toast({
+          title: translate('error'),
+          description: translate('evaluationAlreadyExists'),
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Evaluations can only be assigned to entire course
+      if (formData.assignedTo !== 'course') {
+        toast({
+          title: translate('error'),
+          description: translate('evaluationMustBeCourse'),
+          variant: 'destructive'
+        });
+        return;
+      }
+    }
     
     // Validate that the due date is in the future
     if (!validateDueDate(formData.dueDate)) {
@@ -534,6 +592,8 @@ export default function TareasPage() {
       createdAt: new Date().toISOString(),
       status: 'pending',
       priority: formData.priority,
+      type: formData.type,
+      topic: formData.type === 'evaluacion' ? formData.topic : undefined,
       attachments: taskAttachments
     };
 
@@ -557,7 +617,9 @@ export default function TareasPage() {
       assignedTo: 'course',
       assignedStudents: [],
       dueDate: '',
-      priority: 'medium'
+      priority: 'medium',
+      type: 'tarea',
+      topic: ''
     });
     setTaskAttachments([]);
     setShowCreateDialog(false);
@@ -671,7 +733,9 @@ export default function TareasPage() {
       comment: newComment,
       timestamp: new Date().toISOString(),
       isSubmission: isSubmission,
-      attachments: commentAttachments
+      attachments: commentAttachments,
+      isNew: true,
+      readBy: [user?.username || ''] // El creador ya lo ha leído
     };
 
     const updatedComments = [...comments, comment];
@@ -731,7 +795,9 @@ export default function TareasPage() {
       assignedTo: task.assignedTo,
       assignedStudents: task.assignedStudents || [],
       dueDate: task.dueDate,
-      priority: task.priority
+      priority: task.priority,
+      type: task.type || 'tarea', // Default to 'tarea' for backward compatibility
+      topic: task.topic || ''
     });
     setShowEditDialog(true);
   };
@@ -744,6 +810,47 @@ export default function TareasPage() {
         variant: 'destructive'
       });
       return;
+    }
+    
+    // Additional validation for evaluations
+    if (formData.type === 'evaluacion') {
+      if (!formData.subject || !formData.topic) {
+        toast({
+          title: translate('error'),
+          description: translate('evaluationRequiresSubjectTopic'),
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Check if evaluation already exists for this course/subject/topic combination
+      // But exclude the current task to allow updating other fields
+      const existingEvaluation = tasks.find(task => 
+        task.id !== selectedTask.id &&
+        task.type === 'evaluacion' &&
+        task.course === formData.course &&
+        task.subject === formData.subject &&
+        task.topic === formData.topic
+      );
+
+      if (existingEvaluation) {
+        toast({
+          title: translate('error'),
+          description: translate('evaluationAlreadyExists'),
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Evaluations can only be assigned to entire course
+      if (formData.assignedTo !== 'course') {
+        toast({
+          title: translate('error'),
+          description: translate('evaluationMustBeCourse'),
+          variant: 'destructive'
+        });
+        return;
+      }
     }
     
     // Validate that the due date is in the future
@@ -775,7 +882,9 @@ export default function TareasPage() {
       assignedTo: formData.assignedTo,
       assignedStudents: formData.assignedTo === 'student' ? formData.assignedStudents : undefined,
       dueDate: formData.dueDate,
-      priority: formData.priority
+      priority: formData.priority,
+      type: formData.type,
+      topic: formData.type === 'evaluacion' ? formData.topic : undefined
     };
 
     // Recalculate the task status based on the new assignment settings
@@ -801,7 +910,9 @@ export default function TareasPage() {
       assignedTo: 'course',
       assignedStudents: [],
       dueDate: '',
-      priority: 'medium'
+      priority: 'medium',
+      type: 'tarea',
+      topic: ''
     });
     setSelectedTask(null);
     setShowEditDialog(false);
@@ -881,13 +992,44 @@ export default function TareasPage() {
     });
   };
 
+  // Mark a comment as read by the current user
+  const markCommentAsRead = (commentId: string) => {
+    if (!user || readComments.includes(commentId)) return;
+    
+    // Update local readComments state
+    setReadComments(prev => [...prev, commentId]);
+    
+    // Update the comment in the comments array
+    const updatedComments = comments.map(comment => {
+      if (comment.id === commentId) {
+        // Add current user to readBy if they're not already there
+        const readBy = comment.readBy || [];
+        if (!readBy.includes(user.username)) {
+          return {
+            ...comment,
+            isNew: false,
+            readBy: [...readBy, user.username]
+          };
+        }
+      }
+      return comment;
+    });
+    
+    // Save updated comments to localStorage
+    saveComments(updatedComments);
+    setComments(updatedComments);
+  };
+
   const getTaskComments = (taskId: string) => {
     const taskComments = comments.filter(comment => comment.taskId === taskId);
     
-    // For students, show only their own comments (including submission and follow-up comments)
+    // For students, show all regular comments but only their own submissions
     if (user?.role === 'student') {
       return taskComments.filter(comment => 
-        comment.studentUsername === user.username
+        // Show regular comments from all students
+        !comment.isSubmission || 
+        // But only show their own submissions
+        (comment.isSubmission && comment.studentUsername === user.username)
       );
     }
     
@@ -1637,12 +1779,34 @@ export default function TareasPage() {
               <Separator />
               
               <div>
-                <h4 className="font-medium mb-3">{translate('commentsAndSubmissions')}</h4>
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-medium">{translate('commentsAndSubmissions')}</h4>
+                  {user?.role === 'student' && (
+                    <span className="text-xs text-muted-foreground">
+                      {translate('commentsVisibleToAll')}
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {getTaskComments(selectedTask.id).map(comment => (
-                    <div key={comment.id} className="bg-muted p-3 rounded-lg">
+                    <div 
+                      key={comment.id} 
+                      className={`${
+                        comment.isNew && (!comment.readBy?.includes(user?.username || ''))
+                          ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500'
+                          : 'bg-muted'
+                      } p-3 rounded-lg transition-all`}
+                      onMouseEnter={() => markCommentAsRead(comment.id)}
+                    >
                       <div className="flex justify-between items-center mb-2">
-                        <span className="font-medium text-sm">{comment.studentName}</span>
+                        <div className="flex items-center">
+                          <span className="font-medium text-sm">{comment.studentName}</span>
+                          {comment.isNew && (!comment.readBy?.includes(user?.username || '')) && (
+                            <Badge variant="outline" className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 ml-2 text-xs px-2 py-0">
+                              {translate('new')}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center space-x-2">
                           {comment.isSubmission && (
                             <Badge variant="secondary" className="text-xs">{translate('submission')}</Badge>
@@ -1656,25 +1820,28 @@ export default function TareasPage() {
                       
                       {/* Comment Attachments */}
                       {comment.attachments && comment.attachments.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {comment.attachments.map((file) => (
-                            <div key={file.id} className="flex items-center justify-between p-2 bg-background rounded text-xs">
-                              <div className="flex items-center space-x-2 min-w-0 flex-1">
-                                <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                                <span className="truncate" title={file.name}>{file.name}</span>
-                                <span className="text-muted-foreground">({formatFileSize(file.size)})</span>
+                        /* Mostrar archivos de comentarios normales O si es profesor O si es el estudiante dueño del comentario */
+                        (!comment.isSubmission || user?.role === 'teacher' || comment.studentUsername === user?.username) && (
+                          <div className="mt-2 space-y-1">
+                            {comment.attachments.map((file) => (
+                              <div key={file.id} className="flex items-center justify-between p-2 bg-background rounded text-xs">
+                                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                  <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                                  <span className="truncate" title={file.name}>{file.name}</span>
+                                  <span className="text-muted-foreground">({formatFileSize(file.size)})</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => downloadFile(file)}
+                                  className="flex-shrink-0 h-6 w-6 p-0"
+                                >
+                                  <Download className="w-3 h-3" />
+                                </Button>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => downloadFile(file)}
-                                className="flex-shrink-0 h-6 w-6 p-0"
-                              >
-                                <Download className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )
                       )}
                       
                       {/* Show submission notice for students who submitted */}
@@ -1700,7 +1867,7 @@ export default function TareasPage() {
                             </div>
                           </div>
                           
-                          {/* Show grade if the submission has been graded */}
+                          {/* Show grade if the submission has been graded and it's the student's own submission */}
                           {comment.grade && (
                             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
                               <div className="flex items-center justify-between mb-2">
@@ -1726,6 +1893,35 @@ export default function TareasPage() {
                               </div>
                             </div>
                           )}
+                        </div>
+                      )}
+                      
+                      {/* Show grade if the submission has been graded and user is teacher */}
+                      {comment.isSubmission && comment.grade && user?.role === 'teacher' && (
+                        <div className="mt-2 space-y-2">
+                          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                📊 {translate('gradeAssigned')}
+                              </span>
+                              <span className={`text-lg font-bold ${getGradeColor(comment.grade.percentage)}`}>
+                                {comment.grade.percentage}%
+                              </span>
+                            </div>
+                            {comment.grade.feedback && (
+                              <div className="mt-2">
+                                <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+                                  {translate('teacherFeedback')}:
+                                </p>
+                                <p className="text-sm text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 p-2 rounded">
+                                  {comment.grade.feedback}
+                                </p>
+                              </div>
+                            )}
+                            <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                              {translate('gradedBy')} {comment.grade.gradedByName} • {formatDate(comment.grade.gradedAt)}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

@@ -313,6 +313,8 @@
     "taskDueDateLabel": "Fecha límite:",
     "taskStatusLabel": "Estado:",
     "commentsAndSubmissions": "Comentarios y Entregas",
+    "commentsVisibleToAll": "Los comentarios son visibles para todos los estudiantes",
+    "new": "Nuevo",
     "noCommentsYet": "No hay comentarios aún",
     "addComment": "Agregar comentario",
     "submitTask": "Entregar tarea",
@@ -407,5 +409,6 @@
     "gradePercentageInvalid": "El porcentaje debe estar entre 0 y 100",
     "gradeReceived": "Calificación Recibida",
     "teacherFeedback": "Comentarios del Profesor",
-    "gradedBy": "Calificado por"
+    "gradedBy": "Calificado por",
+    "unreadNotificationsCount": "{{count}} notificaciones no leídas"
 }

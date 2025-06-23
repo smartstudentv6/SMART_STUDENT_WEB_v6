@@ -313,6 +313,8 @@
     "taskDueDateLabel": "Due date:",
     "taskStatusLabel": "Status:",
     "commentsAndSubmissions": "Comments and Submissions",
+    "commentsVisibleToAll": "Comments are visible to all students",
+    "new": "New",
     "noCommentsYet": "No comments yet",
     "addComment": "Add comment",
     "submitTask": "Submit task",
@@ -407,7 +409,8 @@
     "gradePercentageInvalid": "Percentage must be between 0 and 100",
     "gradeReceived": "Grade Received",
     "teacherFeedback": "Teacher Feedback",
-    "gradedBy": "Graded by"
+    "gradedBy": "Graded by",
+    "unreadNotificationsCount": "{{count}} unread notifications"
 }
 
 

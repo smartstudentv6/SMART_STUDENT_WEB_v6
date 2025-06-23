@@ -1,7 +1,6 @@
-
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
 import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Crown, GraduationCap, Users, Settings, ClipboardCheck, MessageSquare } from 'lucide-react';
@@ -10,6 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+
+// Interfaz para los comentarios de tareas
+interface TaskComment {
+  id: string;
+  taskId: string;
+  studentUsername: string;
+  studentName: string;
+  comment: string;
+  timestamp: string;
+  isSubmission: boolean;
+  isNew?: boolean;
+  readBy?: string[];
+}
 
 const featureCards = [
   {
@@ -59,6 +71,7 @@ const featureCards = [
     targetPage: '/dashboard/tareas',
     icon: ClipboardCheck,
     colorClass: 'orange',
+    showBadge: true, // Para mostrar la burbuja de notificación
   },
 ];
 
@@ -84,6 +97,27 @@ const adminCards = [
 export default function DashboardHomePage() {
   const { translate } = useLanguage();
   const { user } = useAuth();
+  const [unreadCommentsCount, setUnreadCommentsCount] = useState(0);
+
+  // Cargar comentarios no leídos de las tareas
+  useEffect(() => {
+    if (user) {
+      // Cargar comentarios de tareas del localStorage
+      const storedComments = localStorage.getItem('smart-student-task-comments');
+      if (storedComments) {
+        const comments: TaskComment[] = JSON.parse(storedComments);
+        
+        // Filtrar comentarios que son nuevos y que no han sido leídos por el usuario actual
+        const unread = comments.filter(comment => 
+          comment.isNew && 
+          comment.studentUsername !== user.username && // No contar los propios comentarios
+          (!comment.readBy?.includes(user.username))
+        );
+        
+        setUnreadCommentsCount(unread.length);
+      }
+    }
+  }, [user]);
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -142,7 +176,6 @@ export default function DashboardHomePage() {
     }
   };
 
-
   return (
     <div className="space-y-8">
       <div className="mb-4">
@@ -175,7 +208,15 @@ export default function DashboardHomePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {featureCards.map((card) => (
           <Card key={card.titleKey} className="flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300">
-            <CardHeader className="items-center">
+            <CardHeader className="items-center relative">
+              {card.showBadge && unreadCommentsCount > 0 && (
+                <Badge 
+                  className="absolute -top-2 -right-2 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
+                  title={translate('unreadNotificationsCount', { count: String(unreadCommentsCount) })}
+                >
+                  {unreadCommentsCount > 99 ? '99+' : unreadCommentsCount}
+                </Badge>
+              )}
               <card.icon className={`w-10 h-10 mb-3 ${getIconColorClass(card.colorClass)}`} />
               <CardTitle className="text-lg font-semibold font-headline">{translate(card.titleKey)}</CardTitle>
             </CardHeader>
@@ -227,4 +268,4 @@ export default function DashboardHomePage() {
     </div>
   );
 }
-    
+
