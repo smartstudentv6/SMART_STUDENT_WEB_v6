@@ -209,20 +209,20 @@ export function ForgotPasswordDialog({ open, onOpenChange }: ForgotPasswordDialo
             </p>
           </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+          <DialogFooter className="flex flex-col sm:flex-row justify-center gap-4 pt-4 w-full">
             <Button
               type="button"
               variant="outline"
               onClick={handleCancel}
               disabled={isLoading}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-[45%] px-6"
             >
               {translate('cancel')}
             </Button>
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full sm:w-[45%] px-6 bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">

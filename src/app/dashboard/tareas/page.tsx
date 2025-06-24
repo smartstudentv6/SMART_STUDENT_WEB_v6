@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload, ClipboardCheck, UserCheck } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Task {
@@ -29,19 +29,9 @@ interface Task {
   assignedStudents?: string[]; // specific students if assignedTo is 'student'
   dueDate: string;
   createdAt: string;
-  status: 'pending' | 'completed';  // Global status for teacher view
+  status: 'pending' | 'submitted' | 'reviewed';
   priority: 'low' | 'medium' | 'high';
-  type: 'tarea' | 'evaluacion'; // Type of task
-  topic?: string; // Required for evaluations
   attachments?: TaskFile[]; // Files attached by teacher
-}
-
-interface TaskStudentStatus {
-  id: string;
-  taskId: string;
-  studentUsername: string;
-  status: 'pending' | 'submitted'; // Individual status per student
-  submittedAt?: string;
 }
 
 interface TaskComment {
@@ -53,18 +43,6 @@ interface TaskComment {
   timestamp: string;
   isSubmission: boolean; // true if this is the student's submission
   attachments?: TaskFile[]; // Files attached to this comment/submission
-  grade?: TaskGrade; // Grade assigned by teacher (only for submissions)
-  isNew?: boolean; // true if this is a new comment that hasn't been seen yet
-  readBy?: string[]; // array of usernames who have read this comment
-}
-
-interface TaskGrade {
-  id: string;
-  percentage: number; // 0-100
-  feedback?: string; // Optional feedback from teacher
-  gradedBy: string; // teacher username
-  gradedByName: string; // teacher display name
-  gradedAt: string; // timestamp
 }
 
 interface TaskFile {
@@ -85,7 +63,6 @@ export default function TareasPage() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
-  const [taskStudentStatuses, setTaskStudentStatuses] = useState<TaskStudentStatus[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -96,15 +73,8 @@ export default function TareasPage() {
   const [isSubmission, setIsSubmission] = useState(false);
   const [taskAttachments, setTaskAttachments] = useState<TaskFile[]>([]);
   const [commentAttachments, setCommentAttachments] = useState<TaskFile[]>([]);
-  const [readComments, setReadComments] = useState<string[]>([]); // IDs de comentarios que el usuario ha leído
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'course'>('list');
-  
-  // Grading states
-  const [showGradeDialog, setShowGradeDialog] = useState(false);
-  const [submissionToGrade, setSubmissionToGrade] = useState<TaskComment | null>(null);
-  const [gradePercentage, setGradePercentage] = useState<number>(0);
-  const [gradeFeedback, setGradeFeedback] = useState<string>('');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -114,57 +84,14 @@ export default function TareasPage() {
     assignedTo: 'course' as 'course' | 'student',
     assignedStudents: [] as string[],
     dueDate: '',
-    priority: 'medium' as 'low' | 'medium' | 'high',
-    type: 'tarea' as 'tarea' | 'evaluacion',
-    topic: ''
+    priority: 'medium' as 'low' | 'medium' | 'high'
   });
 
   // Load tasks and comments
   useEffect(() => {
     loadTasks();
     loadComments();
-    loadTaskStudentStatuses();
   }, []);
-
-  // Recalculate task statuses when comments change
-  useEffect(() => {
-    if (tasks.length > 0 && comments.length >= 0) {
-      const updatedTasks = tasks.map(task => {
-        const newStatus = calculateTaskStatusWithComments(task, comments);
-        if (task.status !== newStatus) {
-          return { ...task, status: newStatus };
-        }
-        return task;
-      });
-
-      // Only update if there are actual changes
-      const hasChanges = updatedTasks.some((task, index) => task.status !== tasks[index].status);
-      if (hasChanges) {
-        localStorage.setItem('smart-student-tasks', JSON.stringify(updatedTasks));
-        setTasks(updatedTasks);
-        
-        // Update selectedTask if it's one of the changed tasks
-        if (selectedTask) {
-          const updatedSelectedTask = updatedTasks.find(t => t.id === selectedTask.id);
-          if (updatedSelectedTask && updatedSelectedTask.status !== selectedTask.status) {
-            setSelectedTask(updatedSelectedTask);
-          }
-        }
-      }
-    }
-  }, [comments, tasks, selectedTask]); // React to comments, tasks, and selectedTask changes
-  
-  // Initialize readComments based on user and comments data
-  useEffect(() => {
-    if (user && comments.length > 0) {
-      // Get all comments that the current user has read
-      const alreadyRead = comments
-        .filter(comment => comment.readBy?.includes(user.username))
-        .map(comment => comment.id);
-        
-      setReadComments(alreadyRead);
-    }
-  }, [user, comments.length]);
 
   const loadTasks = () => {
     const storedTasks = localStorage.getItem('smart-student-tasks');
@@ -180,13 +107,6 @@ export default function TareasPage() {
     }
   };
 
-  const loadTaskStudentStatuses = () => {
-    const storedStatuses = localStorage.getItem('smart-student-task-statuses');
-    if (storedStatuses) {
-      setTaskStudentStatuses(JSON.parse(storedStatuses));
-    }
-  };
-
   const saveTasks = (newTasks: Task[]) => {
     localStorage.setItem('smart-student-tasks', JSON.stringify(newTasks));
     setTasks(newTasks);
@@ -195,73 +115,6 @@ export default function TareasPage() {
   const saveComments = (newComments: TaskComment[]) => {
     localStorage.setItem('smart-student-task-comments', JSON.stringify(newComments));
     setComments(newComments);
-  };
-
-  const saveTaskStudentStatuses = (newStatuses: TaskStudentStatus[]) => {
-    localStorage.setItem('smart-student-task-statuses', JSON.stringify(newStatuses));
-    setTaskStudentStatuses(newStatuses);
-  };
-
-  // Get individual student status for a task
-  const getStudentTaskStatus = (taskId: string, studentUsername: string): 'pending' | 'submitted' => {
-    const status = taskStudentStatuses.find(s => 
-      s.taskId === taskId && s.studentUsername === studentUsername
-    );
-    return status?.status || 'pending';
-  };
-
-  // Create initial statuses for all assigned students when a task is created
-  const createInitialStudentStatuses = (task: Task) => {
-    let studentsToAssign: any[] = [];
-    
-    if (task.assignedTo === 'course') {
-      studentsToAssign = getStudentsForCourse(task.course);
-    } else if (task.assignedTo === 'student' && task.assignedStudents) {
-      const allUsers = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
-      studentsToAssign = allUsers.filter((u: any) => 
-        u.role === 'student' && task.assignedStudents?.includes(u.username)
-      );
-    }
-
-    const newStatuses: TaskStudentStatus[] = studentsToAssign.map(student => ({
-      id: `status_${task.id}_${student.username}_${Date.now()}`,
-      taskId: task.id,
-      studentUsername: student.username,
-      status: 'pending'
-    }));
-
-    const updatedStatuses = [...taskStudentStatuses, ...newStatuses];
-    saveTaskStudentStatuses(updatedStatuses);
-  };
-
-  // Update student status when they submit
-  const updateStudentTaskStatus = (taskId: string, studentUsername: string, status: 'pending' | 'submitted', submittedAt?: string) => {
-    const existingStatusIndex = taskStudentStatuses.findIndex(s => 
-      s.taskId === taskId && s.studentUsername === studentUsername
-    );
-
-    let updatedStatuses = [...taskStudentStatuses];
-    
-    if (existingStatusIndex >= 0) {
-      // Update existing status
-      updatedStatuses[existingStatusIndex] = {
-        ...updatedStatuses[existingStatusIndex],
-        status,
-        submittedAt
-      };
-    } else {
-      // Create new status
-      const newStatus: TaskStudentStatus = {
-        id: `status_${taskId}_${studentUsername}_${Date.now()}`,
-        taskId,
-        studentUsername,
-        status,
-        submittedAt
-      };
-      updatedStatuses.push(newStatus);
-    }
-
-    saveTaskStudentStatuses(updatedStatuses);
   };
 
   // Get available courses and subjects for teacher
@@ -281,73 +134,31 @@ export default function TareasPage() {
 
   // Get students for selected course
   const getStudentsForCourse = (course: string) => {
-    if (!course) return [];
-    
     const users = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
-    
-    // First try the standard way - looking for students with this course in activeCourses array
-    const standardStudents = users.filter((u: any) => 
+    return users.filter((u: any) => 
       u.role === 'student' && 
       u.activeCourses && 
       u.activeCourses.includes(course)
     );
-    
-    // If that doesn't work, try a more flexible approach
-    if (standardStudents.length === 0) {
-      return users.filter((u: any) => 
-        u.role === 'student' && (
-          // Look for course in any course-related field
-          (u.course && u.course === course) ||
-          (u.currentCourse && u.currentCourse === course) ||
-          (typeof u.courses === 'object' && Object.values(u.courses).includes(course)) ||
-          (Array.isArray(u.courses) && u.courses.includes(course))
-        )
-      );
-    }
-    
-    return standardStudents;
   };
 
-  // Get all students assigned to a task with their submission status
-  const getTaskStudentsWithStatus = (task: Task) => {
-    let students: any[] = [];
+  // Get students from a specific course
+  const getStudentsFromCourse = (course: string) => {
+    if (!course) return [];
     
-    if (task.assignedTo === 'course') {
-      // Get all students in the course
-      students = getStudentsForCourse(task.course);
-      
-      // If no students found for course, try again with raw localStorage access
-      // This helps ensure we get students even if there's an issue with getStudentsForCourse
-      if (students.length === 0) {
-        const allUsers = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
-        students = allUsers.filter((u: any) => 
-          u.role === 'student' && 
-          u.activeCourses && 
-          u.activeCourses.includes(task.course)
-        );
-      }
-    } else if (task.assignedTo === 'student' && task.assignedStudents) {
-      // Get only specifically assigned students
-      const allUsers = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
-      students = allUsers.filter((u: any) => 
-        u.role === 'student' && task.assignedStudents?.includes(u.username)
-      );
-    }
+    // Get all users from localStorage or mock data
+    const users = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+    const studentUsers = Object.entries(users)
+      .filter(([_, userData]: [string, any]) => 
+        userData.role === 'student' && 
+        userData.activeCourses?.includes(course)
+      )
+      .map(([username, userData]: [string, any]) => ({
+        username,
+        displayName: userData.displayName || username
+      }));
     
-    // Add submission status to each student
-    return students.map((student: any) => {
-      const hasSubmitted = comments.some(comment => 
-        comment.taskId === task.id && 
-        comment.studentUsername === student.username && 
-        comment.isSubmission
-      );
-      
-      return {
-        ...student,
-        hasSubmitted: hasSubmitted,
-        status: hasSubmitted ? 'submissionDone' : 'submissionPending'
-      };
-    });
+    return studentUsers;
   };
 
   // Filter tasks based on user role
@@ -412,8 +223,11 @@ export default function TareasPage() {
         );
         
         if (hasSubmissions) {
-          // For now we only have 'pending' and 'completed' status
-          stats[course].submitted++;
+          if (task.status === 'reviewed') {
+            stats[course].reviewed++;
+          } else {
+            stats[course].submitted++;
+          }
         } else {
           stats[course].pending++;
         }
@@ -423,156 +237,11 @@ export default function TareasPage() {
     return stats;
   };
 
-  // Handle file upload
-  const handleFileUpload = (fileList: FileList | null, isTaskAttachment: boolean) => {
-    if (!fileList || fileList.length === 0) return;
-
-    const files = Array.from(fileList);
-    const newFiles: TaskFile[] = [];
-
-    files.forEach(file => {
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: translate('error'),
-          description: translate('fileTooLarge', { name: file.name }),
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const newFile: TaskFile = {
-          id: `file_${Date.now()}_${Math.random()}`,
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          url: e.target?.result as string,
-          uploadedBy: user?.username || '',
-          uploadedAt: new Date().toISOString()
-        };
-
-        if (isTaskAttachment) {
-          setTaskAttachments(prev => [...prev, newFile]);
-        } else {
-          setCommentAttachments(prev => [...prev, newFile]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // Remove file from attachments
-  const removeFile = (fileId: string, isTaskAttachment: boolean) => {
-    if (isTaskAttachment) {
-      setTaskAttachments(prev => prev.filter(f => f.id !== fileId));
-    } else {
-      setCommentAttachments(prev => prev.filter(f => f.id !== fileId));
-    }
-  };
-
-  // Download file
-  const downloadFile = (file: TaskFile) => {
-    const link = document.createElement('a');
-    link.href = file.url;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Validate that due date is in the future
-  const validateDueDate = (dueDateStr: string): boolean => {
-    const dueDate = new Date(dueDateStr);
-    const now = new Date();
-    return dueDate > now;
-  };
-
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Format file size in a human-readable format
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
   const handleCreateTask = () => {
     if (!formData.title || !formData.description || !formData.course || !formData.dueDate) {
       toast({
         title: translate('error'),
         description: translate('completeAllFields'),
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    // Additional validation for evaluations
-    if (formData.type === 'evaluacion') {
-      if (!formData.subject || !formData.topic) {
-        toast({
-          title: translate('error'),
-          description: translate('evaluationRequiresSubjectTopic'),
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      // Check if evaluation already exists for this course/subject/topic combination
-      const existingEvaluation = tasks.find(task => 
-        task.type === 'evaluacion' &&
-        task.course === formData.course &&
-        task.subject === formData.subject &&
-        task.topic === formData.topic
-      );
-
-      if (existingEvaluation) {
-        toast({
-          title: translate('error'),
-          description: translate('evaluationAlreadyExists'),
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      // Evaluations can only be assigned to entire course
-      if (formData.assignedTo !== 'course') {
-        toast({
-          title: translate('error'),
-          description: translate('evaluationMustBeCourse'),
-          variant: 'destructive'
-        });
-        return;
-      }
-    }
-    
-    // Validate that the due date is in the future
-    if (!validateDueDate(formData.dueDate)) {
-      toast({
-        title: translate('error'),
-        description: translate('dueDateMustBeFuture'),
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    // Validate that at least one student is selected if assign to specific students
-    if (formData.assignedTo === 'student' && formData.assignedStudents.length === 0) {
-      toast({
-        title: translate('error'),
-        description: translate('selectAtLeastOneStudent'),
         variant: 'destructive'
       });
       return;
@@ -592,16 +261,11 @@ export default function TareasPage() {
       createdAt: new Date().toISOString(),
       status: 'pending',
       priority: formData.priority,
-      type: formData.type,
-      topic: formData.type === 'evaluacion' ? formData.topic : undefined,
       attachments: taskAttachments
     };
 
     const updatedTasks = [...tasks, newTask];
     saveTasks(updatedTasks);
-
-    // Create initial student statuses for this task
-    createInitialStudentStatuses(newTask);
 
     toast({
       title: translate('taskCreated'),
@@ -617,91 +281,10 @@ export default function TareasPage() {
       assignedTo: 'course',
       assignedStudents: [],
       dueDate: '',
-      priority: 'medium',
-      type: 'tarea',
-      topic: ''
+      priority: 'medium'
     });
     setTaskAttachments([]);
     setShowCreateDialog(false);
-  };
-
-  // Check if student has already submitted this task
-  const hasStudentSubmitted = (taskId: string, studentUsername: string) => {
-    return comments.some(comment => 
-      comment.taskId === taskId && 
-      comment.studentUsername === studentUsername && 
-      comment.isSubmission
-    );
-  };
-
-  // Grading functions
-  const handleGradeSubmission = (submission: TaskComment) => {
-    if (user?.role !== 'teacher') return;
-    
-    setSubmissionToGrade(submission);
-    setGradePercentage(submission.grade?.percentage || 0);
-    setGradeFeedback(submission.grade?.feedback || '');
-    setShowGradeDialog(true);
-  };
-
-  const handleSaveGrade = () => {
-    if (!submissionToGrade || !user || user.role !== 'teacher') return;
-
-    if (gradePercentage < 0 || gradePercentage > 100) {
-      toast({
-        title: translate('error'),
-        description: translate('gradePercentageInvalid'),
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const grade: TaskGrade = {
-      id: `grade_${Date.now()}`,
-      percentage: gradePercentage,
-      feedback: gradeFeedback.trim(),
-      gradedBy: user.username,
-      gradedByName: user.displayName,
-      gradedAt: new Date().toISOString()
-    };
-
-    const updatedComments = comments.map(comment => 
-      comment.id === submissionToGrade.id 
-        ? { ...comment, grade }
-        : comment
-    );
-
-    setComments(updatedComments);
-    saveComments(updatedComments);
-
-    toast({
-      title: translate('gradeAssigned'),
-      description: translate('gradeAssignedDesc', { 
-        student: submissionToGrade.studentName,
-        percentage: gradePercentage.toString()
-      }),
-    });
-
-    setShowGradeDialog(false);
-    setSubmissionToGrade(null);
-    setGradePercentage(0);
-    setGradeFeedback('');
-  };
-
-  const getSubmissionGrade = (taskId: string, studentUsername: string): TaskGrade | undefined => {
-    const submission = comments.find(comment => 
-      comment.taskId === taskId && 
-      comment.studentUsername === studentUsername && 
-      comment.isSubmission
-    );
-    return submission?.grade;
-  };
-
-  const getGradeColor = (percentage: number): string => {
-    if (percentage >= 90) return 'text-green-600 dark:text-green-400';
-    if (percentage >= 70) return 'text-yellow-600 dark:text-yellow-400';
-    if (percentage >= 50) return 'text-orange-600 dark:text-orange-400';
-    return 'text-red-600 dark:text-red-400';
   };
 
   const handleAddComment = () => {
@@ -733,47 +316,21 @@ export default function TareasPage() {
       comment: newComment,
       timestamp: new Date().toISOString(),
       isSubmission: isSubmission,
-      attachments: commentAttachments,
-      isNew: true,
-      readBy: [user?.username || ''] // El creador ya lo ha leído
+      attachments: commentAttachments
     };
 
     const updatedComments = [...comments, comment];
     saveComments(updatedComments);
 
     // Update task status if this is a submission
-    if (isSubmission && user?.role === 'student') {
-      // Update individual student status to 'submitted'
-      updateStudentTaskStatus(selectedTask.id, user.username, 'submitted', new Date().toISOString());
-      
-      // Check if all students have now submitted for the global task status
-      const task = tasks.find(t => t.id === selectedTask.id);
-      if (task) {
-        // Include the current submission in our status check
-        const tempComments = [...comments, comment];
-        
-        // Calculate if all students have submitted, including our new comment
-        const newStatus = calculateTaskStatusWithComments(task, tempComments);
-        
-        // Update the task with the new status
-        const updatedTask = { ...task, status: newStatus };
-        const updatedTasks = tasks.map(t => 
-          t.id === selectedTask.id 
-            ? updatedTask
-            : t
-        );
-        
-        // Save to localStorage
-        saveTasks(updatedTasks);
-        
-        // Update both the tasks state and selectedTask state to reflect changes in the UI immediately
-        setTasks(updatedTasks);
-        setSelectedTask(updatedTask);
-      }
+    if (isSubmission) {
+      const updatedTasks = tasks.map(task => 
+        task.id === selectedTask.id 
+          ? { ...task, status: 'submitted' as const }
+          : task
+      );
+      saveTasks(updatedTasks);
     }
-
-    // Update the comments state to reflect the new comment in the UI
-    setComments(updatedComments);
 
     setNewComment('');
     setIsSubmission(false);
@@ -795,9 +352,7 @@ export default function TareasPage() {
       assignedTo: task.assignedTo,
       assignedStudents: task.assignedStudents || [],
       dueDate: task.dueDate,
-      priority: task.priority,
-      type: task.type || 'tarea', // Default to 'tarea' for backward compatibility
-      topic: task.topic || ''
+      priority: task.priority
     });
     setShowEditDialog(true);
   };
@@ -807,67 +362,6 @@ export default function TareasPage() {
       toast({
         title: translate('error'),
         description: translate('completeAllFields'),
-        variant: 'destructive'
-      });
-      return;
-    }
-    
-    // Additional validation for evaluations
-    if (formData.type === 'evaluacion') {
-      if (!formData.subject || !formData.topic) {
-        toast({
-          title: translate('error'),
-          description: translate('evaluationRequiresSubjectTopic'),
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      // Check if evaluation already exists for this course/subject/topic combination
-      // But exclude the current task to allow updating other fields
-      const existingEvaluation = tasks.find(task => 
-        task.id !== selectedTask.id &&
-        task.type === 'evaluacion' &&
-        task.course === formData.course &&
-        task.subject === formData.subject &&
-        task.topic === formData.topic
-      );
-
-      if (existingEvaluation) {
-        toast({
-          title: translate('error'),
-          description: translate('evaluationAlreadyExists'),
-          variant: 'destructive'
-        });
-        return;
-      }
-
-      // Evaluations can only be assigned to entire course
-      if (formData.assignedTo !== 'course') {
-        toast({
-          title: translate('error'),
-          description: translate('evaluationMustBeCourse'),
-          variant: 'destructive'
-        });
-        return;
-      }
-    }
-    
-    // Validate that the due date is in the future
-    if (!validateDueDate(formData.dueDate)) {
-      toast({
-        title: translate('error'),
-        description: translate('dueDateMustBeFuture'),
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    // Validate that at least one student is selected if assign to specific students
-    if (formData.assignedTo === 'student' && formData.assignedStudents.length === 0) {
-      toast({
-        title: translate('error'),
-        description: translate('selectAtLeastOneStudent'),
         variant: 'destructive'
       });
       return;
@@ -882,14 +376,8 @@ export default function TareasPage() {
       assignedTo: formData.assignedTo,
       assignedStudents: formData.assignedTo === 'student' ? formData.assignedStudents : undefined,
       dueDate: formData.dueDate,
-      priority: formData.priority,
-      type: formData.type,
-      topic: formData.type === 'evaluacion' ? formData.topic : undefined
+      priority: formData.priority
     };
-
-    // Recalculate the task status based on the new assignment settings
-    const newStatus = calculateTaskStatusWithComments(updatedTask, comments);
-    updatedTask.status = newStatus;
 
     const updatedTasks = tasks.map(task => 
       task.id === selectedTask.id ? updatedTask : task
@@ -910,9 +398,7 @@ export default function TareasPage() {
       assignedTo: 'course',
       assignedStudents: [],
       dueDate: '',
-      priority: 'medium',
-      type: 'tarea',
-      topic: ''
+      priority: 'medium'
     });
     setSelectedTask(null);
     setShowEditDialog(false);
@@ -942,99 +428,8 @@ export default function TareasPage() {
     setShowDeleteDialog(false);
   };
 
-  // Handle deletion of a student submission
-  const handleDeleteSubmission = (commentId: string) => {
-    const commentToDelete = comments.find(c => c.id === commentId);
-    if (!commentToDelete || !selectedTask) return;
-
-    // Show confirmation dialog
-    if (!confirm(translate('confirmDeleteSubmission'))) {
-      return;
-    }
-
-    // Update individual student status back to 'pending' if this was their submission
-    if (commentToDelete.isSubmission && user?.role === 'student') {
-      updateStudentTaskStatus(selectedTask.id, user.username, 'pending');
-    }
-
-    // Remove the submission comment
-    const updatedComments = comments.filter(comment => comment.id !== commentId);
-    saveComments(updatedComments);
-
-    // Update task status based on remaining submissions
-    const task = tasks.find(t => t.id === selectedTask.id);
-    if (task) {
-      // Calculate status with the updated comments
-      const newStatus = calculateTaskStatusWithComments(task, updatedComments);
-      
-      // Update the task with the new status
-      const updatedTask = { ...task, status: newStatus };
-      const updatedTasks = tasks.map(t => 
-        t.id === selectedTask.id 
-          ? updatedTask
-          : t
-      );
-      
-      // Save to localStorage
-      saveTasks(updatedTasks);
-      
-      // Update both the tasks state and selectedTask state to reflect changes in the UI immediately
-      setTasks(updatedTasks);
-      setSelectedTask(updatedTask);
-    }
-
-    // Update the comments state to reflect the removal in the UI
-    setComments(updatedComments);
-
-    toast({
-      title: translate('submissionDeleted'),
-      description: translate('submissionDeletedDesc')
-    });
-  };
-
-  // Mark a comment as read by the current user
-  const markCommentAsRead = (commentId: string) => {
-    if (!user || readComments.includes(commentId)) return;
-    
-    // Update local readComments state
-    setReadComments(prev => [...prev, commentId]);
-    
-    // Update the comment in the comments array
-    const updatedComments = comments.map(comment => {
-      if (comment.id === commentId) {
-        // Add current user to readBy if they're not already there
-        const readBy = comment.readBy || [];
-        if (!readBy.includes(user.username)) {
-          return {
-            ...comment,
-            isNew: false,
-            readBy: [...readBy, user.username]
-          };
-        }
-      }
-      return comment;
-    });
-    
-    // Save updated comments to localStorage
-    saveComments(updatedComments);
-    setComments(updatedComments);
-  };
-
   const getTaskComments = (taskId: string) => {
-    const taskComments = comments.filter(comment => comment.taskId === taskId);
-    
-    // For students, show all regular comments but only their own submissions
-    if (user?.role === 'student') {
-      return taskComments.filter(comment => 
-        // Show regular comments from all students
-        !comment.isSubmission || 
-        // But only show their own submissions
-        (comment.isSubmission && comment.studentUsername === user.username)
-      );
-    }
-    
-    // For teachers, show all comments
-    return taskComments;
+    return comments.filter(comment => comment.taskId === taskId);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -1048,71 +443,153 @@ export default function TareasPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'; // En Curso
-      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'; // Finalizada (teacher view)
-      case 'submitted': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'; // Entregada (student view)
+      case 'pending': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      case 'submitted': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'reviewed': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     }
   };
 
-  // Calculate the actual status of a task based on current submissions (for teacher view)
-  const calculateTaskStatus = (task: Task): 'pending' | 'completed' => {
-    return calculateTaskStatusWithComments(task, comments);
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
-  
-  // Calculate task status with a specific set of comments (for teacher view)
-  const calculateTaskStatusWithComments = (task: Task, commentsToUse: TaskComment[]): 'pending' | 'completed' => {
-    // Get all students who are assigned to this task
-    let studentsToCheck: any[] = [];
-    if (task.assignedTo === 'course') {
-      studentsToCheck = getStudentsForCourse(task.course);
-    } else if (task.assignedTo === 'student' && task.assignedStudents) {
-      const allUsers = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
-      studentsToCheck = allUsers.filter((u: any) => 
-        u.role === 'student' && task.assignedStudents?.includes(u.username)
+
+  // File handling functions
+  const handleFileUpload = async (files: FileList | null, isForTask: boolean = false) => {
+    if (!files || files.length === 0) return;
+
+    const newFiles: TaskFile[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: translate('error'),
+          description: translate('fileTooLarge', { name: file.name }),
+          variant: 'destructive'
+        });
+        continue;
+      }
+
+      // Convert to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      const base64 = await base64Promise;
+      
+      const taskFile: TaskFile = {
+        id: `file_${Date.now()}_${i}`,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url: base64,
+        uploadedBy: user?.username || '',
+        uploadedAt: new Date().toISOString()
+      };
+
+      newFiles.push(taskFile);
+    }
+
+    if (isForTask) {
+      setTaskAttachments(prev => [...prev, ...newFiles]);
+    } else {
+      setCommentAttachments(prev => [...prev, ...newFiles]);
+    }
+
+    toast({
+      title: translate('filesUploaded'),
+      description: translate('filesUploadedDesc', { count: newFiles.length.toString() }),
+    });
+  };
+
+  const removeFile = (fileId: string, isForTask: boolean = false) => {
+    if (isForTask) {
+      setTaskAttachments(prev => prev.filter(f => f.id !== fileId));
+    } else {
+      setCommentAttachments(prev => prev.filter(f => f.id !== fileId));
+    }
+  };
+
+  const downloadFile = (file: TaskFile) => {
+    const link = document.createElement('a');
+    link.href = file.url;
+    link.download = file.name;
+    link.click();
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Get current date-time in ISO format for min attribute in datetime-local inputs
+  const getCurrentISODateTime = () => {
+    const now = new Date();
+    // Format to YYYY-MM-DDThh:mm
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  // Check if student has already submitted this task
+  const hasStudentSubmitted = (taskId: string, studentUsername: string) => {
+    return comments.some(comment => 
+      comment.taskId === taskId && 
+      comment.studentUsername === studentUsername && 
+      comment.isSubmission
+    );
+  };
+
+  // Delete student submission to allow re-submission
+  const handleDeleteSubmission = (commentId: string) => {
+    const commentToDelete = comments.find(c => c.id === commentId);
+    if (!commentToDelete || !selectedTask) return;
+
+    // Show confirmation dialog
+    if (!window.confirm(translate('confirmDeleteSubmission'))) {
+      return;
+    }
+
+    // Remove the submission comment
+    const updatedComments = comments.filter(comment => comment.id !== commentId);
+    saveComments(updatedComments);
+
+    // Update task status back to pending if this was the only submission
+    const remainingSubmissions = updatedComments.filter(comment => 
+      comment.taskId === selectedTask.id && comment.isSubmission
+    );
+
+    if (remainingSubmissions.length === 0) {
+      const updatedTasks = tasks.map(task => 
+        task.id === selectedTask.id 
+          ? { ...task, status: 'pending' as const }
+          : task
       );
+      saveTasks(updatedTasks);
     }
-    
-    // If no students are assigned, task remains pending
-    if (studentsToCheck.length === 0) {
-      return 'pending';
-    }
-    
-    // Check if ALL assigned students have submitted
-    const allSubmitted = studentsToCheck.every(student => 
-      commentsToUse.some(c => 
-        c.taskId === task.id && 
-        c.studentUsername === student.username && 
-        c.isSubmission
-      )
-    );
-    
-    return allSubmitted ? 'completed' : 'pending';
-  };
 
-  // Calculate individual student status for a task (for student view)
-  const calculateStudentTaskStatus = (task: Task, studentUsername: string): 'pending' | 'submitted' => {
-    // Check if this specific student has submitted
-    const hasSubmitted = comments.some(c => 
-      c.taskId === task.id && 
-      c.studentUsername === studentUsername && 
-      c.isSubmission
-    );
-    
-    return hasSubmitted ? 'submitted' : 'pending';
-  };
-
-  // Get the status display for UI based on user role
-  const getTaskStatusForDisplay = (task: Task): 'pending' | 'completed' | 'submitted' => {
-    if (user?.role === 'teacher') {
-      // Teachers see global status: "En Curso" or "Finalizada"
-      return calculateTaskStatus(task);
-    } else if (user?.role === 'student') {
-      // Students see their individual status: "En Curso" or "Entregada"
-      const studentStatus = calculateStudentTaskStatus(task, user.username);
-      return studentStatus === 'submitted' ? 'submitted' : 'pending';
-    }
-    return 'pending';
+    toast({
+      title: translate('submissionDeleted'),
+      description: translate('submissionDeletedDesc'),
+    });
   };
 
   const filteredTasks = getFilteredTasks();
@@ -1122,7 +599,7 @@ export default function TareasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center">
-            <ClipboardCheck className="w-8 h-8 mr-3 text-orange-600" />
+            <ClipboardList className="w-8 h-8 mr-3 text-indigo-600" />
             {translate('tasksPageTitle')}
           </h1>
           <p className="text-muted-foreground">
@@ -1142,7 +619,7 @@ export default function TareasPage() {
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('list')}
-                  className={`px-3 py-1 ${viewMode === 'list' ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'hover:bg-orange-100 hover:text-orange-800'}`}
+                  className="px-3 py-1"
                 >
                   {translate('listView')}
                 </Button>
@@ -1150,7 +627,7 @@ export default function TareasPage() {
                   variant={viewMode === 'course' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('course')}
-                  className={`px-3 py-1 ${viewMode === 'course' ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'hover:bg-orange-100 hover:text-orange-800'}`}
+                  className="px-3 py-1"
                 >
                   {translate('courseView')}
                 </Button>
@@ -1169,7 +646,7 @@ export default function TareasPage() {
                 </SelectContent>
               </Select>
 
-              <Button onClick={() => setShowCreateDialog(true)} className="bg-orange-600 hover:bg-orange-700 text-white">
+              <Button onClick={() => setShowCreateDialog(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 {translate('newTask')}
               </Button>
@@ -1185,7 +662,7 @@ export default function TareasPage() {
           Object.keys(getTasksByCourse()).length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center">
-                <ClipboardCheck className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">
                   {translate('tasksEmptyTeacher')}
                 </p>
@@ -1193,8 +670,9 @@ export default function TareasPage() {
             </Card>
           ) : (
             Object.entries(getTasksByCourse()).map(([course, courseTasks]) => {
+              const stats = getCourseStats()[course];
               return (
-                <Card key={course} className="border-l-4 border-l-orange-500">
+                <Card key={course} className="border-l-4 border-l-indigo-500">
                   <CardHeader>
                     <div className="flex justify-between items-center">
                       <div>
@@ -1202,38 +680,34 @@ export default function TareasPage() {
                           <Users className="w-5 h-5 mr-2" />
                           {course}
                         </CardTitle>
+                        <div className="flex items-center space-x-4 mt-2">
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                            {translate('totalTasks')}: {stats.total}
+                          </Badge>
+                          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                            {translate('statusSubmitted')}: {stats.submitted}
+                          </Badge>
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800">
+                            {translate('statusPending')}: {stats.pending}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-3">
+                    <div className="space-y-3">
                       {courseTasks.map(task => (
-                        <div key={task.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex-1">
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2 mb-1">
                               <h4 className="font-medium">{task.title}</h4>
-                              
-                              {/* Assignment Type Indicator */}
-                              {task.assignedTo === 'course' ? (
-                                <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300 dark:border-gray-800">
-                                  <Users className="w-3 h-3 mr-1" />
-                                  {translate('course')}
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300 dark:border-gray-800">
-                                  <UserCheck className="w-3 h-3 mr-1" />
-                                  {task.assignedStudents?.length || 0} {(task.assignedStudents?.length || 0) === 1 ? translate('student') : translate('students')}
-                                </Badge>
-                              )}
-                              
                               <Badge className={getPriorityColor(task.priority)}>
                                 {task.priority === 'high' ? translate('priorityHigh') : 
                                  task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                               </Badge>
-                              <Badge className={getStatusColor(getTaskStatusForDisplay(task))}>
-                                {getTaskStatusForDisplay(task) === 'pending' ? translate('statusInProgress') : 
-                                 getTaskStatusForDisplay(task) === 'submitted' ? translate('statusSubmitted') :
-                                 translate('statusFinished')}
+                              <Badge className={getStatusColor(task.status)}>
+                                {task.status === 'pending' ? translate('statusPending') : 
+                                 task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
@@ -1293,7 +767,7 @@ export default function TareasPage() {
             {filteredTasks.length === 0 ? (
               <Card>
                 <CardContent className="pt-6 text-center">
-                  <ClipboardCheck className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">
                     {user?.role === 'teacher' 
                       ? translate('tasksEmptyTeacher')
@@ -1311,27 +785,12 @@ export default function TareasPage() {
                         <CardTitle className="text-lg">{task.title}</CardTitle>
                         <div className="flex items-center space-x-2 mt-2">
                           <Badge variant="outline">{task.subject}</Badge>
-                          
-                          {/* Assignment Type Indicator */}
-                          {task.assignedTo === 'course' ? (
-                            <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300 dark:border-gray-800">
-                              <Users className="w-3 h-3 mr-1" />
-                              {translate('course')}
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300 dark:border-gray-800">
-                              <UserCheck className="w-3 h-3 mr-1" />
-                              {task.assignedStudents?.length || 0} {(task.assignedStudents?.length || 0) === 1 ? translate('student') : translate('students')}
-                            </Badge>
-                          )}
-                          
                           <Badge className={getPriorityColor(task.priority)}>
                             {task.priority === 'high' ? translate('priorityHigh') : task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                           </Badge>
-                          <Badge className={getStatusColor(getTaskStatusForDisplay(task))}>
-                            {getTaskStatusForDisplay(task) === 'pending' ? translate('statusInProgress') : 
-                             getTaskStatusForDisplay(task) === 'submitted' ? translate('statusSubmitted') :
-                             translate('statusFinished')}
+                          <Badge className={getStatusColor(task.status)}>
+                            {task.status === 'pending' ? translate('statusPending') : 
+                             task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
                           </Badge>
                         </div>
                       </div>
@@ -1470,7 +929,7 @@ export default function TareasPage() {
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">{translate('assignTo')}</Label>
-              <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value }))}>
+              <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value, assignedStudents: [] }))}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
                 </SelectTrigger>
@@ -1481,37 +940,42 @@ export default function TareasPage() {
               </Select>
             </div>
             
-            {/* Estudiantes disponibles - mostrados solo cuando se selecciona asignar a estudiantes específicos */}
             {formData.assignedTo === 'student' && formData.course && (
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right pt-2">{translate('selectStudents')} *</Label>
-                <div className="col-span-3 border rounded-md p-3 max-h-[200px] overflow-y-auto">
-                  {getStudentsForCourse(formData.course).length > 0 ? (
-                    getStudentsForCourse(formData.course).map((student: any) => (
-                      <div key={student.username} className="flex items-center space-x-2 mb-2">
-                        <Checkbox 
-                          id={`student-${student.username}`} 
-                          checked={formData.assignedStudents.includes(student.username)}
-                          onCheckedChange={(checked) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              assignedStudents: checked 
-                                ? [...prev.assignedStudents, student.username]
-                                : prev.assignedStudents.filter(s => s !== student.username)
-                            }));
-                          }} 
-                        />
-                        <Label 
-                          htmlFor={`student-${student.username}`}
-                          className="text-sm cursor-pointer"
-                        >
-                          {student.displayName} ({student.username})
-                        </Label>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{translate('noStudentsInCourse')}</p>
-                  )}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{translate('assignToStudents')}</Label>
+                <div className="col-span-3">
+                  <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
+                    {getStudentsFromCourse(formData.course).length > 0 ? (
+                      getStudentsFromCourse(formData.course).map(student => (
+                        <div key={student.username} className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`student-${student.username}`}
+                            checked={formData.assignedStudents?.includes(student.username)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedStudents: [...(prev.assignedStudents || []), student.username]
+                                }));
+                              } else {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedStudents: prev.assignedStudents?.filter(s => s !== student.username) || []
+                                }));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`student-${student.username}`} className="cursor-pointer">
+                            {student.displayName}
+                          </Label>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground py-2 text-center">
+                        {translate('noEvaluationsSubtext') || "No hay estudiantes disponibles para este curso"}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1522,10 +986,9 @@ export default function TareasPage() {
                 id="dueDate"
                 type="datetime-local"
                 value={formData.dueDate}
-                min={new Date().toISOString().slice(0, 16)}
                 onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
                 className="col-span-3"
-                title={translate('dueDateMustBeFuture')}
+                min={getCurrentISODateTime()} // Set minimum to current date-time
               />
             </div>
             
@@ -1598,7 +1061,7 @@ export default function TareasPage() {
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
               {translate('cancel')}
             </Button>
-            <Button onClick={handleCreateTask} className="bg-orange-600 hover:bg-orange-700 text-white">
+            <Button onClick={handleCreateTask}>
               {translate('createTask')}
             </Button>
           </DialogFooter>
@@ -1663,150 +1126,21 @@ export default function TareasPage() {
                 <span>
                   <strong>{translate('taskStatusLabel')}</strong> 
                   <Badge className={`ml-1 ${getStatusColor(selectedTask.status)}`}>
-                    {selectedTask.status === 'pending' ? translate('statusInProgress') : 
-                     translate('statusFinished')}
+                    {selectedTask.status === 'pending' ? translate('statusPending') : 
+                     selectedTask.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
                   </Badge>
                 </span>
               </div>
-
-              {/* Lista de estudiantes y su estado - solo visible para profesores */}
-              {user?.role === 'teacher' && (
-                <>
-                  <Separator />
-                  
-                  <div>
-                    <h4 className="font-medium mb-3">{translate('studentsStatus')}</h4>
-                    <div className="border rounded-md overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted">
-                          <tr>
-                            <th className="py-2 px-3 text-left font-medium">{translate('student')}</th>
-                            <th className="py-2 px-3 text-left font-medium">{translate('status')}</th>
-                            <th className="py-2 px-3 text-left font-medium">{translate('submissionDate')}</th>
-                            <th className="py-2 px-3 text-left font-medium">{translate('grade')}</th>
-                            <th className="py-2 px-3 text-left font-medium">{translate('actions')}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-muted">
-                          {(() => {
-                            const students = getTaskStudentsWithStatus(selectedTask);
-                            
-                            // If no students found, show a message
-                            if (students.length === 0) {
-                              return (
-                                <tr>
-                                  <td colSpan={5} className="py-4 px-3 text-center text-muted-foreground">
-                                    {selectedTask.assignedTo === 'course' 
-                                      ? translate('noStudentsInCourse')
-                                      : translate('noStudentsAssigned')
-                                    }
-                                  </td>
-                                </tr>
-                              );
-                            }
-                            
-                            // Show all students with their status
-                            return students.map((student) => {
-                              // Buscar la entrega del estudiante si existe
-                              const submission = comments.find(comment => 
-                                comment.taskId === selectedTask.id && 
-                                comment.studentUsername === student.username && 
-                                comment.isSubmission
-                              );
-                              
-                              const grade = submission?.grade;
-                              
-                              return (
-                                <tr key={student.username} className="hover:bg-muted/50">
-                                  <td className="py-2 px-3">{student.displayName || student.username}</td>
-                                  <td className="py-2 px-3">
-                                    <Badge className={`${student.hasSubmitted ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'}`}>
-                                      {student.hasSubmitted 
-                                        ? translate('submissionDone')
-                                        : translate('submissionPending')
-                                      }
-                                    </Badge>
-                                  </td>
-                                  <td className="py-2 px-3">
-                                    {submission 
-                                      ? formatDate(submission.timestamp) 
-                                      : '-'
-                                    }
-                                  </td>
-                                  <td className="py-2 px-3">
-                                    {grade ? (
-                                      <div className="flex items-center space-x-2">
-                                        <span className={`font-semibold ${getGradeColor(grade.percentage)}`}>
-                                          {grade.percentage}%
-                                        </span>
-                                        {grade.feedback && (
-                                          <span className="text-xs text-muted-foreground" title={grade.feedback}>
-                                            💬
-                                          </span>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      student.hasSubmitted ? (
-                                        <span className="text-muted-foreground text-xs">{translate('notGraded')}</span>
-                                      ) : '-'
-                                    )}
-                                  </td>
-                                  <td className="py-2 px-3">
-                                    {submission ? (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleGradeSubmission(submission)}
-                                        className="text-xs"
-                                      >
-                                        {grade ? translate('editGrade') : translate('gradeSubmission')}
-                                      </Button>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            });
-                          })()}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              )}
               
               <Separator />
               
               <div>
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-medium">{translate('commentsAndSubmissions')}</h4>
-                  {user?.role === 'student' && (
-                    <span className="text-xs text-muted-foreground">
-                      {translate('commentsVisibleToAll')}
-                    </span>
-                  )}
-                </div>
+                <h4 className="font-medium mb-3">{translate('commentsAndSubmissions')}</h4>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {getTaskComments(selectedTask.id).map(comment => (
-                    <div 
-                      key={comment.id} 
-                      className={`${
-                        comment.isNew && (!comment.readBy?.includes(user?.username || ''))
-                          ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500'
-                          : 'bg-muted'
-                      } p-3 rounded-lg transition-all`}
-                      onMouseEnter={() => markCommentAsRead(comment.id)}
-                    >
+                    <div key={comment.id} className="bg-muted p-3 rounded-lg">
                       <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center">
-                          <span className="font-medium text-sm">{comment.studentName}</span>
-                          {comment.isNew && (!comment.readBy?.includes(user?.username || '')) && (
-                            <Badge variant="outline" className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 ml-2 text-xs px-2 py-0">
-                              {translate('new')}
-                            </Badge>
-                          )}
-                        </div>
+                        <span className="font-medium text-sm">{comment.studentName}</span>
                         <div className="flex items-center space-x-2">
                           {comment.isSubmission && (
                             <Badge variant="secondary" className="text-xs">{translate('submission')}</Badge>
@@ -1820,107 +1154,46 @@ export default function TareasPage() {
                       
                       {/* Comment Attachments */}
                       {comment.attachments && comment.attachments.length > 0 && (
-                        /* Mostrar archivos de comentarios normales O si es profesor O si es el estudiante dueño del comentario */
-                        (!comment.isSubmission || user?.role === 'teacher' || comment.studentUsername === user?.username) && (
-                          <div className="mt-2 space-y-1">
-                            {comment.attachments.map((file) => (
-                              <div key={file.id} className="flex items-center justify-between p-2 bg-background rounded text-xs">
-                                <div className="flex items-center space-x-2 min-w-0 flex-1">
-                                  <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                                  <span className="truncate" title={file.name}>{file.name}</span>
-                                  <span className="text-muted-foreground">({formatFileSize(file.size)})</span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => downloadFile(file)}
-                                  className="flex-shrink-0 h-6 w-6 p-0"
-                                >
-                                  <Download className="w-3 h-3" />
-                                </Button>
+                        <div className="mt-2 space-y-1">
+                          {comment.attachments.map((file) => (
+                            <div key={file.id} className="flex items-center justify-between p-2 bg-background rounded text-xs">
+                              <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                                <span className="truncate" title={file.name}>{file.name}</span>
+                                <span className="text-muted-foreground">({formatFileSize(file.size)})</span>
                               </div>
-                            ))}
-                          </div>
-                        )
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => downloadFile(file)}
+                                className="flex-shrink-0 h-6 w-6 p-0"
+                              >
+                                <Download className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
                       )}
                       
                       {/* Show submission notice for students who submitted */}
                       {comment.isSubmission && user?.role === 'student' && comment.studentUsername === user.username && (
-                        <div className="mt-2 space-y-2">
-                          <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <span className="font-medium">✓ {translate('finalSubmissionMade')}</span>
-                                <br />
-                                <span>{translate('cannotModifySubmission')}</span>
-                              </div>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleDeleteSubmission(comment.id)}
-                                className="ml-2 h-6 px-2 text-xs"
-                                title={translate('deleteSubmission')}
-                              >
-                                <Trash2 className="w-3 h-3 mr-1" />
-                                {translate('deleteSubmission')}
-                              </Button>
+                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="font-medium">✓ {translate('finalSubmissionMade')}</span>
+                              <br />
+                              <span>{translate('cannotModifySubmission')}</span>
                             </div>
-                          </div>
-                          
-                          {/* Show grade if the submission has been graded and it's the student's own submission */}
-                          {comment.grade && (
-                            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                                  📊 {translate('gradeReceived')}
-                                </span>
-                                <span className={`text-lg font-bold ${getGradeColor(comment.grade.percentage)}`}>
-                                  {comment.grade.percentage}%
-                                </span>
-                              </div>
-                              {comment.grade.feedback && (
-                                <div className="mt-2">
-                                  <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
-                                    {translate('teacherFeedback')}:
-                                  </p>
-                                  <p className="text-sm text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 p-2 rounded">
-                                    {comment.grade.feedback}
-                                  </p>
-                                </div>
-                              )}
-                              <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-                                {translate('gradedBy')} {comment.grade.gradedByName} • {formatDate(comment.grade.gradedAt)}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Show grade if the submission has been graded and user is teacher */}
-                      {comment.isSubmission && comment.grade && user?.role === 'teacher' && (
-                        <div className="mt-2 space-y-2">
-                          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                                📊 {translate('gradeAssigned')}
-                              </span>
-                              <span className={`text-lg font-bold ${getGradeColor(comment.grade.percentage)}`}>
-                                {comment.grade.percentage}%
-                              </span>
-                            </div>
-                            {comment.grade.feedback && (
-                              <div className="mt-2">
-                                <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
-                                  {translate('teacherFeedback')}:
-                                </p>
-                                <p className="text-sm text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 p-2 rounded">
-                                  {comment.grade.feedback}
-                                </p>
-                              </div>
-                            )}
-                            <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-                              {translate('gradedBy')} {comment.grade.gradedByName} • {formatDate(comment.grade.gradedAt)}
-                            </div>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteSubmission(comment.id)}
+                              className="ml-2 h-6 px-2 text-xs"
+                              title={translate('deleteSubmission')}
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              {translate('deleteSubmission')}
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -1935,100 +1208,93 @@ export default function TareasPage() {
                 </div>
               </div>
               
-              {/* Formulario para añadir comentarios - disponible para profesores y estudiantes */}
-              <div className="space-y-3">
-                <Separator />
-                <div>
-                  <Label htmlFor="newComment">
-                    {user?.role === 'student' 
-                      ? (isSubmission ? translate('submitTask') : translate('addComment'))
-                      : translate('addComment')}
-                  </Label>
-                  <Textarea
-                    id="newComment"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder={user?.role === 'student'
-                      ? (isSubmission ? translate('submissionPlaceholder') : translate('commentPlaceholder'))
-                      : translate('teacherCommentPlaceholder')}
-                    className="mt-1"
-                  />
-                  
-                  {/* File Upload for Comments */}
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        type="file"
-                        multiple
-                        onChange={(e) => handleFileUpload(e.target.files, false)}
-                        className="hidden"
-                        id="comment-file-upload"
-                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip,.rar"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById('comment-file-upload')?.click()}
-                        className="w-full"
-                        size="sm"
-                      >
-                        <Paperclip className="w-4 h-4 mr-2" />
-                        {translate('attachFile')}
-                      </Button>
+              {user?.role === 'student' && (
+                <div className="space-y-3">
+                  <Separator />
+                  <div>
+                    <Label htmlFor="newComment">
+                      {isSubmission ? translate('submitTask') : translate('addComment')}
+                    </Label>
+                    <Textarea
+                      id="newComment"
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder={isSubmission ? translate('submissionPlaceholder') : translate('commentPlaceholder')}
+                      className="mt-1"
+                    />
+                    
+                    {/* File Upload for Comments */}
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <Input
+                          type="file"
+                          multiple
+                          onChange={(e) => handleFileUpload(e.target.files, false)}
+                          className="hidden"
+                          id="comment-file-upload"
+                          accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip,.rar"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => document.getElementById('comment-file-upload')?.click()}
+                          className="w-full"
+                          size="sm"
+                        >
+                          <Paperclip className="w-4 h-4 mr-2" />
+                          {translate('attachFile')}
+                        </Button>
+                      </div>
+                      
+                      {/* Display uploaded files for comment */}
+                      {commentAttachments.length > 0 && (
+                        <div className="space-y-2 max-h-24 overflow-y-auto">
+                          {commentAttachments.map((file) => (
+                            <div key={file.id} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
+                              <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                                <span className="truncate" title={file.name}>{file.name}</span>
+                                <span className="text-muted-foreground text-xs">({formatFileSize(file.size)})</span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeFile(file.id, false)}
+                                className="flex-shrink-0 h-6 w-6 p-0"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     
-                    {/* Display uploaded files for comment */}
-                    {commentAttachments.length > 0 && (
-                      <div className="space-y-2 max-h-24 overflow-y-auto">
-                        {commentAttachments.map((file) => (
-                          <div key={file.id} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
-                            <div className="flex items-center space-x-2 min-w-0 flex-1">
-                              <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                              <span className="truncate" title={file.name}>{file.name}</span>
-                              <span className="text-muted-foreground text-xs">({formatFileSize(file.size)})</span>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeFile(file.id, false)}
-                              className="flex-shrink-0 h-6 w-6 p-0"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex justify-between items-center mt-3">
-                    {user?.role === 'student' && (
+                    <div className="flex justify-between items-center mt-3">
                       <div className="flex items-center space-x-2">
-                        <Checkbox
+                        <input
+                          type="checkbox"
                           id="isSubmission"
                           checked={isSubmission}
-                          onCheckedChange={(checked) => setIsSubmission(!!checked)}
-                          disabled={hasStudentSubmitted(selectedTask.id, user.username)}
+                          onChange={(e) => setIsSubmission(e.target.checked)}
+                          className="rounded"
                         />
-                        <Label htmlFor="isSubmission" className="text-sm cursor-pointer">
-                          {translate('markAsSubmission')}
+                        <Label htmlFor="isSubmission" className="text-sm">
+                          {translate('markAsFinalSubmission')}
                         </Label>
                       </div>
-                    )}
-                    <Button 
-                      onClick={handleAddComment} 
-                      disabled={!newComment.trim()}
-                      className="bg-orange-600 hover:bg-orange-700 text-white disabled:bg-gray-400"
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      {user?.role === 'student' ? 
-                        (isSubmission ? translate('submit') : translate('comment')) : 
-                        translate('sendComment')}
-                    </Button>
+                      <Button 
+                        onClick={handleAddComment} 
+                        disabled={!newComment.trim()}
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        {isSubmission ? translate('submit') : translate('comment')}
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -2109,37 +1375,42 @@ export default function TareasPage() {
               </Select>
             </div>
             
-            {/* Estudiantes disponibles - mostrados solo cuando se selecciona asignar a estudiantes específicos */}
             {formData.assignedTo === 'student' && formData.course && (
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right pt-2">{translate('selectStudents')} *</Label>
-                <div className="col-span-3 border rounded-md p-3 max-h-[200px] overflow-y-auto">
-                  {getStudentsForCourse(formData.course).length > 0 ? (
-                    getStudentsForCourse(formData.course).map((student: any) => (
-                      <div key={student.username} className="flex items-center space-x-2 mb-2">
-                        <Checkbox 
-                          id={`student-${student.username}`} 
-                          checked={formData.assignedStudents.includes(student.username)}
-                          onCheckedChange={(checked) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              assignedStudents: checked 
-                                ? [...prev.assignedStudents, student.username]
-                                : prev.assignedStudents.filter(s => s !== student.username)
-                            }));
-                          }} 
-                        />
-                        <Label 
-                          htmlFor={`student-${student.username}`}
-                          className="text-sm cursor-pointer"
-                        >
-                          {student.displayName} ({student.username})
-                        </Label>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{translate('noStudentsInCourse')}</p>
-                  )}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{translate('assignToStudents')}</Label>
+                <div className="col-span-3">
+                  <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
+                    {getStudentsFromCourse(formData.course).length > 0 ? (
+                      getStudentsFromCourse(formData.course).map(student => (
+                        <div key={student.username} className="flex items-center space-x-2 py-1">
+                          <Checkbox
+                            id={`student-${student.username}`}
+                            checked={formData.assignedStudents?.includes(student.username)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedStudents: [...(prev.assignedStudents || []), student.username]
+                                }));
+                              } else {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedStudents: prev.assignedStudents?.filter(s => s !== student.username) || []
+                                }));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`student-${student.username}`} className="cursor-pointer">
+                            {student.displayName}
+                          </Label>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground py-2 text-center">
+                        {translate('noEvaluationsSubtext') || "No hay estudiantes disponibles para este curso"}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -2150,10 +1421,9 @@ export default function TareasPage() {
                 id="dueDate"
                 type="datetime-local"
                 value={formData.dueDate}
-                min={new Date().toISOString().slice(0, 16)}
                 onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
                 className="col-span-3"
-                title={translate('dueDateMustBeFuture')}
+                min={getCurrentISODateTime()} // Set minimum to current date-time
               />
             </div>
             
@@ -2176,7 +1446,7 @@ export default function TareasPage() {
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>
               {translate('cancel')}
             </Button>
-            <Button onClick={handleUpdateTask} className="bg-orange-600 hover:bg-orange-700 text-white">
+            <Button onClick={handleUpdateTask}>
               {translate('updateTask')}
             </Button>
           </DialogFooter>
@@ -2202,74 +1472,6 @@ export default function TareasPage() {
             </Button>
             <Button onClick={confirmDeleteTask} variant="destructive">
               {translate('deleteTask')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Grade Submission Dialog */}
-      <Dialog open={showGradeDialog} onOpenChange={setShowGradeDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>{translate('gradeSubmission')}</DialogTitle>
-            <DialogDescription>
-              {submissionToGrade && (
-                translate('gradeSubmissionDesc', { student: submissionToGrade.studentName })
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="gradePercentage">{translate('gradePercentage')} (0-100%)</Label>
-              <Input
-                id="gradePercentage"
-                type="number"
-                min="0"
-                max="100"
-                value={gradePercentage}
-                onChange={(e) => setGradePercentage(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                placeholder="0"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="gradeFeedback">{translate('gradeFeedback')} ({translate('optional')})</Label>
-              <Textarea
-                id="gradeFeedback"
-                value={gradeFeedback}
-                onChange={(e) => setGradeFeedback(e.target.value)}
-                placeholder={translate('gradeFeedbackPlaceholder')}
-                rows={3}
-              />
-            </div>
-
-            {submissionToGrade && (
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">{translate('studentSubmission')}</h4>
-                <div className="bg-muted p-3 rounded-lg max-h-32 overflow-y-auto">
-                  <p className="text-sm">{submissionToGrade.comment}</p>
-                  {submissionToGrade.attachments && submissionToGrade.attachments.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {submissionToGrade.attachments.map((file) => (
-                        <div key={file.id} className="flex items-center space-x-2 text-xs">
-                          <Paperclip className="w-3 h-3" />
-                          <span>{file.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGradeDialog(false)}>
-              {translate('cancel')}
-            </Button>
-            <Button onClick={handleSaveGrade} className="bg-orange-600 hover:bg-orange-700 text-white">
-              {translate('saveGrade')}
             </Button>
           </DialogFooter>
         </DialogContent>
