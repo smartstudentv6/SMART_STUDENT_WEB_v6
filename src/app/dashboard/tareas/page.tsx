@@ -594,12 +594,46 @@ export default function TareasPage() {
 
   const filteredTasks = getFilteredTasks();
 
+  // Get students with their task status for a specific task
+  const getStudentsWithTaskStatus = (task: Task) => {
+    if (!task) return [];
+    
+    let students: any[] = [];
+    
+    if (task.assignedTo === 'course') {
+      // Get all students from the course
+      students = getStudentsForCourse(task.course);
+    } else if (task.assignedTo === 'student' && task.assignedStudents) {
+      // Get only specifically assigned students
+      const allUsers = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
+      students = allUsers.filter((u: any) => 
+        u.role === 'student' && task.assignedStudents?.includes(u.username)
+      );
+    }
+    
+    // Add submission status to each student
+    return students.map((student: any) => {
+      const submission = comments.find(comment => 
+        comment.taskId === task.id && 
+        comment.studentUsername === student.username && 
+        comment.isSubmission
+      );
+      
+      return {
+        ...student,
+        hasSubmitted: !!submission,
+        submissionDate: submission?.timestamp,
+        submission: submission
+      };
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center">
-            <ClipboardList className="w-8 h-8 mr-3 text-indigo-600" />
+            <ClipboardList className="w-8 h-8 mr-3 text-orange-600" />
             {translate('tasksPageTitle')}
           </h1>
           <p className="text-muted-foreground">
@@ -619,7 +653,7 @@ export default function TareasPage() {
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('list')}
-                  className="px-3 py-1"
+                  className={`px-3 py-1 ${viewMode === 'list' ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'hover:bg-orange-50 hover:text-orange-700'}`}
                 >
                   {translate('listView')}
                 </Button>
@@ -627,7 +661,7 @@ export default function TareasPage() {
                   variant={viewMode === 'course' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('course')}
-                  className="px-3 py-1"
+                  className={`px-3 py-1 ${viewMode === 'course' ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'hover:bg-orange-50 hover:text-orange-700'}`}
                 >
                   {translate('courseView')}
                 </Button>
@@ -635,18 +669,18 @@ export default function TareasPage() {
 
               {/* Course Filter */}
               <Select value={selectedCourseFilter} onValueChange={setSelectedCourseFilter}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-48 border-orange-300 focus:border-orange-500 focus:ring-orange-500">
                   <SelectValue placeholder={translate('filterByCourse')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{translate('allCourses')}</SelectItem>
+                  <SelectItem value="all" className="focus:bg-orange-100 focus:text-orange-900 data-[state=checked]:bg-orange-100 data-[state=checked]:text-orange-900">{translate('allCourses')}</SelectItem>
                   {getAvailableCourses().map(course => (
-                    <SelectItem key={course} value={course}>{course}</SelectItem>
+                    <SelectItem key={course} value={course} className="focus:bg-orange-100 focus:text-orange-900 data-[state=checked]:bg-orange-100 data-[state=checked]:text-orange-900">{course}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              <Button onClick={() => setShowCreateDialog(true)}>
+              <Button onClick={() => setShowCreateDialog(true)} className="bg-orange-600 hover:bg-orange-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 {translate('newTask')}
               </Button>
@@ -672,7 +706,7 @@ export default function TareasPage() {
             Object.entries(getTasksByCourse()).map(([course, courseTasks]) => {
               const stats = getCourseStats()[course];
               return (
-                <Card key={course} className="border-l-4 border-l-indigo-500">
+                <Card key={course} className="border-l-4 border-l-orange-500">
                   <CardHeader>
                     <div className="flex justify-between items-center">
                       <div>
@@ -731,6 +765,7 @@ export default function TareasPage() {
                                 setShowTaskDialog(true);
                               }}
                               title={translate('viewTask')}
+                              className="hover:bg-orange-50"
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
@@ -738,7 +773,7 @@ export default function TareasPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditTask(task)}
-                              className="text-blue-600 hover:text-blue-700"
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                               title={translate('editTask')}
                             >
                               <Edit className="w-4 h-4" />
@@ -747,7 +782,7 @@ export default function TareasPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteTask(task)}
-                              className="text-red-600 hover:text-red-700"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               title={translate('deleteTask')}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -802,6 +837,7 @@ export default function TareasPage() {
                             setSelectedTask(task);
                             setShowTaskDialog(true);
                           }}
+                          className="hover:bg-orange-50"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -811,7 +847,7 @@ export default function TareasPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditTask(task)}
-                              className="text-blue-600 hover:text-blue-700"
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -819,7 +855,7 @@ export default function TareasPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteTask(task)}
-                              className="text-red-600 hover:text-red-700"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -1061,7 +1097,7 @@ export default function TareasPage() {
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
               {translate('cancel')}
             </Button>
-            <Button onClick={handleCreateTask}>
+            <Button onClick={handleCreateTask} className="bg-orange-600 hover:bg-orange-700 text-white">
               {translate('createTask')}
             </Button>
           </DialogFooter>
@@ -1131,6 +1167,66 @@ export default function TareasPage() {
                   </Badge>
                 </span>
               </div>
+
+              {/* Students Status - Only visible for teachers */}
+              {user?.role === 'teacher' && (
+                <>
+                  <Separator />
+                  
+                  <div>
+                    <h4 className="font-medium mb-3">{translate('studentsStatus')}</h4>
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="py-2 px-3 text-left font-medium">{translate('student')}</th>
+                            <th className="py-2 px-3 text-left font-medium">{translate('status')}</th>
+                            <th className="py-2 px-3 text-left font-medium">{translate('submissionDate')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-muted">
+                          {(() => {
+                            const studentsWithStatus = getStudentsWithTaskStatus(selectedTask);
+                            
+                            if (studentsWithStatus.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan={3} className="py-4 px-3 text-center text-muted-foreground">
+                                    {selectedTask.assignedTo === 'course' 
+                                      ? translate('noStudentsInCourse')
+                                      : translate('noStudentsAssigned')
+                                    }
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            
+                            return studentsWithStatus.map((student) => (
+                              <tr key={student.username} className="hover:bg-muted/50">
+                                <td className="py-2 px-3">{student.displayName || student.username}</td>
+                                <td className="py-2 px-3">
+                                  <Badge className={`${student.hasSubmitted ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400'}`}>
+                                    {student.hasSubmitted 
+                                      ? translate('statusSubmitted')
+                                      : translate('statusPending')
+                                    }
+                                  </Badge>
+                                </td>
+                                <td className="py-2 px-3">
+                                  {student.submissionDate 
+                                    ? formatDate(student.submissionDate) 
+                                    : '-'
+                                  }
+                                </td>
+                              </tr>
+                            ));
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
               
               <Separator />
               
@@ -1287,6 +1383,7 @@ export default function TareasPage() {
                       <Button 
                         onClick={handleAddComment} 
                         disabled={!newComment.trim()}
+                        className="bg-orange-600 hover:bg-orange-700 text-white disabled:bg-gray-400"
                       >
                         <Send className="w-4 h-4 mr-2" />
                         {isSubmission ? translate('submit') : translate('comment')}
@@ -1446,7 +1543,7 @@ export default function TareasPage() {
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>
               {translate('cancel')}
             </Button>
-            <Button onClick={handleUpdateTask}>
+            <Button onClick={handleUpdateTask} className="bg-orange-600 hover:bg-orange-700 text-white">
               {translate('updateTask')}
             </Button>
           </DialogFooter>
