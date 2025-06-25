@@ -122,9 +122,11 @@ export default function DashboardHomePage() {
         
         if (user.role === 'student') {
           // Filtrar comentarios que no han sido leídos por el usuario actual
+          // EXCLUIR comentarios de entrega (isSubmission) ya que son parte del trabajo entregado, no comentarios de discusión
           const unread = comments.filter((comment: TaskComment) => 
             comment.studentUsername !== user.username && // No contar los propios comentarios
-            (!comment.readBy?.includes(user.username))
+            (!comment.readBy?.includes(user.username)) &&
+            !comment.isSubmission // NUEVO: Excluir comentarios de entrega
           );
           
           setUnreadCommentsCount(unread.length);
@@ -339,7 +341,8 @@ export default function DashboardHomePage() {
             const comments = JSON.parse(storedComments);
             const unread = comments.filter((comment: any) => 
               comment.studentUsername !== user.username && 
-              (!comment.readBy?.includes(user.username))
+              (!comment.readBy?.includes(user.username)) &&
+              !comment.isSubmission // NUEVO: Excluir comentarios de entrega
             );
             setUnreadCommentsCount(unread.length);
           }
@@ -359,7 +362,8 @@ export default function DashboardHomePage() {
           const comments = JSON.parse(storedComments);
           const unread = comments.filter((comment: any) => 
             comment.studentUsername !== user.username && 
-            (!comment.readBy?.includes(user.username))
+            (!comment.readBy?.includes(user.username)) &&
+            !comment.isSubmission // NUEVO: Excluir comentarios de entrega
           );
           setUnreadCommentsCount(unread.length);
         }
