@@ -279,12 +279,12 @@ html.dark.theme-accent-purple {
   border: none !important;
 }
 
-/* BLUE BUTTON (Summaries) - Pulse and Wave Effect */
+/* BLUE BUTTON (Summaries) - Lift and Glow Effect */
 .home-card-button-blue {
   @apply border-transparent bg-[hsl(var(--custom-blue-100))] text-[hsl(var(--custom-blue-800))]
          hover:border-transparent hover:bg-[hsl(var(--custom-blue-800))] hover:text-[hsl(var(--custom-blue-100))]
-         hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105
-         transition-all duration-500 ease-in-out hover:animate-pulse;
+         hover:shadow-2xl hover:shadow-blue-500/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out;
   background-color: hsl(var(--custom-blue-100)) !important;
   color: hsl(var(--custom-blue-800)) !important;
   border: none !important;
@@ -307,16 +307,16 @@ html.dark.theme-accent-purple {
 .dark .home-card-button-blue {
   @apply border-transparent bg-[hsl(var(--custom-blue-800))] text-[hsl(var(--custom-blue-100))]
          hover:border-transparent hover:bg-[hsl(var(--custom-blue-100))] hover:text-[hsl(var(--custom-blue-800))]
-         hover:shadow-xl hover:shadow-blue-400/40 hover:scale-105
-         transition-all duration-500 ease-in-out hover:animate-pulse;
+         hover:shadow-2xl hover:shadow-blue-400/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out;
 }
 
-/* YELLOW BUTTON (Concept Maps) - Rotate and Glow Effect */
+/* YELLOW BUTTON (Concept Maps) - Lift and Glow Effect */
 .home-card-button-yellow {
   @apply border-transparent bg-[hsl(var(--custom-yellow-100))] text-[hsl(var(--custom-yellow-800))]
          hover:border-transparent hover:bg-[hsl(var(--custom-yellow-800))] hover:text-[hsl(var(--custom-yellow-100))]
-         hover:shadow-2xl hover:shadow-yellow-500/60 hover:scale-105 hover:rotate-1
-         transition-all duration-300 ease-out hover:brightness-110;
+         hover:shadow-2xl hover:shadow-yellow-500/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out;
   background-color: hsl(var(--custom-yellow-100)) !important;
   color: hsl(var(--custom-yellow-800)) !important;
   border: none !important;
@@ -339,16 +339,16 @@ html.dark.theme-accent-purple {
 .dark .home-card-button-yellow {
   @apply border-transparent bg-[hsl(var(--custom-yellow-800))] text-[hsl(var(--custom-yellow-100))]
          hover:border-transparent hover:bg-[hsl(var(--custom-yellow-100))] hover:text-[hsl(var(--custom-yellow-800))]
-         hover:shadow-2xl hover:shadow-yellow-400/60 hover:scale-105 hover:rotate-1
-         transition-all duration-300 ease-out hover:brightness-110;
+         hover:shadow-2xl hover:shadow-yellow-400/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out;
 }
 
-/* CYAN BUTTON (Quizzes) - Skew and Slide Effect */
+/* CYAN BUTTON (Quizzes) - Lift and Glow Effect */
 .home-card-button-cyan {
   @apply border-transparent bg-[hsl(var(--custom-cyan-100))] text-[hsl(var(--custom-cyan-800))]
          hover:border-transparent hover:bg-[hsl(var(--custom-cyan-800))] hover:text-[hsl(var(--custom-cyan-100))]
-         hover:shadow-xl hover:shadow-cyan-500/50 hover:scale-110 hover:skew-x-2
-         transition-all duration-300 ease-in-out hover:translate-x-1;
+         hover:shadow-2xl hover:shadow-cyan-500/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out;
   background-color: hsl(var(--custom-cyan-100)) !important;
   color: hsl(var(--custom-cyan-800)) !important;
   border: none !important;
@@ -371,18 +371,16 @@ html.dark.theme-accent-purple {
 .dark .home-card-button-cyan {
   @apply border-transparent bg-[hsl(var(--custom-cyan-800))] text-[hsl(var(--custom-cyan-100))]
          hover:border-transparent hover:bg-[hsl(var(--custom-cyan-100))] hover:text-[hsl(var(--custom-cyan-800))]
-         hover:shadow-xl hover:shadow-cyan-400/50 hover:scale-110 hover:skew-x-2
-         transition-all duration-300 ease-in-out hover:translate-x-1;
+         hover:shadow-2xl hover:shadow-cyan-400/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out;
 }
 
-/* PURPLE BUTTON (Evaluations) - 3D Flip and Gradient Effect */
-/* PURPLE BUTTON (Books/Evaluation) - Horizontal Highlight Effect */
+/* PURPLE BUTTON (Evaluations) - Lift and Glow Effect */
 .home-card-button-purple {
   @apply border-transparent bg-[hsl(var(--custom-purple-100))] text-[hsl(var(--custom-purple-800))]
          hover:border-transparent hover:bg-[hsl(var(--custom-purple-800))] hover:text-[hsl(var(--custom-purple-100))]
-         hover:shadow-2xl hover:shadow-purple-500/70 
-         transition-all duration-300 ease-out
-         relative overflow-hidden;
+         hover:shadow-2xl hover:shadow-purple-500/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out;
   background-color: hsl(var(--custom-purple-100)) !important;
   color: hsl(var(--custom-purple-800)) !important;
   border: none !important;
@@ -402,28 +400,11 @@ html.dark.theme-accent-purple {
   color: hsl(var(--custom-purple-100)) !important;
   border: none !important;
 }
-.home-card-button-purple::before {
-  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
-         bg-gradient-to-r from-transparent via-white/20 to-transparent
-         transition-all duration-500 ease-out;
-}
-.home-card-button-purple:hover::before {
-  @apply left-[100%];
-}
 .dark .home-card-button-purple {
   @apply border-transparent bg-[hsl(var(--custom-purple-800))] text-[hsl(var(--custom-purple-100))]
          hover:border-transparent hover:bg-[hsl(var(--custom-purple-100))] hover:text-[hsl(var(--custom-purple-800))]
-         hover:shadow-2xl hover:shadow-purple-400/70
-         transition-all duration-300 ease-out
-         relative overflow-hidden;
-}
-.dark .home-card-button-purple::before {
-  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
-         bg-gradient-to-r from-transparent via-white/30 to-transparent
-         transition-all duration-500 ease-out;
-}
-.dark .home-card-button-purple:hover::before {
-  @apply left-[100%];
+         hover:shadow-2xl hover:shadow-purple-400/50 hover:scale-110 hover:-translate-y-1
+         transition-all duration-300 ease-out;
 }
 
 /* Red button styles for admin functionality */
@@ -571,8 +552,7 @@ html.dark.theme-accent-purple {
   @apply border-transparent bg-[hsl(var(--custom-teal-100))] text-[hsl(var(--custom-teal-800))]
          hover:border-transparent hover:bg-[hsl(var(--custom-teal-800))] hover:text-[hsl(var(--custom-teal-100))]
          hover:shadow-2xl hover:shadow-teal-500/50 hover:scale-110 hover:-translate-y-1
-         transition-all duration-300 ease-out
-         relative overflow-hidden;
+         transition-all duration-300 ease-out;
   background-color: hsl(var(--custom-teal-100)) !important;
   color: hsl(var(--custom-teal-800)) !important;
   border: none !important;
@@ -593,20 +573,11 @@ html.dark.theme-accent-purple {
   color: hsl(var(--custom-teal-100)) !important;
   border: none !important;
 }
-.home-card-button-teal::before {
-  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
-         bg-gradient-to-r from-transparent via-white/20 to-transparent
-         transition-all duration-500 ease-out;
-}
-.home-card-button-teal:hover::before {
-  @apply left-[100%];
-}
 .dark .home-card-button-teal {
   @apply border-transparent bg-[hsl(var(--custom-teal-100))] text-[hsl(var(--custom-teal-800))]
          hover:border-transparent hover:bg-[hsl(var(--custom-teal-800))] hover:text-[hsl(var(--custom-teal-100))]
          hover:shadow-2xl hover:shadow-teal-400/50 hover:scale-110 hover:-translate-y-1
-         transition-all duration-300 ease-out
-         relative overflow-hidden;
+         transition-all duration-300 ease-out;
   background-color: hsl(var(--custom-teal-100)) !important;
   color: hsl(var(--custom-teal-800)) !important;
   border: none !important;
@@ -626,14 +597,6 @@ html.dark.theme-accent-purple {
   background-color: hsl(var(--custom-teal-800)) !important;
   color: hsl(var(--custom-teal-100)) !important;
   border: none !important;
-}
-.dark .home-card-button-teal::before {
-  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
-         bg-gradient-to-r from-transparent via-white/30 to-transparent
-         transition-all duration-500 ease-out;
-}
-.dark .home-card-button-teal:hover::before {
-  @apply left-[100%];
 }
 
 
@@ -712,8 +675,7 @@ input:-webkit-autofill:active {
   @apply border-transparent bg-indigo-100 text-indigo-800
          hover:border-transparent hover:bg-indigo-800 hover:text-indigo-100
          hover:shadow-2xl hover:shadow-indigo-500/50 hover:scale-110 hover:-translate-y-1
-         transition-all duration-300 ease-out
-         relative overflow-hidden;
+         transition-all duration-300 ease-out;
   background-color: rgb(224 231 255) !important;
   color: rgb(55 48 163) !important;
   border: none !important;
@@ -734,20 +696,11 @@ input:-webkit-autofill:active {
   color: rgb(224 231 255) !important;
   border: none !important;
 }
-.home-card-button-indigo::before {
-  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
-         bg-gradient-to-r from-transparent via-white/20 to-transparent
-         transition-all duration-500 ease-out;
-}
-.home-card-button-indigo:hover::before {
-  @apply left-[100%];
-}
 .dark .home-card-button-indigo {
   @apply border-transparent bg-indigo-100 text-indigo-800
          hover:border-transparent hover:bg-indigo-800 hover:text-indigo-100
          hover:shadow-2xl hover:shadow-indigo-400/50 hover:scale-110 hover:-translate-y-1
-         transition-all duration-300 ease-out
-         relative overflow-hidden;
+         transition-all duration-300 ease-out;
   background-color: rgb(224 231 255) !important;
   color: rgb(55 48 163) !important;
   border: none !important;
@@ -767,12 +720,4 @@ input:-webkit-autofill:active {
   background-color: rgb(55 48 163) !important;
   color: rgb(224 231 255) !important;
   border: none !important;
-}
-.dark .home-card-button-indigo::before {
-  @apply content-[''] absolute top-0 left-[-100%] w-full h-full 
-         bg-gradient-to-r from-transparent via-white/30 to-transparent
-         transition-all duration-500 ease-out;
-}
-.dark .home-card-button-indigo:hover::before {
-  @apply left-[100%];
 }

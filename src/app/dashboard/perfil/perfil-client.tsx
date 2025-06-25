@@ -113,11 +113,93 @@ export default function PerfilClient() {
     }
   };
 
+  // Función auxiliar para obtener las estadísticas filtradas por curso
+  const getFilteredLearningStats = () => {
+    if (!user) return [];
+    
+    // Obtener datos actualizados del usuario desde localStorage
+    let updatedUserData = user;
+    try {
+      const storedUsers = localStorage.getItem('smart-student-users');
+      if (storedUsers) {
+        const usersData = JSON.parse(storedUsers);
+        const currentUserData = usersData.find((u: any) => u.username === user.username);
+        if (currentUserData) {
+          updatedUserData = {
+            ...user,
+            activeCourses: currentUserData.activeCourses || []
+          };
+        }
+      }
+    } catch (error) {
+      console.error("Error loading updated user data:", error);
+    }
+
+    // Obtener el curso actual del usuario
+    const currentCourse = updatedUserData.activeCourses && updatedUserData.activeCourses.length > 0 
+      ? updatedUserData.activeCourses[0] 
+      : '';
+
+    // Función para obtener asignaturas según el curso
+    const getSubjectsForCourse = (course: string) => {
+      // Asignaturas para cursos básicos (1ro a 8vo Básico)
+      if (!course || course.includes('Básico')) {
+        return [
+          { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+          { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+          { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
+          { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, 
+        ];
+      }
+      
+      // Asignaturas para cursos medios (1ro a 4to Medio)
+      if (course.includes('Medio')) {
+        return [
+          { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+          { tag: "FIS", nameKey: "subjectPhysics", colorClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300" },
+          { tag: "QUI", nameKey: "subjectChemistry", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+          { tag: "BIO", nameKey: "subjectBiology", colorClass: "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300" },
+          { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
+          { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+          { tag: "ING", nameKey: "subjectEnglish", colorClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300" },
+        ];
+      }
+      
+      // Si no se reconoce el tipo de curso, devolver asignaturas por defecto
+      return [
+        { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+        { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+        { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
+        { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, 
+      ];
+    };
+
+    // Obtener las asignaturas del curso actual del estudiante
+    const userSubjects = getSubjectsForCourse(currentCourse);
+    const userSubjectKeys = userSubjects.map(subject => subject.nameKey);
+
+    // Filtrar el template para incluir solo las asignaturas del curso actual
+    return learningStatsTemplate.filter(statTemplate => 
+      userSubjectKeys.includes(statTemplate.nameKey)
+    );
+  };
+
   // Ensure this only runs on client-side
   useEffect(() => {
     setMounted(true);
     setLoading(false);
   }, []);
+
+  // Initialize learning stats with filtered template when component mounts
+  useEffect(() => {
+    if (!mounted || !user) return;
+    
+    // Set initial learning stats filtered by user's course
+    const filteredTemplate = getFilteredLearningStats();
+    if (filteredTemplate.length > 0) {
+      setDynamicLearningStats(filteredTemplate);
+    }
+  }, [mounted, user]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -151,7 +233,7 @@ export default function PerfilClient() {
   }, [mounted]);
 
   useEffect(() => {
-    if (!mounted || evaluationHistory.length === 0) return;
+    if (!mounted || evaluationHistory.length === 0 || !user) return;
     
     const subjectMappings: Record<string, { es: string[], en: string[] }> = {
       subjectScience: {
@@ -188,7 +270,10 @@ export default function PerfilClient() {
       }
     };
 
-    const newLearningStats = learningStatsTemplate.map(statTemplate => {
+    // Obtener el template filtrado según el curso del usuario
+    const filteredTemplate = getFilteredLearningStats();
+
+    const newLearningStats = filteredTemplate.map(statTemplate => {
       const categoryKey = statTemplate.nameKey;
       let subjectEvaluations: EvaluationHistoryItem[] = [];
 
@@ -244,7 +329,7 @@ export default function PerfilClient() {
     });
     setDynamicProfileCards(newProfileCards);
 
-  }, [evaluationHistory, language, translate, mounted]);
+  }, [evaluationHistory, language, translate, mounted, user]);
 
   // Actualizar el perfil con la información del usuario autenticado
   useEffect(() => {
@@ -372,8 +457,9 @@ export default function PerfilClient() {
           return card;
       }));
 
-      // Reset learning stats
-      setDynamicLearningStats(learningStatsTemplate);
+      // Reset learning stats with filtered template based on user's course
+      const filteredTemplate = getFilteredLearningStats();
+      setDynamicLearningStats(filteredTemplate);
 
       toast({
         title: translate('historyDeletedTitle'),

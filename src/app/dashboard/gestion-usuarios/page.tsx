@@ -402,6 +402,7 @@ export default function GestionUsuariosPage() {
 
   const getRoleBadgeCustomClass = (role: UserRole) => {
     switch (role) {
+      case 'admin': return 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30';
       case 'student': return 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30';
       default: return '';
     }

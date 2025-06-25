@@ -153,7 +153,7 @@ export default function MapaMentalPage() {
             disabled={isLoading}
             className={cn(
               "w-full font-semibold py-3 text-base md:text-sm home-card-button-yellow",
-              "hover:brightness-110 hover:shadow-lg hover:scale-105 transition-all duration-200"
+              "hover:brightness-110 hover:shadow-lg transition-all duration-200"
             )}
           >
             {isLoading ? (

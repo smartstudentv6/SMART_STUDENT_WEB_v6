@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
-import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Crown, GraduationCap, Users, Settings, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Users, Settings, ClipboardCheck, MessageSquare, GraduationCap, Crown, Shield } from 'lucide-react';
 import NotificationsPanel from '@/components/common/notifications-panel';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { TaskNotificationManager } from '@/lib/notifications';
 
 // Interfaz para los comentarios de tareas
 interface TaskComment {
@@ -103,10 +104,14 @@ export default function DashboardHomePage() {
   const [unreadCommentsCount, setUnreadCommentsCount] = useState(0);
   const [pendingPasswordRequestsCount, setPendingPasswordRequestsCount] = useState(0);
   const [pendingTaskSubmissionsCount, setPendingTaskSubmissionsCount] = useState(0);
+  const [taskNotificationsCount, setTaskNotificationsCount] = useState(0);
 
   // Cargar comentarios no leídos de las tareas y entregas pendientes
   useEffect(() => {
     if (user) {
+      // Cargar notificaciones de tareas
+      loadTaskNotifications();
+      
       // Cargar comentarios de tareas del localStorage
       const storedComments = localStorage.getItem('smart-student-task-comments');
       if (storedComments) {
@@ -127,6 +132,17 @@ export default function DashboardHomePage() {
       }
     }
   }, [user]);
+
+  // Función para cargar notificaciones de tareas
+  const loadTaskNotifications = () => {
+    if (user) {
+      const count = TaskNotificationManager.getUnreadCountForUser(
+        user.username, 
+        user.role as 'student' | 'teacher'
+      );
+      setTaskNotificationsCount(count);
+    }
+  };
 
   // Función para cargar solicitudes de contraseña pendientes
   const loadPendingPasswordRequests = () => {
@@ -179,6 +195,7 @@ export default function DashboardHomePage() {
   useEffect(() => {
     loadPendingPasswordRequests();
     loadPendingTaskSubmissions();
+    loadTaskNotifications();
     
     // Escuchar cambios en localStorage para actualizar los contadores en tiempo real
     const handleStorageChange = (e: StorageEvent) => {
@@ -222,40 +239,29 @@ export default function DashboardHomePage() {
         loadPendingTaskSubmissions();
       }
     };
+
+    // Función para manejar el evento personalizado de notificaciones de tareas
+    const handleTaskNotificationsUpdated = () => {
+      loadTaskNotifications();
+    };
     
     window.addEventListener('storage', handleStorageChange);
     document.addEventListener('commentsUpdated', handleCommentsUpdated);
+    window.addEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('commentsUpdated', handleCommentsUpdated);
+      window.removeEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
     };
   }, [user]);
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'admin': return Crown;
-      case 'teacher': return Users;
-      case 'student': return GraduationCap;
-      default: return Home;
-    }
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin': return 'text-yellow-600 dark:text-yellow-400';
-      case 'teacher': return 'text-blue-600 dark:text-blue-400';
-      case 'student': return 'text-green-600 dark:text-green-400';
-      default: return 'text-foreground';
-    }
-  };
-
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case 'admin': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'teacher': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'student': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      case 'admin': return 'bg-red-100 text-red-800 border-red-200 hover:bg-gray-100 hover:text-red-800 transition-colors duration-200'; // NotificationBadge: hover fondo gris claro
+      case 'teacher': return 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-gray-100 hover:text-blue-800 transition-colors duration-200'; // NotificationBadge: hover fondo gris claro
+      case 'student': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200 border-green-200 dark:border-green-700 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors duration-200';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200 border-gray-200 dark:border-gray-700';
     }
   };
 
@@ -305,22 +311,29 @@ export default function DashboardHomePage() {
           </div>
           {user && (
             <div className="flex items-center gap-3">
+              {/* User Role Badge */}
+              <Badge className={cn("text-xs font-medium px-2 py-1 inline-flex items-center gap-1.5", getRoleBadgeColor(user.role))}>
+                {user.role === 'admin' && (
+                  <Crown className="w-3 h-3 text-red-700 dark:text-red-400 flex-shrink-0" />
+                )}
+                {user.role === 'teacher' && (
+                  <Shield className="w-3 h-3 text-blue-700 dark:text-blue-400 flex-shrink-0" />
+                )}
+                {user.role === 'student' && (
+                  <GraduationCap className="w-3 h-3 text-green-500 dark:text-green-400 flex-shrink-0" />
+                )}
+                {user.role === 'admin' && translate('adminRole')}
+                {user.role === 'teacher' && translate('teacherRole')}
+                {user.role === 'student' && translate('studentRole')}
+              </Badge>
               {/* Notification Panel */}
               <NotificationsPanel count={
                 user.role === 'admin' 
                   ? pendingPasswordRequestsCount
                   : user.role === 'teacher'
-                    ? pendingTaskSubmissionsCount
-                    : unreadCommentsCount
+                    ? pendingTaskSubmissionsCount + taskNotificationsCount
+                    : unreadCommentsCount + taskNotificationsCount
               } />
-              <Badge className={cn("text-sm font-medium", getRoleBadgeColor(user.role))}>
-                {user.role === 'admin' && translate('adminRole')}
-                {user.role === 'teacher' && translate('teacherRole')}
-                {user.role === 'student' && translate('studentRole')}
-              </Badge>
-              {React.createElement(getRoleIcon(user.role), {
-                className: cn("w-6 h-6", getRoleColor(user.role))
-              })}
             </div>
           )}
         </div>
@@ -330,21 +343,21 @@ export default function DashboardHomePage() {
         {featureCards.map((card) => (
           <Card key={card.titleKey} className="flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300">
             <CardHeader className="items-center relative">
-              {card.showBadge && (
-                (user?.role === 'student' && unreadCommentsCount > 0 && (
+              {card.showBadge && card.titleKey === 'cardTasksTitle' && (
+                (user?.role === 'student' && taskNotificationsCount > 0 && (
                   <Badge 
                     className="absolute -top-2 -right-2 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
-                    title={translate('unreadNotificationsCount', { count: String(unreadCommentsCount) })}
+                    title={translate('newTaskNotifications', { count: String(taskNotificationsCount) })}
                   >
-                    {unreadCommentsCount > 99 ? '99+' : unreadCommentsCount}
+                    {taskNotificationsCount > 99 ? '99+' : taskNotificationsCount}
                   </Badge>
                 )) || 
-                (user?.role === 'teacher' && pendingTaskSubmissionsCount > 0 && (
+                (user?.role === 'teacher' && (taskNotificationsCount + pendingTaskSubmissionsCount) > 0 && (
                   <Badge 
                     className="absolute -top-2 -right-2 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
-                    title={translate('pendingSubmissionsCount', { count: String(pendingTaskSubmissionsCount) })}
+                    title={translate('taskNotifications', { count: String(taskNotificationsCount + pendingTaskSubmissionsCount) })}
                   >
-                    {pendingTaskSubmissionsCount > 99 ? '99+' : pendingTaskSubmissionsCount}
+                    {(taskNotificationsCount + pendingTaskSubmissionsCount) > 99 ? '99+' : (taskNotificationsCount + pendingTaskSubmissionsCount)}
                   </Badge>
                 ))
               )}
@@ -361,7 +374,7 @@ export default function DashboardHomePage() {
                 className={cn(
                   "home-card-button",
                   getButtonColorClass(card.colorClass),
-                  "hover:shadow-lg hover:scale-105 transition-all duration-200"
+                  "hover:shadow-lg transition-shadow duration-200"
                 )}
               >
                 <Link href={card.targetPage}>{translate(card.btnKey)}</Link>
@@ -404,7 +417,7 @@ export default function DashboardHomePage() {
                 className={cn(
                   "home-card-button",
                   getButtonColorClass(card.colorClass),
-                  "hover:shadow-lg hover:scale-105 transition-all duration-200"
+                  "hover:shadow-lg transition-shadow duration-200"
                 )}
               >
                 <Link href={card.targetPage}>{translate(card.btnKey)}</Link>

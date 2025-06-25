@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
 import { useLanguage } from '@/contexts/language-context';
+import { TaskNotificationManager } from '@/lib/notifications';
 import Link from 'next/link';
 
 // Interfaces
@@ -66,7 +67,30 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   const [passwordRequests, setPasswordRequests] = useState<PasswordRequest[]>([]);
   const [studentSubmissions, setStudentSubmissions] = useState<(TaskComment & {task?: Task})[]>([]);
   const [classTasks, setClassTasks] = useState<Task[]>([]);
+  const [taskNotifications, setTaskNotifications] = useState<any[]>([]);
   const [count, setCount] = useState(propCount);
+
+  // Centralized function to update total count
+  const updateTotalCount = () => {
+    if (!user) return;
+    
+    let totalCount = 0;
+    
+    if (user.role === 'admin') {
+      totalCount = passwordRequests.length;
+    } else if (user.role === 'student') {
+      totalCount = unreadComments.length + taskNotifications.length;
+    } else if (user.role === 'teacher') {
+      totalCount = studentSubmissions.length + taskNotifications.length;
+    }
+    
+    setCount(totalCount);
+    console.log(`[NotificationsPanel] Total count updated: ${totalCount} (unreadComments: ${unreadComments.length}, taskNotifications: ${taskNotifications.length})`);
+  };
+
+  useEffect(() => {
+    updateTotalCount();
+  }, [unreadComments.length, taskNotifications.length, passwordRequests.length, studentSubmissions.length, user]);
 
   useEffect(() => {
     // Load data based on user role
@@ -76,8 +100,10 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       } else if (user.role === 'student') {
         loadUnreadComments();
         loadPendingTasks();
+        loadTaskNotifications();
       } else if (user.role === 'teacher') {
         loadStudentSubmissions();
+        loadTaskNotifications();
       }
     }
     
@@ -118,10 +144,17 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
 
     // Custom event listener for when a comment is marked as read by a component
     document.addEventListener('commentsUpdated', handleCommentsUpdated);
+
+    // Custom event listener for task notifications
+    const handleTaskNotificationsUpdated = () => {
+      loadTaskNotifications();
+    };
+    window.addEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('commentsUpdated', handleCommentsUpdated);
+      window.removeEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
     };
   }, [user, open]); // Reload data when the panel is opened or user changes
 
@@ -147,10 +180,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         
         setUnreadComments(unread);
         
-        // Update count if the user is a student
-        if (user?.role === 'student') {
-          setCount(unread.length);
-        }
+        // Update unread comments state
+        setUnreadComments(unread);
       }
     } catch (error) {
       console.error('Error loading unread comments:', error);
@@ -217,10 +248,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         
         setPasswordRequests(pendingRequests);
         
-        // Update count if the user is an admin
-        if (user?.role === 'admin') {
-          setCount(pendingRequests.length);
-        }
+        // Update password requests state
+        setPasswordRequests(pendingRequests);
       }
     } catch (error) {
       console.error('Error loading password requests:', error);
@@ -260,14 +289,25 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           });
         
         setStudentSubmissions(submissions);
-        
-        // Actualizar el contador para profesores
-        if (user.role === 'teacher') {
-          setCount(submissions.length);
-        }
       }
     } catch (error) {
       console.error('Error loading student submissions:', error);
+    }
+  };
+
+  const loadTaskNotifications = () => {
+    if (!user) return;
+    
+    try {
+      const notifications = TaskNotificationManager.getUnreadNotificationsForUser(
+        user.username, 
+        user.role as 'student' | 'teacher'
+      );
+      
+      setTaskNotifications(notifications);
+      console.log(`[NotificationsPanel] Loaded ${notifications.length} task notifications for ${user.username}`);
+    } catch (error) {
+      console.error('Error loading task notifications:', error);
     }
   };
 
@@ -308,38 +348,67 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   };
 
   const handleReadAll = () => {
-    if (user?.role === 'student' && unreadComments.length > 0) {
+    if (user?.role === 'student') {
       try {
+        let hasUpdates = false;
+        
         // Mark all comments as read
-        const storedComments = localStorage.getItem('smart-student-task-comments');
-        if (storedComments) {
-          const comments: TaskComment[] = JSON.parse(storedComments);
-          const updatedComments = comments.map(comment => {
-            if (!comment.readBy?.includes(user.username)) {
+        if (unreadComments.length > 0) {
+          const storedComments = localStorage.getItem('smart-student-task-comments');
+          if (storedComments) {
+            const comments: TaskComment[] = JSON.parse(storedComments);
+            const updatedComments = comments.map(comment => {
+              if (!comment.readBy?.includes(user.username)) {
+                hasUpdates = true;
+                return {
+                  ...comment,
+                  isNew: false,
+                  readBy: [...(comment.readBy || []), user.username]
+                };
+              }
+              return comment;
+            });
+            
+            localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
+          }
+        }
+        
+        // Mark all task notifications as read
+        if (taskNotifications.length > 0) {
+          const notifications = TaskNotificationManager.getNotifications();
+          const updatedNotifications = notifications.map(notification => {
+            if (
+              notification.targetUsernames.includes(user.username) &&
+              !notification.readBy.includes(user.username)
+            ) {
+              hasUpdates = true;
               return {
-                ...comment,
-                isNew: false,
-                readBy: [...(comment.readBy || []), user.username]
+                ...notification,
+                readBy: [...notification.readBy, user.username],
+                read: notification.readBy.length + 1 >= notification.targetUsernames.length
               };
             }
-            return comment;
+            return notification;
           });
           
-          localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
-          
-          // Update internal count
-          setCount(0);
+          TaskNotificationManager.saveNotifications(updatedNotifications);
+        }
+        
+        if (hasUpdates) {
+          // Update internal state
+          setUnreadComments([]);
+          setTaskNotifications([]);
           
           // Trigger events for other components to update
           document.dispatchEvent(new Event('commentsUpdated'));
+          window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
           window.dispatchEvent(new Event('storage'));
-          
-          // Close panel and reset state
-          setUnreadComments([]);
-          setOpen(false);
         }
+        
+        // Close panel
+        setOpen(false);
       } catch (error) {
-        console.error('Error marking comments as read:', error);
+        console.error('Error marking all notifications as read:', error);
       }
     }
   };
@@ -350,10 +419,16 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         <Button 
           variant="ghost" 
           size="icon"
-          className="relative"
+          className={`relative transition-all duration-200 ${
+            open 
+              ? 'bg-primary/15 text-primary hover:bg-primary/20 ring-2 ring-primary/30 shadow-md' 
+              : 'hover:bg-secondary/80 hover:text-foreground'
+          }`}
           title={translate('notifications')}
         >
-          <Bell className="h-5 w-5" />
+          <Bell className={`h-5 w-5 transition-all duration-200 ${
+            open ? 'text-primary scale-110' : 'text-muted-foreground hover:text-foreground'
+          }`} />
           {count > 0 && (
             <Badge 
               className="absolute -top-1 -right-1 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
@@ -369,7 +444,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-lg font-semibold flex items-center justify-between">
               <span>{translate('notifications')}</span>
-              {user?.role === 'student' && unreadComments.length > 0 && (
+              {user?.role === 'student' && (unreadComments.length > 0 || taskNotifications.length > 0) && (
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -427,7 +502,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
               {/* Student: Unread Comments */}
               {user?.role === 'student' && (
                 <div>
-                  {unreadComments.length === 0 && pendingTasks.length === 0 ? (
+                  {unreadComments.length === 0 && pendingTasks.length === 0 && taskNotifications.length === 0 ? (
                     <div className="py-6 text-center text-muted-foreground">
                       {translate('noNotifications')}
                     </div>
@@ -522,6 +597,74 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                               </Link>
                             </div>
                           )}
+                        </>
+                      )}
+                      
+                      {/* Task notifications section (including grades) */}
+                      {taskNotifications.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-muted/30">
+                            <h3 className="text-sm font-medium text-foreground">
+                              {translate('notifications')}
+                            </h3>
+                          </div>
+                          
+                          {taskNotifications.map(notification => (
+                            <div key={notification.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className={`p-2 rounded-full ${
+                                  notification.type === 'grade_received' 
+                                    ? 'bg-green-100' 
+                                    : notification.type === 'teacher_comment'
+                                    ? 'bg-blue-100'
+                                    : 'bg-orange-100'
+                                }`}>
+                                  {notification.type === 'grade_received' ? (
+                                    <ClipboardCheck className="h-4 w-4 text-green-600" />
+                                  ) : notification.type === 'teacher_comment' ? (
+                                    <MessageSquare className="h-4 w-4 text-blue-600" />
+                                  ) : (
+                                    <ClipboardCheck className="h-4 w-4 text-orange-600" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notification.type === 'grade_received'
+                                        ? translate('reviewGrade')
+                                        : notification.type === 'teacher_comment'
+                                        ? translate('newTeacherComment')
+                                        : translate('newComment')
+                                      }
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDate(notification.timestamp)}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {notification.type === 'grade_received' && notification.grade
+                                      ? translate('gradeReceivedDesc', { 
+                                          grade: notification.grade.toString(), 
+                                          taskTitle: notification.taskTitle 
+                                        })
+                                      : notification.type === 'teacher_comment'
+                                      ? `${translate('commentOnTask')}: ${notification.taskTitle}`
+                                      : `${translate('newTaskAssigned')}: ${notification.taskTitle}`
+                                    }
+                                  </p>
+                                  <p className="text-xs font-medium mt-1">
+                                    {notification.course} • {notification.subject}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${notification.taskId}`}
+                                    className="inline-block mt-2 text-xs text-primary hover:underline"
+                                  >
+                                    {translate('viewTask')}
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </>
                       )}
                     </div>
