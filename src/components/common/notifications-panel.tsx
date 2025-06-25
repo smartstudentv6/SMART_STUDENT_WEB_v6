@@ -70,27 +70,10 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   const [taskNotifications, setTaskNotifications] = useState<any[]>([]);
   const [count, setCount] = useState(propCount);
 
-  // Centralized function to update total count
-  const updateTotalCount = () => {
-    if (!user) return;
-    
-    let totalCount = 0;
-    
-    if (user.role === 'admin') {
-      totalCount = passwordRequests.length;
-    } else if (user.role === 'student') {
-      totalCount = unreadComments.length + taskNotifications.length;
-    } else if (user.role === 'teacher') {
-      totalCount = studentSubmissions.length + taskNotifications.length;
-    }
-    
-    setCount(totalCount);
-    console.log(`[NotificationsPanel] Total count updated: ${totalCount} (unreadComments: ${unreadComments.length}, taskNotifications: ${taskNotifications.length})`);
-  };
-
+  // Use the count provided by the parent component instead of calculating our own
   useEffect(() => {
-    updateTotalCount();
-  }, [unreadComments.length, taskNotifications.length, passwordRequests.length, studentSubmissions.length, user]);
+    setCount(propCount);
+  }, [propCount]);
 
   useEffect(() => {
     // Load data based on user role

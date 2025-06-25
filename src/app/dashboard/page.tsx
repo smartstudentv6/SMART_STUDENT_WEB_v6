@@ -140,6 +140,7 @@ export default function DashboardHomePage() {
         user.username, 
         user.role as 'student' | 'teacher'
       );
+      console.log(`[Dashboard] User ${user.username} (${user.role}) has ${count} unread task notifications`);
       setTaskNotificationsCount(count);
     }
   };
@@ -161,6 +162,43 @@ export default function DashboardHomePage() {
     }
   };
 
+  // Función para limpiar datos inconsistentes
+  const cleanupInconsistentData = () => {
+    try {
+      // Limpiar notificaciones duplicadas o huérfanas
+      const notifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
+      const tasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');
+      const taskIds = tasks.map((t: any) => t.id);
+      
+      // Filtrar notificaciones válidas (que tengan tarea existente)
+      const validNotifications = notifications.filter((n: any) => taskIds.includes(n.taskId));
+      
+      // Remover duplicados
+      const uniqueNotifications = validNotifications.filter((notif: any, index: number, arr: any[]) => {
+        const key = `${notif.type}_${notif.taskId}_${notif.fromUsername}_${notif.targetUsernames.join(',')}`;
+        return arr.findIndex((n: any) => 
+          `${n.type}_${n.taskId}_${n.fromUsername}_${n.targetUsernames.join(',')}` === key
+        ) === index;
+      });
+      
+      if (uniqueNotifications.length !== notifications.length) {
+        console.log(`[Dashboard] Cleaned up ${notifications.length - uniqueNotifications.length} invalid/duplicate notifications`);
+        localStorage.setItem('smart-student-task-notifications', JSON.stringify(uniqueNotifications));
+      }
+      
+      // Limpiar comentarios huérfanos
+      const comments = JSON.parse(localStorage.getItem('smart-student-task-comments') || '[]');
+      const validComments = comments.filter((c: any) => taskIds.includes(c.taskId));
+      
+      if (validComments.length !== comments.length) {
+        console.log(`[Dashboard] Cleaned up ${comments.length - validComments.length} orphaned comments`);
+        localStorage.setItem('smart-student-task-comments', JSON.stringify(validComments));
+      }
+    } catch (error) {
+      console.error('Error cleaning up data:', error);
+    }
+  };
+
   // Cargar entregas pendientes para profesores para mostrar en las notificaciones
   const loadPendingTaskSubmissions = () => {
     if (user && user.role === 'teacher') {
@@ -176,23 +214,47 @@ export default function DashboardHomePage() {
           const teacherTasks = tasks.filter((task: any) => task.assignedBy === user.username);
           const teacherTaskIds = teacherTasks.map((task: any) => task.id);
           
-          // Filtrar entregas sin calificar
+          // Filtrar entregas sin calificar - ser más estricto con la validación
           const pendingSubmissions = comments.filter((comment: any) => 
-            comment.isSubmission && 
+            comment.isSubmission === true && 
             teacherTaskIds.includes(comment.taskId) &&
-            !comment.grade
+            (!comment.grade || comment.grade === null || comment.grade === undefined)
           );
           
+          console.log(`[Dashboard] Teacher ${user.username} analysis:`);
+          console.log(`- Total tasks assigned: ${teacherTasks.length}`);
+          console.log(`- Task IDs: [${teacherTaskIds.join(', ')}]`);
+          console.log(`- Total submissions: ${comments.filter((c: any) => c.isSubmission && teacherTaskIds.includes(c.taskId)).length}`);
+          console.log(`- Ungraded submissions: ${pendingSubmissions.length}`);
+          
+          if (pendingSubmissions.length > 0) {
+            console.log('Ungraded submissions details:');
+            pendingSubmissions.forEach((sub: any, index: number) => {
+              const task = tasks.find((t: any) => t.id === sub.taskId);
+              console.log(`  ${index + 1}. ${sub.studentName} - "${task?.title || 'Unknown'}" - Grade: ${sub.grade} (${typeof sub.grade})`);
+            });
+          }
+          
           setPendingTaskSubmissionsCount(pendingSubmissions.length);
+        } else {
+          console.log(`[Dashboard] No stored data found for teacher ${user.username}`);
+          setPendingTaskSubmissionsCount(0);
         }
       } catch (error) {
         console.error('Error loading pending submissions:', error);
+        setPendingTaskSubmissionsCount(0);
       }
+    } else {
+      setPendingTaskSubmissionsCount(0);
     }
   };
 
   // Cargar solicitudes de contraseña pendientes y entregas pendientes, y actualizar la cuenta de comentarios
   useEffect(() => {
+    // Primero limpiar datos inconsistentes
+    cleanupInconsistentData();
+    
+    // Luego cargar los contadores
     loadPendingPasswordRequests();
     loadPendingTaskSubmissions();
     loadTaskNotifications();
@@ -328,11 +390,17 @@ export default function DashboardHomePage() {
               </Badge>
               {/* Notification Panel */}
               <NotificationsPanel count={
-                user.role === 'admin' 
-                  ? pendingPasswordRequestsCount
-                  : user.role === 'teacher'
-                    ? pendingTaskSubmissionsCount + taskNotificationsCount
-                    : unreadCommentsCount + taskNotificationsCount
+                (() => {
+                  const totalCount = user.role === 'admin' 
+                    ? pendingPasswordRequestsCount
+                    : user.role === 'teacher'
+                      ? pendingTaskSubmissionsCount + taskNotificationsCount
+                      : unreadCommentsCount + taskNotificationsCount;
+                  
+                  console.log(`[Dashboard] Notification count for ${user.username} (${user.role}): ${totalCount} (submissions: ${pendingTaskSubmissionsCount}, notifications: ${taskNotificationsCount}, comments: ${unreadCommentsCount})`);
+                  
+                  return totalCount;
+                })()
               } />
             </div>
           )}
