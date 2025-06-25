@@ -354,6 +354,7 @@
     "taskStatusLabel": "Estado:",
     "commentsAndSubmissions": "Comentarios y Entregas",
     "commentsVisibleToAll": "Los comentarios son visibles para todos los estudiantes",
+    "studentsCannotSeeOthersSubmissions": "Solo puedes ver tus propias entregas. Los comentarios de otros estudiantes son visibles, pero no sus trabajos enviados.",
     "new": "Nuevo",
     "noCommentsYet": "No hay comentarios aún",
     "addComment": "Agregar comentario",

@@ -48,6 +48,7 @@ interface TaskComment {
   feedback?: string; // Retroalimentación del profesor
   gradedBy?: string; // Profesor que calificó
   gradedAt?: string; // Fecha de calificación
+  userRole?: 'teacher' | 'student' | 'admin'; // Rol del usuario que hizo el comentario
 }
 
 interface TaskFile {
@@ -318,7 +319,8 @@ export default function TareasPage() {
         comment: formData.initialComment,
         timestamp: new Date().toISOString(),
         isSubmission: false,
-        attachments: []
+        attachments: [],
+        userRole: user?.role === 'teacher' ? 'teacher' : (user?.role === 'admin' ? 'admin' : 'teacher')
       };
 
       const updatedComments = [...comments, initialComment];
@@ -386,7 +388,8 @@ export default function TareasPage() {
       comment: newComment,
       timestamp: new Date().toISOString(),
       isSubmission: user?.role === 'student' ? isSubmission : false, // Solo estudiantes pueden hacer entregas
-      attachments: commentAttachments
+      attachments: commentAttachments,
+      userRole: user?.role || 'student'
     };
 
     const updatedComments = [...comments, comment];
@@ -553,9 +556,43 @@ export default function TareasPage() {
   };
 
   const getTaskComments = (taskId: string) => {
-    return comments
-      .filter(comment => comment.taskId === taskId)
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    let filteredComments = comments.filter(comment => comment.taskId === taskId);
+    
+    // Si es un estudiante, filtrar para que solo vea:
+    // 1. Sus propios comentarios y entregas
+    // 2. Comentarios normales de otros estudiantes (NO sus entregas/trabajos)
+    // 3. Todos los comentarios del profesor
+    if (user?.role === 'student') {
+      filteredComments = filteredComments.filter(comment => {
+        // Mostrar sus propios comentarios y entregas
+        if (comment.studentUsername === user.username) {
+          return true;
+        }
+        
+        // Mostrar todos los comentarios del profesor y admin
+        if (comment.userRole === 'teacher' || comment.userRole === 'admin') {
+          return true;
+        }
+        
+        // Compatibilidad hacia atrás: identificar profesores y admins por lista de usuarios
+        if (!comment.userRole) {
+          const allUsers = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
+          const commentUser = allUsers.find((u: any) => u.username === comment.studentUsername);
+          if (commentUser?.role === 'teacher' || commentUser?.role === 'admin') {
+            return true;
+          }
+        }
+        
+        // Para otros estudiantes: solo mostrar comentarios normales, NO entregas
+        if ((comment.userRole === 'student' || !comment.userRole) && comment.studentUsername !== user.username) {
+          return !comment.isSubmission;
+        }
+        
+        return false;
+      });
+    }
+    
+    return filteredComments.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   };
 
   const getPriorityColor = (priority: string) => {
@@ -1430,10 +1467,10 @@ export default function TareasPage() {
                           <span className="text-muted-foreground text-xs">({formatFileSize(file.size)})</span>
                         </div>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => downloadFile(file)}
-                          className="flex-shrink-0"
+                          className="flex-shrink-0 border-orange-300 text-orange-700 hover:bg-orange-600 hover:text-white hover:border-orange-600"
                         >
                           <Download className="w-4 h-4" />
                         </Button>
@@ -1579,6 +1616,13 @@ export default function TareasPage() {
               
               <div>
                 <h4 className="font-medium mb-3">{translate('commentsAndSubmissions')}</h4>
+                {user?.role === 'student' && (
+                  <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      ℹ️ {translate('studentsCannotSeeOthersSubmissions')}
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {getTaskComments(selectedTask.id).map(comment => (
                     <div key={comment.id} className="bg-muted p-3 rounded-lg">
@@ -1606,10 +1650,10 @@ export default function TareasPage() {
                                 <span className="text-muted-foreground">({formatFileSize(file.size)})</span>
                               </div>
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
                                 onClick={() => downloadFile(file)}
-                                className="flex-shrink-0 h-6 w-6 p-0"
+                                className="flex-shrink-0 h-6 w-6 p-0 border-orange-300 text-orange-700 hover:bg-orange-600 hover:text-white hover:border-orange-600"
                               >
                                 <Download className="w-3 h-3" />
                               </Button>
@@ -2051,10 +2095,10 @@ export default function TareasPage() {
                         <Paperclip className="w-3 h-3 text-muted-foreground" />
                         <span>{file.name}</span>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => downloadFile(file)}
-                          className="h-5 w-5 p-0"
+                          className="h-5 w-5 p-0 border-orange-300 text-orange-700 hover:bg-orange-600 hover:text-white hover:border-orange-600"
                         >
                           <Download className="w-3 h-3" />
                         </Button>
