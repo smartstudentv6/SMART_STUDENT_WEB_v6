@@ -234,6 +234,8 @@
     "tasksPageTitle": "Tareas",
     "tasksPageSubTeacher": "Gestiona y asigna tareas a tus estudiantes",
     "tasksPageSubStudent": "Revisa y comenta tus tareas asignadas",
+    "tasksEmptyTeacher": "Aún no has creado ninguna tarea. ¡Crea tu primera tarea!",
+    "tasksEmptyStudent": "No tienes tareas asignadas en este momento.",
     "roleAdmin": "Administrador",
     "roleTeacher": "Profesor",
     "roleStudent": "Estudiante",
