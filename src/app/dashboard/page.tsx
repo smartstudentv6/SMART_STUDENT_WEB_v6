@@ -105,12 +105,15 @@ export default function DashboardHomePage() {
   const [pendingPasswordRequestsCount, setPendingPasswordRequestsCount] = useState(0);
   const [pendingTaskSubmissionsCount, setPendingTaskSubmissionsCount] = useState(0);
   const [taskNotificationsCount, setTaskNotificationsCount] = useState(0);
+  const [pendingTasksCount, setPendingTasksCount] = useState(0);
 
   // Cargar comentarios no leídos de las tareas y entregas pendientes
   useEffect(() => {
     if (user) {
       // Cargar notificaciones de tareas
       loadTaskNotifications();
+      // Cargar tareas pendientes reales
+      loadPendingTasks();
       
       // Cargar comentarios de tareas del localStorage
       const storedComments = localStorage.getItem('smart-student-task-comments');
@@ -249,6 +252,69 @@ export default function DashboardHomePage() {
     }
   };
 
+  // Función para cargar tareas pendientes reales
+  const loadPendingTasks = () => {
+    if (user) {
+      const storedTasks = localStorage.getItem('smart-student-tasks');
+      if (storedTasks) {
+        const tasks = JSON.parse(storedTasks);
+        const storedComments = localStorage.getItem('smart-student-task-comments');
+        const comments = storedComments ? JSON.parse(storedComments) : [];
+        
+        if (user.role === 'student') {
+          // Para estudiantes: contar tareas asignadas que aún no han sido completadas/entregadas
+          const studentTasks = tasks.filter((task: any) => {
+            if (task.assignedTo === 'course' && task.course === (user as any).course) {
+              return true;
+            }
+            if (task.assignedTo === 'specific' && task.assignedStudents?.includes(user.username)) {
+              return true;
+            }
+            return false;
+          });
+          
+          // Contar tareas que no tienen entrega o están pendientes de calificación
+          const pendingTasks = studentTasks.filter((task: any) => {
+            const submissions = comments.filter((comment: any) => 
+              comment.taskId === task.id && 
+              comment.studentUsername === user.username && 
+              comment.isSubmission
+            );
+            
+            // Si no hay entregas, la tarea está pendiente
+            if (submissions.length === 0) return true;
+            
+            // Si hay entregas pero no están calificadas, también está pendiente
+            const latestSubmission = submissions[submissions.length - 1];
+            return !latestSubmission.grade;
+          });
+          
+          setPendingTasksCount(pendingTasks.length);
+          console.log(`[Dashboard] Student ${user.username} has ${pendingTasks.length} pending tasks`);
+          
+        } else if (user.role === 'teacher') {
+          // Para profesores: contar tareas asignadas por él que tienen entregas pendientes de calificar
+          const teacherTasks = tasks.filter((task: any) => task.assignedBy === user.username);
+          let pendingGradingCount = 0;
+          
+          teacherTasks.forEach((task: any) => {
+            const taskSubmissions = comments.filter((comment: any) => 
+              comment.taskId === task.id && comment.isSubmission
+            );
+            
+            const ungradedSubmissions = taskSubmissions.filter((submission: any) => !submission.grade);
+            pendingGradingCount += ungradedSubmissions.length;
+          });
+          
+          setPendingTasksCount(pendingGradingCount);
+          console.log(`[Dashboard] Teacher ${user.username} has ${pendingGradingCount} submissions pending grading`);
+        }
+      } else {
+        setPendingTasksCount(0);
+      }
+    }
+  };
+
   // Cargar solicitudes de contraseña pendientes y entregas pendientes, y actualizar la cuenta de comentarios
   useEffect(() => {
     // Primero limpiar datos inconsistentes
@@ -258,6 +324,7 @@ export default function DashboardHomePage() {
     loadPendingPasswordRequests();
     loadPendingTaskSubmissions();
     loadTaskNotifications();
+    loadPendingTasks();
     
     // Escuchar cambios en localStorage para actualizar los contadores en tiempo real
     const handleStorageChange = (e: StorageEvent) => {
@@ -296,15 +363,19 @@ export default function DashboardHomePage() {
           );
           setUnreadCommentsCount(unread.length);
         }
+        // También actualizar tareas pendientes cuando hay cambios en comentarios
+        loadPendingTasks();
       } else if (user?.role === 'teacher') {
         // Recargar entregas pendientes para profesores
         loadPendingTaskSubmissions();
+        loadPendingTasks();
       }
     };
 
     // Función para manejar el evento personalizado de notificaciones de tareas
     const handleTaskNotificationsUpdated = () => {
       loadTaskNotifications();
+      loadPendingTasks(); // También actualizar el contador de tareas pendientes
     };
     
     window.addEventListener('storage', handleStorageChange);
@@ -394,10 +465,10 @@ export default function DashboardHomePage() {
                   const totalCount = user.role === 'admin' 
                     ? pendingPasswordRequestsCount
                     : user.role === 'teacher'
-                      ? pendingTaskSubmissionsCount + taskNotificationsCount
-                      : unreadCommentsCount + taskNotificationsCount;
+                      ? pendingTaskSubmissionsCount + pendingTasksCount + taskNotificationsCount // Para profesores: entregas pendientes + tareas pendientes de calificar + notificaciones de tareas
+                      : pendingTasksCount + unreadCommentsCount + taskNotificationsCount; // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones de tareas (calificaciones, etc.)
                   
-                  console.log(`[Dashboard] Notification count for ${user.username} (${user.role}): ${totalCount} (submissions: ${pendingTaskSubmissionsCount}, notifications: ${taskNotificationsCount}, comments: ${unreadCommentsCount})`);
+                  console.log(`[Dashboard] Total count for ${user.username} (${user.role}): ${totalCount} (pending tasks: ${pendingTasksCount}, submissions: ${pendingTaskSubmissionsCount}, comments: ${unreadCommentsCount}, task notifications: ${taskNotificationsCount})`);
                   
                   return totalCount;
                 })()
@@ -412,22 +483,29 @@ export default function DashboardHomePage() {
           <Card key={card.titleKey} className="flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300">
             <CardHeader className="items-center relative">
               {card.showBadge && card.titleKey === 'cardTasksTitle' && (
-                (user?.role === 'student' && taskNotificationsCount > 0 && (
-                  <Badge 
-                    className="absolute -top-2 -right-2 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
-                    title={translate('newTaskNotifications', { count: String(taskNotificationsCount) })}
-                  >
-                    {taskNotificationsCount > 99 ? '99+' : taskNotificationsCount}
-                  </Badge>
-                )) || 
-                (user?.role === 'teacher' && (taskNotificationsCount + pendingTaskSubmissionsCount) > 0 && (
-                  <Badge 
-                    className="absolute -top-2 -right-2 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
-                    title={translate('taskNotifications', { count: String(taskNotificationsCount + pendingTaskSubmissionsCount) })}
-                  >
-                    {(taskNotificationsCount + pendingTaskSubmissionsCount) > 99 ? '99+' : (taskNotificationsCount + pendingTaskSubmissionsCount)}
-                  </Badge>
-                ))
+                (() => {
+                  const totalTaskCount = user?.role === 'student' 
+                    ? pendingTasksCount + unreadCommentsCount + taskNotificationsCount // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones (calificaciones)
+                    : pendingTasksCount + pendingTaskSubmissionsCount + taskNotificationsCount; // Para profesores: tareas pendientes de calificar + entregas + notificaciones
+
+                  return totalTaskCount > 0 && (
+                    user?.role === 'student' ? (
+                      <Badge 
+                        className="absolute -top-2 -right-2 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
+                        title={translate('pendingTasksAndNotifications', { count: String(totalTaskCount) }) || `${totalTaskCount} tareas/notificaciones pendientes`}
+                      >
+                        {totalTaskCount > 99 ? '99+' : totalTaskCount}
+                      </Badge>
+                    ) : (
+                      <Badge 
+                        className="absolute -top-2 -right-2 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
+                        title={translate('pendingGradingAndNotifications', { count: String(totalTaskCount) }) || `${totalTaskCount} calificaciones/notificaciones pendientes`}
+                      >
+                        {totalTaskCount > 99 ? '99+' : totalTaskCount}
+                      </Badge>
+                    )
+                  );
+                })()
               )}
               <card.icon className={`w-10 h-10 mb-3 ${getIconColorClass(card.colorClass)}`} />
               <CardTitle className="text-lg font-semibold font-headline">{translate(card.titleKey)}</CardTitle>

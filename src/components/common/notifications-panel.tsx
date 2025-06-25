@@ -68,6 +68,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   const [studentSubmissions, setStudentSubmissions] = useState<(TaskComment & {task?: Task})[]>([]);
   const [classTasks, setClassTasks] = useState<Task[]>([]);
   const [taskNotifications, setTaskNotifications] = useState<any[]>([]);
+  const [pendingGrading, setPendingGrading] = useState<any[]>([]);
   const [count, setCount] = useState(propCount);
 
   // Use the count provided by the parent component instead of calculating our own
@@ -87,6 +88,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       } else if (user.role === 'teacher') {
         loadStudentSubmissions();
         loadTaskNotifications();
+        loadPendingGrading();
       }
     }
     
@@ -275,6 +277,21 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       }
     } catch (error) {
       console.error('Error loading student submissions:', error);
+    }
+  };
+
+  // Cargar notificaciones pendientes de calificación para profesores
+  const loadPendingGrading = () => {
+    if (!user || user.role !== 'teacher') return;
+    try {
+      const notifications = TaskNotificationManager.getUnreadNotificationsForUser(
+        user.username,
+        'teacher'
+      );
+      const pending = notifications.filter(n => n.type === 'pending_grading');
+      setPendingGrading(pending);
+    } catch (error) {
+      setPendingGrading([]);
     }
   };
 
@@ -658,50 +675,91 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
               {/* Teacher: Submissions to review */}
               {user?.role === 'teacher' && (
                 <div>
-                  {studentSubmissions.length === 0 ? (
+                  {(studentSubmissions.length === 0 && pendingGrading.length === 0) ? (
                     <div className="py-6 text-center text-muted-foreground">
                       {translate('noSubmissionsToReview')}
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
-                      {/* Submissions section */}
-                      <div className="px-4 py-2 bg-muted/30">
-                        <h3 className="text-sm font-medium text-foreground">
-                          {translate('pendingSubmissions')}
-                        </h3>
-                      </div>
-                      
-                      {studentSubmissions.map(submission => (
-                        <div key={submission.id} className="p-4 hover:bg-muted/50">
-                          <div className="flex items-start gap-2">
-                            <div className="bg-orange-100 p-2 rounded-full">
-                              <ClipboardCheck className="h-4 w-4 text-orange-600" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <p className="font-medium text-sm">
-                                  {submission.studentName}
-                                </p>
-                                <Badge variant="outline" className="text-xs">
-                                  {submission.task?.subject || translate('task')}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                {translate('submittedTask')}: {submission.task?.title}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {formatDate(submission.timestamp)}
-                              </p>
-                              <Link 
-                                href={`/dashboard/tareas?taskId=${submission.taskId}`}
-                                className="inline-block mt-2 text-xs text-primary hover:underline"
-                              >
-                                {translate('reviewSubmission')}
-                              </Link>
-                            </div>
+                      {/* Sección de tareas/evaluaciones pendientes de calificar */}
+                      {pendingGrading.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-muted/30">
+                            <h3 className="text-sm font-medium text-foreground">
+                              {translate('pendingGradingNotifications', { count: String(pendingGrading.length) })}
+                            </h3>
                           </div>
-                        </div>
-                      ))}
+                          {pendingGrading.map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-orange-100 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-orange-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.taskTitle}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs">
+                                      {notif.subject}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {notif.taskType === 'evaluation' ? translate('evaluation') : translate('task')}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${notif.taskId}`}
+                                    className="inline-block mt-2 text-xs text-primary hover:underline"
+                                  >
+                                    {translate('reviewSubmission')}
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      {/* Sección de entregas de estudiantes */}
+                      {studentSubmissions.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-muted/30">
+                            <h3 className="text-sm font-medium text-foreground">
+                              {translate('pendingSubmissions')}
+                            </h3>
+                          </div>
+                          {studentSubmissions.map(submission => (
+                            <div key={submission.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-orange-100 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-orange-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {submission.studentName}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs">
+                                      {submission.task?.subject || translate('task')}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                    {translate('submittedTask')}: {submission.task?.title}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {formatDate(submission.timestamp)}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${submission.taskId}`}
+                                    className="inline-block mt-2 text-xs text-primary hover:underline"
+                                  >
+                                    {translate('reviewSubmission')}
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

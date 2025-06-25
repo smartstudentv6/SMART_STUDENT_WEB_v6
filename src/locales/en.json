@@ -228,6 +228,8 @@
     "aiStatusChecking": "Checking AI connection...",
     "aiStatusActive": "AI Activated",
     "aiStatusInactive": "AI Not Available - Example Mode",
+    "pendingTasksCount": "Pending tasks: {count}",
+    "pendingGradingCount": "Submissions to grade: {count}",
     "cardTasksTitle": "Task Management",
     "cardTasksDesc": "Organize and manage your academic tasks and study assignments",
     "cardTasksBtn": "View Tasks",
@@ -236,6 +238,15 @@
     "tasksPageSubStudent": "Review and comment on your assigned tasks",
     "tasksEmptyTeacher": "You haven't created any tasks yet. Create your first task!",
     "tasksEmptyStudent": "You have no assigned tasks at this time.",
+    "taskType": "Task Type",
+    "taskTypeAssignment": "Assignment",
+    "taskTypeEvaluation": "Evaluation",
+    "evaluationTopic": "Topic",
+    "evaluationTopicPlaceholder": "Evaluation topic",
+    "questionCount": "Number of questions",
+    "timeLimit": "Time limit (minutes)",
+    "pendingGradingNotification": "Pending grading",
+    "pendingGradingDescription": "You have ungraded students in this task/evaluation",
     "tableActions": "Actions",
     "reviewButton": "Review",
     "roleAdmin": "Administrator",
@@ -407,6 +418,7 @@
     "statusInProgress": "In Progress",
     "statusFinished": "Finished",
     "submissionDone": "Submitted",
+    "submitted": "Submitted",
     "submissionPending": "Pending",
     "dueDateMustBeFuture": "The due date must be in the future",
     "markAsSubmission": "Mark as final submission",
@@ -483,6 +495,7 @@
     "task": "Task",
     "newTaskNotifications": "{{count}} new tasks",
     "taskNotifications": "{{count}} task notifications",
+    "pendingGradingNotifications": "{{count}} tasks pending grading",
     "newTaskAssigned": "New task assigned",
     "taskSubmissionReceived": "Submission received",
     "newTaskFrom": "New task from {{teacher}}",
@@ -506,7 +519,9 @@
     "submissionDeletedByTeacher": "Submission deleted by teacher",
     "submissionDeletedByTeacherDesc": "{student}'s submission has been successfully deleted",
     "cannotDeleteGradedSubmission": "You cannot delete a graded submission",
-    "gradedNoDelete": "Graded"
+    "gradedNoDelete": "Graded",
+    "pendingTasksAndNotifications": "{count} pending tasks/notifications",
+    "pendingGradingAndNotifications": "{count} pending grading/notifications"
 }
 
 

@@ -30,33 +30,4 @@
   console.log('Current user:', currentUser);
   
   console.log('=== END DEBUG ===');
-  );
-  console.log('Unread notifications for Felipe:', unreadForFelipe.length);
-  
-  // 4. Show details of each notification
-  felipeNotifications.forEach((notification, index) => {
-    console.log(`Notification ${index + 1}:`, {
-      id: notification.id,
-      type: notification.type,
-      taskTitle: notification.taskTitle,
-      read: notification.read,
-      readBy: notification.readBy,
-      isReadByFelipe: notification.readBy.includes(felipeUsername)
-    });
-  });
-  
-  // 5. Test the notification manager functions
-  console.log('\n=== TESTING NOTIFICATION MANAGER ===');
-  
-  // Import the notification manager (assuming it's globally available)
-  if (window.TaskNotificationManager) {
-    const unreadCount = window.TaskNotificationManager.getUnreadCountForUser(felipeUsername, 'student');
-    console.log('Unread count from manager:', unreadCount);
-    
-    const unreadNotifications = window.TaskNotificationManager.getUnreadNotificationsForUser(felipeUsername, 'student');
-    console.log('Unread notifications from manager:', unreadNotifications.length);
-  } else {
-    console.log('TaskNotificationManager not available globally');
-  }
-  
 })();

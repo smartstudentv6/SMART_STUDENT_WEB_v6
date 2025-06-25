@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload, FileText, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TaskNotificationManager } from '@/lib/notifications';
 
@@ -32,7 +32,14 @@ interface Task {
   createdAt: string;
   status: 'pending' | 'completed';
   priority: 'low' | 'medium' | 'high';
+  taskType: 'assignment' | 'evaluation'; // Tipo de tarea: normal o evaluación
   attachments?: TaskFile[]; // Files attached by teacher
+  // Configuración específica para evaluaciones
+  evaluationConfig?: {
+    topic: string; // Tema de la evaluación
+    questionCount: number; // Cantidad de preguntas
+    timeLimit: number; // Tiempo límite en minutos
+  };
 }
 
 interface TaskComment {
@@ -97,7 +104,13 @@ export default function TareasPage() {
     assignedStudents: [] as string[],
     dueDate: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
-    initialComment: ''
+    taskType: 'assignment' as 'assignment' | 'evaluation', // Por defecto es tarea normal
+    // Configuración predeterminada para evaluaciones
+    evaluationConfig: {
+      topic: '',
+      questionCount: 15,
+      timeLimit: 30 // minutos
+    }
   });
 
   // Load tasks and comments
@@ -170,7 +183,17 @@ export default function TareasPage() {
 
   // Get students for selected course
   const getStudentsForCourse = (course: string) => {
-    const users = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
+    // Obtenemos los usuarios del localStorage (que es un objeto)
+    const usersObj = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+    
+    // Convertimos el objeto a un array de usuarios con su nombre de usuario
+    const users = Object.entries(usersObj).map(([username, data]: [string, any]) => ({
+      username,
+      ...data,
+      displayName: data.displayName || username
+    }));
+    
+    // Filtramos solo los estudiantes del curso
     return users.filter((u: any) => 
       u.role === 'student' && 
       u.activeCourses && 
@@ -277,6 +300,16 @@ export default function TareasPage() {
       return;
     }
 
+    // Validar campos específicos para evaluaciones
+    if (formData.taskType === 'evaluation' && !formData.evaluationConfig.topic) {
+      toast({
+        title: translate('error'),
+        description: translate('evaluationTopicRequired') || 'El tema de la evaluación es obligatorio',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     const newTask: Task = {
       id: `task_${Date.now()}`,
       title: formData.title,
@@ -291,8 +324,18 @@ export default function TareasPage() {
       createdAt: new Date().toISOString(),
       status: 'pending',
       priority: formData.priority,
+      taskType: formData.taskType,
       attachments: taskAttachments
     };
+    
+    // Añadir configuración específica de evaluación si es necesario
+    if (formData.taskType === 'evaluation') {
+      newTask.evaluationConfig = {
+        topic: formData.evaluationConfig.topic,
+        questionCount: formData.evaluationConfig.questionCount,
+        timeLimit: formData.evaluationConfig.timeLimit
+      };
+    }
 
     const updatedTasks = [...tasks, newTask];
     saveTasks(updatedTasks);
@@ -307,34 +350,16 @@ export default function TareasPage() {
         user.username,
         user.displayName || user.username
       );
-    }
-
-    // Si hay un comentario inicial, agregarlo
-    if (formData.initialComment.trim() && user?.role === 'teacher') {
-      const initialComment: TaskComment = {
-        id: `comment_${Date.now()}`,
-        taskId: newTask.id,
-        studentUsername: user.username,
-        studentName: user.displayName || user.username,
-        comment: formData.initialComment,
-        timestamp: new Date().toISOString(),
-        isSubmission: false,
-        attachments: [],
-        userRole: user?.role === 'teacher' ? 'teacher' : (user?.role === 'admin' ? 'admin' : 'teacher')
-      };
-
-      const updatedComments = [...comments, initialComment];
-      saveComments(updatedComments);
-
-      // Crear notificaciones para los estudiantes sobre el comentario del profesor
-      TaskNotificationManager.createTeacherCommentNotifications(
+      
+      // Crear notificación pendiente para el profesor
+      TaskNotificationManager.createPendingGradingNotification(
         newTask.id,
         newTask.title,
         newTask.course,
         newTask.subject,
         user.username,
         user.displayName || user.username,
-        formData.initialComment
+        newTask.taskType
       );
     }
 
@@ -353,7 +378,12 @@ export default function TareasPage() {
       assignedStudents: [],
       dueDate: '',
       priority: 'medium',
-      initialComment: ''
+      taskType: 'assignment',
+      evaluationConfig: {
+        topic: '',
+        questionCount: 15,
+        timeLimit: 30
+      }
     });
     setTaskAttachments([]);
     setShowCreateDialog(false);
@@ -478,7 +508,12 @@ export default function TareasPage() {
       assignedStudents: task.assignedStudents || [],
       dueDate: task.dueDate,
       priority: task.priority,
-      initialComment: ''
+      taskType: task.taskType || 'assignment',
+      evaluationConfig: task.evaluationConfig || {
+        topic: '',
+        questionCount: 15,
+        timeLimit: 30
+      }
     });
     setShowEditDialog(true);
   };
@@ -493,6 +528,16 @@ export default function TareasPage() {
       return;
     }
 
+    // Validar campos específicos para evaluaciones
+    if (formData.taskType === 'evaluation' && !formData.evaluationConfig?.topic) {
+      toast({
+        title: translate('error'),
+        description: translate('evaluationTopicRequired') || 'El tema de la evaluación es obligatorio',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     const updatedTask: Task = {
       ...selectedTask,
       title: formData.title,
@@ -502,8 +547,21 @@ export default function TareasPage() {
       assignedTo: formData.assignedTo,
       assignedStudents: formData.assignedTo === 'student' ? formData.assignedStudents : undefined,
       dueDate: formData.dueDate,
-      priority: formData.priority
+      priority: formData.priority,
+      taskType: formData.taskType
     };
+    
+    // Actualizar configuración específica de evaluación si es necesario
+    if (formData.taskType === 'evaluation' && formData.evaluationConfig) {
+      updatedTask.evaluationConfig = {
+        topic: formData.evaluationConfig.topic || '',
+        questionCount: formData.evaluationConfig.questionCount || 15,
+        timeLimit: formData.evaluationConfig.timeLimit || 30
+      };
+    } else {
+      // Si no es evaluación, eliminar la configuración de evaluación
+      delete updatedTask.evaluationConfig;
+    }
 
     const updatedTasks = tasks.map(task => 
       task.id === selectedTask.id ? updatedTask : task
@@ -525,7 +583,12 @@ export default function TareasPage() {
       assignedStudents: [],
       dueDate: '',
       priority: 'medium',
-      initialComment: ''
+      taskType: 'assignment',
+      evaluationConfig: {
+        topic: '',
+        questionCount: 15,
+        timeLimit: 30
+      }
     });
     setSelectedTask(null);
     setShowEditDialog(false);
@@ -597,18 +660,36 @@ export default function TareasPage() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'low': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+      case 'high': return 'bg-orange-200 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200 hover:bg-orange-200 hover:text-orange-900 focus:bg-orange-200 focus:text-orange-900 dark:hover:bg-orange-900/40 dark:hover:text-orange-200';
+      case 'medium': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300 hover:bg-orange-100 hover:text-orange-800 focus:bg-orange-100 focus:text-orange-800 dark:hover:bg-orange-900/20 dark:hover:text-orange-300';
+      case 'low': return 'bg-orange-50 text-orange-700 dark:bg-orange-900/10 dark:text-orange-400 hover:bg-orange-50 hover:text-orange-700 focus:bg-orange-50 focus:text-orange-700 dark:hover:bg-orange-900/10 dark:hover:text-orange-400';
+      default: return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300 hover:bg-orange-100 hover:text-orange-800 focus:bg-orange-100 focus:text-orange-800 dark:hover:bg-orange-900/20 dark:hover:text-orange-300';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
-      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+      case 'pending': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 hover:bg-orange-100 hover:text-orange-800 focus:bg-orange-100 focus:text-orange-800 dark:hover:bg-orange-900/20 dark:hover:text-orange-400';
+      case 'completed': return 'bg-orange-300 text-orange-900 dark:bg-orange-800/30 dark:text-orange-100 hover:bg-orange-300 hover:text-orange-900 focus:bg-orange-300 focus:text-orange-900 dark:hover:bg-orange-800/30 dark:hover:text-orange-100';
+      default: return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 hover:bg-orange-100 hover:text-orange-800 focus:bg-orange-100 focus:text-orange-800 dark:hover:bg-orange-900/20 dark:hover:text-orange-400';
+    }
+  };
+
+  const getTaskTypeBadge = (taskType: 'assignment' | 'evaluation') => {
+    switch (taskType) {
+      case 'evaluation':
+        return {
+          className: 'bg-orange-400 text-orange-900 dark:bg-orange-600/50 dark:text-orange-100 border-orange-300 dark:border-orange-500 hover:bg-orange-400 hover:text-orange-900 focus:bg-orange-400 focus:text-orange-900 dark:hover:bg-orange-600/50 dark:hover:text-orange-100',
+          icon: GraduationCap,
+          text: translate('taskTypeEvaluation') || 'Evaluación'
+        };
+      case 'assignment':
+      default:
+        return {
+          className: 'bg-orange-200 text-orange-800 dark:bg-orange-800/30 dark:text-orange-200 border-orange-300 dark:border-orange-600 hover:bg-orange-200 hover:text-orange-800 focus:bg-orange-200 focus:text-orange-800 dark:hover:bg-orange-800/30 dark:hover:text-orange-200',
+          icon: FileText,
+          text: translate('taskTypeAssignment') || 'Tarea'
+        };
     }
   };
 
@@ -753,9 +834,9 @@ export default function TareasPage() {
   const getStatusColorForStudent = (task: Task, studentUsername: string) => {
     const status = getTaskStatusForStudent(task, studentUsername);
     switch (status) {
-      case 'submitted': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'pending': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+      case 'submitted': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 cursor-default pointer-events-none';
+      case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400 cursor-default pointer-events-none';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400 cursor-default pointer-events-none';
     }
   };
 
@@ -853,6 +934,15 @@ export default function TareasPage() {
       gradeValue
     );
 
+    // Verificar si todos los estudiantes han sido evaluados para eliminar notificación pendiente
+    if (user?.role === 'teacher') {
+      TaskNotificationManager.checkAndUpdateGradingStatus(
+        selectedTask.id,
+        selectedTask.course,
+        user.username
+      );
+    }
+
     toast({
       title: translate('gradeAssigned'),
       description: translate('gradeAssignedDesc', { 
@@ -886,10 +976,17 @@ export default function TareasPage() {
       
     } else if (task.assignedTo === 'student' && task.assignedStudents) {
       // Get only specifically assigned students
-      const allUsers = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
-      students = allUsers.filter((u: any) => 
-        u.role === 'student' && task.assignedStudents?.includes(u.username)
-      );
+      const usersObj = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+      
+      // Convertir el objeto de usuarios en un array y filtrar los estudiantes asignados
+      students = Object.entries(usersObj)
+        .filter(([username, userData]: [string, any]) => 
+          userData.role === 'student' && task.assignedStudents?.includes(username)
+        )
+        .map(([username, userData]: [string, any]) => ({
+          username,
+          displayName: userData.displayName || username
+        }));
     }
     
     // Add submission status to each student
@@ -1019,17 +1116,27 @@ export default function TareasPage() {
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
                               <h4 className="font-medium">{task.title}</h4>
-                              <Badge className={getPriorityColor(task.priority)}>
+                              {(() => {
+                                const typeBadge = getTaskTypeBadge(task.taskType || 'assignment');
+                                const IconComponent = typeBadge.icon;
+                                return (
+                                  <Badge variant="outline" className={`${typeBadge.className} cursor-default pointer-events-none`}>
+                                    <IconComponent className="w-3 h-3 mr-1" />
+                                    {typeBadge.text}
+                                  </Badge>
+                                );
+                              })()}
+                              <Badge className={`${getPriorityColor(task.priority)} cursor-default pointer-events-none`}>
                                 {task.priority === 'high' ? translate('priorityHigh') : 
                                  task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                               </Badge>
-                              <Badge className={user?.role === 'student' ? getStatusColorForStudent(task, user.username) : getStatusColor(task.status)}>
+                              <Badge className={`${user?.role === 'student' ? getStatusColorForStudent(task, user.username) : getStatusColor(task.status)} cursor-default pointer-events-none`}>
                                 {user?.role === 'student' ? getStatusTextForStudent(task, user.username) : (task.status === 'pending' ? translate('statusPending') : translate('statusCompleted'))}
                               </Badge>
                               {user?.role === 'student' && (() => {
                                 const grade = getStudentGrade(task.id, user.username);
                                 return grade !== undefined ? (
-                                  <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                                  <Badge className="bg-orange-300 text-orange-900 dark:bg-orange-700/40 dark:text-orange-100 cursor-default pointer-events-none">
                                     {grade}%
                                   </Badge>
                                 ) : null;
@@ -1063,7 +1170,7 @@ export default function TareasPage() {
                                 setShowTaskDialog(true);
                               }}
                               title={translate('viewTask')}
-                              className="hover:bg-orange-50"
+                              className="text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/20 transition-colors"
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
@@ -1071,7 +1178,7 @@ export default function TareasPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditTask(task)}
-                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-500 dark:hover:text-orange-400 dark:hover:bg-orange-900/20 transition-colors"
                               title={translate('editTask')}
                             >
                               <Edit className="w-4 h-4" />
@@ -1080,7 +1187,7 @@ export default function TareasPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteTask(task)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-orange-800 hover:text-orange-900 hover:bg-orange-100 dark:text-orange-300 dark:hover:text-orange-200 dark:hover:bg-orange-900/30 transition-colors"
                               title={translate('deleteTask')}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1118,16 +1225,26 @@ export default function TareasPage() {
                         <CardTitle className="text-lg">{task.title}</CardTitle>
                         <div className="flex items-center space-x-2 mt-2">
                           <Badge variant="outline">{task.subject}</Badge>
-                          <Badge className={getPriorityColor(task.priority)}>
+                          {(() => {
+                            const typeBadge = getTaskTypeBadge(task.taskType || 'assignment');
+                            const IconComponent = typeBadge.icon;
+                            return (
+                              <Badge variant="outline" className={`${typeBadge.className} cursor-default pointer-events-none`}>
+                                <IconComponent className="w-3 h-3 mr-1" />
+                                {typeBadge.text}
+                              </Badge>
+                            );
+                          })()}
+                          <Badge className={`${getPriorityColor(task.priority)} cursor-default pointer-events-none`}>
                             {task.priority === 'high' ? translate('priorityHigh') : task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                           </Badge>
-                          <Badge className={user?.role === 'student' ? getStatusColorForStudent(task, user.username) : getStatusColor(task.status)}>
+                          <Badge className={`${user?.role === 'student' ? getStatusColorForStudent(task, user.username) : getStatusColor(task.status)} cursor-default pointer-events-none`}>
                             {user?.role === 'student' ? getStatusTextForStudent(task, user.username) : (task.status === 'pending' ? translate('statusPending') : translate('statusCompleted'))}
                           </Badge>
                           {user?.role === 'student' && (() => {
                             const grade = getStudentGrade(task.id, user.username);
                             return grade !== undefined ? (
-                              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                              <Badge className="bg-orange-300 text-orange-900 dark:bg-orange-700/40 dark:text-orange-100 cursor-default pointer-events-none">
                                 {grade}%
                               </Badge>
                             ) : null;
@@ -1149,7 +1266,8 @@ export default function TareasPage() {
                             
                             setShowTaskDialog(true);
                           }}
-                          className="hover:bg-orange-50"
+                          className="text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/20 transition-colors"
+                          title={translate('viewTask')}
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -1159,7 +1277,7 @@ export default function TareasPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditTask(task)}
-                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-500 dark:hover:text-orange-400 dark:hover:bg-orange-900/20 transition-colors"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -1167,7 +1285,7 @@ export default function TareasPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteTask(task)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-orange-800 hover:text-orange-900 hover:bg-orange-100 dark:text-orange-300 dark:hover:text-orange-200 dark:hover:bg-orange-900/30 transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -1353,19 +1471,69 @@ export default function TareasPage() {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Initial Comment Section */}
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="initialComment" className="text-right pt-2">{translate('initialComment')}</Label>
-              <Textarea
-                id="initialComment"
-                value={formData.initialComment}
-                onChange={(e) => setFormData(prev => ({ ...prev, initialComment: e.target.value }))}
-                className="col-span-3"
-                placeholder={translate('initialCommentPlaceholder')}
-                rows={3}
-              />
+            
+            {/* Task Type Selector */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">{translate('taskType') || "Tipo de tarea"}</Label>
+              <Select value={formData.taskType} onValueChange={(value: 'assignment' | 'evaluation') => setFormData(prev => ({ ...prev, taskType: value }))}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="assignment">{translate('taskTypeAssignment') || "Tarea"}</SelectItem>
+                  <SelectItem value="evaluation">{translate('taskTypeEvaluation') || "Evaluación"}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            
+            {/* Evaluation Config fields - only shown when taskType is 'evaluation' */}
+            {formData.taskType === 'evaluation' && (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="evaluationTopic" className="text-right">{translate('evaluationTopic') || "Tema"} *</Label>
+                  <Input
+                    id="evaluationTopic"
+                    value={formData.evaluationConfig.topic}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      evaluationConfig: { ...prev.evaluationConfig, topic: e.target.value }
+                    }))}
+                    className="col-span-3"
+                    placeholder={translate('evaluationTopicPlaceholder') || "Tema de la evaluación"}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="questionCount" className="text-right">{translate('questionCount') || "Cantidad de preguntas"}</Label>
+                  <Input
+                    id="questionCount"
+                    type="number"
+                    min="1"
+                    value={formData.evaluationConfig.questionCount}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      evaluationConfig: { ...prev.evaluationConfig, questionCount: parseInt(e.target.value) || 15 }
+                    }))}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="timeLimit" className="text-right">{translate('timeLimit') || "Tiempo límite (min)"}</Label>
+                  <Input
+                    id="timeLimit"
+                    type="number"
+                    min="5"
+                    value={formData.evaluationConfig.timeLimit}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      evaluationConfig: { ...prev.evaluationConfig, timeLimit: parseInt(e.target.value) || 30 }
+                    }))}
+                    className="col-span-3"
+                  />
+                </div>
+              </>
+            )}
 
             {/* File Upload Section for Create Task */}
             <div className="grid grid-cols-4 items-start gap-4">
@@ -1419,7 +1587,11 @@ export default function TareasPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowCreateDialog(false)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-400 hover:border-gray-500 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+            >
               {translate('cancel')}
             </Button>
             <Button onClick={handleCreateTask} className="bg-orange-600 hover:bg-orange-700 text-white">
@@ -1556,23 +1728,23 @@ export default function TareasPage() {
                                 <tr>
                                   <td colSpan={5} className="py-4 px-3 text-center text-muted-foreground">
                                     {selectedTask.assignedTo === 'course' 
-                                      ? translate('noStudentsInCourse')
-                                      : translate('noStudentsAssigned')
+                                      ? (translate('noStudentsInCourse') || "No hay estudiantes en este curso")
+                                      : (translate('noAssignedStudents') || "No hay estudiantes asignados")
                                     }
                                   </td>
                                 </tr>
                               );
                             }
                             
-                            return studentsWithStatus.map((student) => (
-                              <tr key={student.username} className="hover:bg-muted/50">
-                                <td className="py-2 px-3">{student.displayName || student.username}</td>
+                            return studentsWithStatus.map(student => (
+                              <tr key={student.username}>
+                                <td className="py-2 px-3">{student.displayName}</td>
                                 <td className="py-2 px-3">
-                                  <Badge className={`${student.hasSubmitted ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400'}`}>
-                                    {student.hasSubmitted 
-                                      ? translate('statusSubmitted')
-                                      : translate('statusPending')
-                                    }
+                                  <Badge className={student.hasSubmitted 
+                                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 cursor-default pointer-events-none' 
+                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400 cursor-default pointer-events-none'
+                                  }>
+                                    {student.hasSubmitted ? translate('submitted') : translate('pending')}
                                   </Badge>
                                 </td>
                                 <td className="py-2 px-3">
@@ -1593,7 +1765,7 @@ export default function TareasPage() {
                                       size="sm"
                                       variant="outline"
                                       onClick={() => handleGradeSubmission(student.submission)}
-                                      className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200"
+                                      className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700"
                                     >
                                       {student.submission?.grade !== undefined 
                                         ? translate('editGrade')
@@ -1684,7 +1856,7 @@ export default function TareasPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleGradeSubmission(comment)}
-                                className="ml-2 h-6 px-2 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                                className="ml-2 h-6 px-2 text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700"
                               >
                                 {translate('editGrade')}
                               </Button>
@@ -1698,7 +1870,7 @@ export default function TareasPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleGradeSubmission(comment)}
-                                className="ml-2 h-6 px-2 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                                className="ml-2 h-6 px-2 text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700"
                               >
                                 {translate('gradeSubmission')}
                               </Button>
@@ -2033,10 +2205,77 @@ export default function TareasPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Task Type Selector */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">{translate('taskType') || "Tipo de tarea"}</Label>
+              <Select value={formData.taskType} onValueChange={(value: 'assignment' | 'evaluation') => setFormData(prev => ({ ...prev, taskType: value }))}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="assignment">{translate('taskTypeAssignment') || "Tarea"}</SelectItem>
+                  <SelectItem value="evaluation">{translate('taskTypeEvaluation') || "Evaluación"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Evaluation Config fields - only shown when taskType is 'evaluation' */}
+            {formData.taskType === 'evaluation' && (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="evaluationTopic" className="text-right">{translate('evaluationTopic') || "Tema"} *</Label>
+                  <Input
+                    id="evaluationTopic"
+                    value={formData.evaluationConfig?.topic || ''}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      evaluationConfig: { ...(prev.evaluationConfig || { questionCount: 15, timeLimit: 30 }), topic: e.target.value }
+                    }))}
+                    className="col-span-3"
+                    placeholder={translate('evaluationTopicPlaceholder') || "Tema de la evaluación"}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="questionCount" className="text-right">{translate('questionCount') || "Cantidad de preguntas"}</Label>
+                  <Input
+                    id="questionCount"
+                    type="number"
+                    min="1"
+                    value={formData.evaluationConfig?.questionCount || 15}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      evaluationConfig: { ...(prev.evaluationConfig || { topic: '', timeLimit: 30 }), questionCount: parseInt(e.target.value) || 15 }
+                    }))}
+                    className="col-span-3"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="timeLimit" className="text-right">{translate('timeLimit') || "Tiempo límite (min)"}</Label>
+                  <Input
+                    id="timeLimit"
+                    type="number"
+                    min="5"
+                    value={formData.evaluationConfig?.timeLimit || 30}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      evaluationConfig: { ...(prev.evaluationConfig || { topic: '', questionCount: 15 }), timeLimit: parseInt(e.target.value) || 30 }
+                    }))}
+                    className="col-span-3"
+                  />
+                </div>
+              </>
+            )}
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEditDialog(false)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-400 hover:border-gray-500 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+            >
               {translate('cancel')}
             </Button>
             <Button onClick={handleUpdateTask} className="bg-orange-600 hover:bg-orange-700 text-white">
@@ -2060,7 +2299,11 @@ export default function TareasPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteDialog(false)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-400 hover:border-gray-500 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+            >
               {translate('cancel')}
             </Button>
             <Button onClick={confirmDeleteTask} variant="destructive">
@@ -2144,7 +2387,11 @@ export default function TareasPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGradingDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowGradingDialog(false)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-400 hover:border-gray-500 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+            >
               {translate('cancel')}
             </Button>
             <Button onClick={handleSaveGrade} className="bg-orange-600 hover:bg-orange-700 text-white">

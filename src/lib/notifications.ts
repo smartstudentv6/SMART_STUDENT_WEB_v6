@@ -1,7 +1,7 @@
 // Sistema de notificaciones para tareas
 export interface TaskNotification {
   id: string;
-  type: 'new_task' | 'task_submission' | 'task_completed' | 'teacher_comment' | 'grade_received';
+  type: 'new_task' | 'task_submission' | 'task_completed' | 'teacher_comment' | 'grade_received' | 'pending_grading';
   taskId: string;
   taskTitle: string;
   targetUserRole: 'student' | 'teacher';
@@ -14,6 +14,7 @@ export interface TaskNotification {
   read: boolean;
   readBy: string[]; // usuarios que han marcado como leída
   grade?: number; // Para notificaciones de calificación
+  taskType?: 'assignment' | 'evaluation'; // Tipo de tarea
 }
 
 // Funciones para manejar notificaciones de tareas
@@ -42,11 +43,20 @@ export class TaskNotificationManager {
     teacherUsername: string,
     teacherDisplayName: string
   ): void {
-    const studentsInCourse = this.getStudentsInCourse(course);
+    console.log('=== DEBUG createNewTaskNotifications ===');
+    console.log('TaskId:', taskId);
+    console.log('Course:', course);
     
-    if (studentsInCourse.length === 0) return;
+    const studentsInCourse = this.getStudentsInCourse(course);
+    console.log('Students found in course:', studentsInCourse);
+    
+    if (studentsInCourse.length === 0) {
+      console.log('No students found in course, skipping notification creation');
+      return;
+    }
 
     const notifications = this.getNotifications();
+    console.log('Current notifications count:', notifications.length);
     
     const newNotification: TaskNotification = {
       id: `new_task_${taskId}_${Date.now()}`,
@@ -65,7 +75,50 @@ export class TaskNotificationManager {
     };
 
     notifications.push(newNotification);
+    console.log('New notification created:', newNotification);
+    console.log('Total notifications after creation:', notifications.length);
+    
     this.saveNotifications(notifications);
+    console.log('Notifications saved to localStorage');
+  }
+
+  // Crear notificación pendiente para el profesor cuando crea una tarea/evaluación
+  static createPendingGradingNotification(
+    taskId: string,
+    taskTitle: string,
+    course: string,
+    subject: string,
+    teacherUsername: string,
+    teacherDisplayName: string,
+    taskType: 'assignment' | 'evaluation' = 'assignment'
+  ): void {
+    console.log('=== DEBUG createPendingGradingNotification ===');
+    console.log('Creating pending grading notification for teacher:', teacherUsername);
+    
+    const notifications = this.getNotifications();
+    
+    const newNotification: TaskNotification = {
+      id: `pending_grading_${taskId}_${Date.now()}`,
+      type: 'pending_grading',
+      taskId,
+      taskTitle,
+      targetUserRole: 'teacher',
+      targetUsernames: [teacherUsername],
+      fromUsername: teacherUsername,
+      fromDisplayName: teacherDisplayName,
+      course,
+      subject,
+      timestamp: new Date().toISOString(),
+      read: false,
+      readBy: [],
+      taskType
+    };
+
+    notifications.push(newNotification);
+    console.log('Pending grading notification created:', newNotification);
+    
+    this.saveNotifications(notifications);
+    console.log('Pending grading notification saved');
   }
 
   // Crear notificación cuando un profesor comenta en una tarea
@@ -173,7 +226,15 @@ export class TaskNotificationManager {
     comments?: any[]
   ): boolean {
     // Usar exactamente la misma lógica que getStudentsForCourse en la página de tareas
-    const users = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
+    const usersObj = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+    
+    // Convertimos el objeto a un array de usuarios con su nombre de usuario
+    const users = Object.entries(usersObj).map(([username, data]: [string, any]) => ({
+      username,
+      ...data,
+      displayName: data.displayName || username
+    }));
+    
     const studentsInCourse = users.filter((u: any) => 
       u.role === 'student' && 
       u.activeCourses && 
@@ -263,7 +324,16 @@ export class TaskNotificationManager {
 
   // Obtener estudiantes en un curso específico
   private static getStudentsInCourse(course: string): Array<{username: string, displayName: string}> {
-    const users = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
+    // Obtenemos los usuarios del localStorage (que es un objeto)
+    const usersObj = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+    
+    // Convertimos el objeto a un array de usuarios con su nombre de usuario
+    const users = Object.entries(usersObj).map(([username, data]: [string, any]) => ({
+      username,
+      ...data,
+      displayName: data.displayName || username
+    }));
+    
     return users
       .filter((user: any) => 
         user.role === 'student' && 
@@ -363,6 +433,80 @@ export class TaskNotificationManager {
     if (updated) {
       this.saveNotifications(updatedNotifications);
       console.log(`[TaskNotificationManager] Marked all notifications for task ${taskId} as read for student ${studentUsername}`);
+    }
+  }
+
+  // Verificar si todos los estudiantes de una tarea han sido evaluados
+  static checkAllStudentsGraded(taskId: string, course: string): boolean {
+    console.log('=== DEBUG checkAllStudentsGraded ===');
+    console.log('TaskId:', taskId, 'Course:', course);
+    
+    // Obtener estudiantes del curso
+    const studentsInCourse = this.getStudentsInCourse(course);
+    console.log('Students in course:', studentsInCourse.length);
+    
+    if (studentsInCourse.length === 0) {
+      console.log('No students in course, marking as graded');
+      return true;
+    }
+    
+    // Obtener todos los comentarios/entregas
+    const allComments = JSON.parse(localStorage.getItem('smart-student-task-comments') || '[]');
+    
+    // Verificar si cada estudiante tiene una entrega calificada
+    const gradedCount = studentsInCourse.filter(student => {
+      const submission = allComments.find((comment: any) => 
+        comment.taskId === taskId && 
+        comment.studentUsername === student.username && 
+        comment.isSubmission &&
+        comment.grade !== undefined && 
+        comment.grade !== null
+      );
+      
+      console.log(`Student ${student.username} - has graded submission:`, !!submission);
+      return !!submission;
+    }).length;
+    
+    const allGraded = gradedCount === studentsInCourse.length;
+    console.log(`Graded: ${gradedCount}/${studentsInCourse.length} - All graded:`, allGraded);
+    
+    return allGraded;
+  }
+
+  // Eliminar notificación pendiente de calificación cuando todos están evaluados
+  static removePendingGradingNotification(taskId: string, teacherUsername: string): void {
+    console.log('=== DEBUG removePendingGradingNotification ===');
+    console.log('TaskId:', taskId, 'Teacher:', teacherUsername);
+    
+    const notifications = this.getNotifications();
+    const initialCount = notifications.length;
+    
+    const filteredNotifications = notifications.filter(notification => 
+      !(notification.type === 'pending_grading' && 
+        notification.taskId === taskId && 
+        notification.targetUsernames.includes(teacherUsername))
+    );
+    
+    const removedCount = initialCount - filteredNotifications.length;
+    console.log(`Removed ${removedCount} pending grading notifications`);
+    
+    if (removedCount > 0) {
+      this.saveNotifications(filteredNotifications);
+      console.log('Pending grading notifications removed and saved');
+    }
+  }
+
+  // Verificar y actualizar el estado de calificación de una tarea
+  static checkAndUpdateGradingStatus(taskId: string, course: string, teacherUsername: string): void {
+    console.log('=== DEBUG checkAndUpdateGradingStatus ===');
+    
+    const allGraded = this.checkAllStudentsGraded(taskId, course);
+    
+    if (allGraded) {
+      console.log('All students graded, removing pending notification');
+      this.removePendingGradingNotification(taskId, teacherUsername);
+    } else {
+      console.log('Not all students graded yet, keeping pending notification');
     }
   }
 
