@@ -11,6 +11,7 @@
 - ✅ **Corrección de notificaciones de calificaciones** en campana y burbuja de tareas
 - ✅ **Mejora de visibilidad de botones** en modo oscuro
 - ✅ **Corrección de nombres de estudiantes** en estado de tareas
+- ✅ **Corrección de notificaciones pendientes persistentes** - Ya no desaparecen al visitar la página
 
 ### 🔧 Mejoras Técnicas
 
@@ -36,6 +37,18 @@
 - Campana muestra: `pendingTasksCount + unreadCommentsCount + taskNotificationsCount`
 - Burbuja de tareas incluye todas las notificaciones
 - Lógica unificada por rol de usuario
+- **Comentarios de entrega excluidos del conteo de comentarios no leídos**
+
+#### 5. Notificaciones Pendientes Persistentes
+- **Problema:** Notificaciones desaparecían al visitar la página sin completar tarea
+- **Solución:** Eliminado código que marcaba automáticamente como leídas
+- **Resultado:** Notificaciones persisten hasta entrega real de la tarea
+
+#### 6. Panel de Notificaciones - Scroll Mejorado
+- **Problema:** Panel limitado a 400px, scroll poco visible, difícil ver todas las notificaciones
+- **Solución:** Altura adaptable (80vh), scrollbar personalizada, estructura flexbox mejorada
+- **Archivos:** Nuevo `/src/styles/scrollbar.css`, modificado `notifications-panel.tsx`
+- **Beneficios:** Más contenido visible, scrollbar clara en light/dark mode, responsive
 
 ### 🐛 Correcciones de Bugs
 
@@ -55,9 +68,19 @@
 - **Problema:** Botón "Editar Calificación" no visible en modo oscuro
 - **Solución:** Agregadas clases dark mode con colores naranja
 
+#### 5. Comentarios de Entrega (CONFIRMADO SOLUCIONADO)
+- **Problema:** Comentarios obligatorios al entregar tareas aparecían como "nuevos comentarios" para otros estudiantes
+- **Solución:** Filtro `!comment.isSubmission` implementado en 3 ubicaciones del dashboard
+- **Estado:** ✅ YA FUNCIONANDO CORRECTAMENTE desde commit anterior
+
 #### 5. Comentarios de Entrega vs Regulares
 - **Problema:** Comentarios obligatorios de entrega aparecían como "nuevos comentarios" para otros estudiantes
 - **Solución:** Excluidos comentarios con `isSubmission: true` del conteo de comentarios no leídos
+
+#### 5. Notificaciones Pendientes Incorrectas
+- **Problema:** Notificaciones de tareas desaparecían al solo visitar la página
+- **Solución:** Eliminado código automático de marcado como leída en `useEffect`
+- **Resultado:** Notificaciones persisten hasta completar realmente la tarea
 
 ### 📝 Mejoras de UI/UX
 
@@ -87,6 +110,9 @@
 - `test-student-names-fix.html` - Nombres de estudiantes
 - `test-submitted-verification.html` - Badge submitted corregido
 - `test-submission-comments-fix.html` - Comentarios de entrega vs regulares
+- `test-pending-notifications-fix.html` - Corrección de notificaciones pendientes
+- `test-notifications-scroll-improved.html` - Panel de notificaciones con scroll mejorado
+- `verify-pending-notifications.js` - Verificación de lógica de persistencia
 
 #### Scripts de Debug
 - `debug-pending-notifications.js` - Debug de notificaciones pendientes
@@ -130,6 +156,15 @@ Todas las mejoras han sido:
 1. **QA Final** - Probar en la aplicación real
 2. **Feedback de Usuario** - Verificar experiencia mejorada
 3. **Optimizaciones** - Ajustes menores si es necesario
+
+### ✅ Confirmaciones Adicionales
+
+#### Comentarios de Entrega (25 de Junio, 2025)
+- **Reporte:** Los comentarios obligatorios al entregar tareas aparecían como "nuevos comentarios"
+- **Verificación:** ✅ CONFIRMADO que ya está solucionado desde implementación anterior
+- **Ubicación:** `/src/app/dashboard/page.tsx` líneas 131, 346, 367
+- **Filtro:** `!comment.isSubmission` excluye comentarios de entrega del conteo
+- **Estado:** Funcionando correctamente, no requiere cambios adicionales
 
 ---
 

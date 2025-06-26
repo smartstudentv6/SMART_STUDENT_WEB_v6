@@ -484,7 +484,7 @@
     "viewRequest": "Ver solicitud",
     "noNotifications": "No tienes notificaciones pendientes",
     "unreadComments": "Comentarios no leídos",
-    "upcomingTasks": "Tareas próximas",
+    "upcomingTasks": "Tareas Pendientes",
     "viewComment": "Ver comentario",
     "viewAllTasks": "Ver todas las tareas ({{count}})",
     "teacherNotificationsComingSoon": "Las notificaciones para profesores estarán disponibles próximamente",
@@ -523,5 +523,7 @@
     "cannotDeleteGradedSubmission": "No puedes eliminar una entrega ya calificada",
     "gradedNoDelete": "Calificada",
     "pendingTasksAndNotifications": "{count} tareas/notificaciones pendientes",
-    "pendingGradingAndNotifications": "{count} calificaciones/notificaciones pendientes"
+    "pendingGradingAndNotifications": "{count} calificaciones/notificaciones pendientes",
+    "unreadStudentComments": "Comentarios No Leídos",
+    "onTask": "En tarea"
 }

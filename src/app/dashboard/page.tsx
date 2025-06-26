@@ -104,6 +104,7 @@ export default function DashboardHomePage() {
   const [unreadCommentsCount, setUnreadCommentsCount] = useState(0);
   const [pendingPasswordRequestsCount, setPendingPasswordRequestsCount] = useState(0);
   const [pendingTaskSubmissionsCount, setPendingTaskSubmissionsCount] = useState(0);
+  const [unreadStudentCommentsCount, setUnreadStudentCommentsCount] = useState(0);
   const [taskNotificationsCount, setTaskNotificationsCount] = useState(0);
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
 
@@ -123,12 +124,21 @@ export default function DashboardHomePage() {
         if (user.role === 'student') {
           // Filtrar comentarios que no han sido leídos por el usuario actual
           // EXCLUIR comentarios de entrega (isSubmission) ya que son parte del trabajo entregado, no comentarios de discusión
-          const unread = comments.filter((comment: TaskComment) => 
+          let unread = comments.filter((comment: TaskComment) => 
             comment.studentUsername !== user.username && // No contar los propios comentarios
             (!comment.readBy?.includes(user.username)) &&
             !comment.isSubmission // NUEVO: Excluir comentarios de entrega
           );
-          
+
+          // Eliminar duplicados de comentarios del profesor (por taskId, comment, timestamp, studentUsername)
+          unread = unread.filter((comment, idx, arr) =>
+            arr.findIndex(c =>
+              c.taskId === comment.taskId &&
+              c.comment === comment.comment &&
+              c.timestamp === comment.timestamp &&
+              c.studentUsername === comment.studentUsername
+            ) === idx
+          );
           setUnreadCommentsCount(unread.length);
         } else if (user.role === 'teacher') {
           // Para profesores, cargar entregas pendientes
@@ -191,13 +201,21 @@ export default function DashboardHomePage() {
         localStorage.setItem('smart-student-task-notifications', JSON.stringify(uniqueNotifications));
       }
       
-      // Limpiar comentarios huérfanos
+      // Limpiar comentarios huérfanos y duplicados
       const comments = JSON.parse(localStorage.getItem('smart-student-task-comments') || '[]');
-      const validComments = comments.filter((c: any) => taskIds.includes(c.taskId));
+      let validComments = comments.filter((c: any) => taskIds.includes(c.taskId));
       
-      if (validComments.length !== comments.length) {
-        console.log(`[Dashboard] Cleaned up ${comments.length - validComments.length} orphaned comments`);
-        localStorage.setItem('smart-student-task-comments', JSON.stringify(validComments));
+      // Eliminar duplicados de comentarios/entregas
+      const uniqueComments = validComments.filter((comment: any, index: number, arr: any[]) => {
+        const key = `${comment.taskId}_${comment.studentUsername}_${comment.comment}_${comment.timestamp}_${comment.isSubmission}`;
+        return arr.findIndex((c: any) => 
+          `${c.taskId}_${c.studentUsername}_${c.comment}_${c.timestamp}_${c.isSubmission}` === key
+        ) === index;
+      });
+      
+      if (uniqueComments.length !== comments.length) {
+        console.log(`[Dashboard] Cleaned up ${comments.length - uniqueComments.length} orphaned/duplicate comments`);
+        localStorage.setItem('smart-student-task-comments', JSON.stringify(uniqueComments));
       }
     } catch (error) {
       console.error('Error cleaning up data:', error);
@@ -220,10 +238,40 @@ export default function DashboardHomePage() {
           const teacherTaskIds = teacherTasks.map((task: any) => task.id);
           
           // Filtrar entregas sin calificar - ser más estricto con la validación
-          const pendingSubmissions = comments.filter((comment: any) => 
+          let pendingSubmissions = comments.filter((comment: any) => 
             comment.isSubmission === true && 
             teacherTaskIds.includes(comment.taskId) &&
             (!comment.grade || comment.grade === null || comment.grade === undefined)
+          );
+
+          // Eliminar duplicados de entregas - Agrupar por estudiante y tarea (solo la entrega más reciente)
+          // Esto asegura que una entrega con comentario se cuente como UN SOLO evento
+          const uniqueSubmissions = pendingSubmissions.reduce((acc: any[], submission: any) => {
+            const key = `${submission.taskId}_${submission.studentUsername}`;
+            const existing = acc.find(s => `${s.taskId}_${s.studentUsername}` === key);
+            
+            if (!existing) {
+              // Primera entrega para esta combinación tarea-estudiante
+              acc.push(submission);
+            } else {
+              // Si ya existe, mantener la más reciente (por timestamp)
+              if (new Date(submission.timestamp) > new Date(existing.timestamp)) {
+                const index = acc.indexOf(existing);
+                acc[index] = submission;
+              }
+            }
+            
+            return acc;
+          }, []);
+
+          pendingSubmissions = uniqueSubmissions;
+
+          // Cargar comentarios de estudiantes (NO entregas) para tareas de este profesor
+          // que no hayan sido leídos por el profesor
+          const studentComments = comments.filter((comment: any) => 
+            !comment.isSubmission && // Solo comentarios, no entregas
+            teacherTaskIds.includes(comment.taskId) &&
+            (!comment.readBy?.includes(user.username)) // No leídos por el profesor
           );
           
           console.log(`[Dashboard] Teacher ${user.username} analysis:`);
@@ -231,6 +279,7 @@ export default function DashboardHomePage() {
           console.log(`- Task IDs: [${teacherTaskIds.join(', ')}]`);
           console.log(`- Total submissions: ${comments.filter((c: any) => c.isSubmission && teacherTaskIds.includes(c.taskId)).length}`);
           console.log(`- Ungraded submissions: ${pendingSubmissions.length}`);
+          console.log(`- Unread student comments: ${studentComments.length}`);
           
           if (pendingSubmissions.length > 0) {
             console.log('Ungraded submissions details:');
@@ -239,18 +288,30 @@ export default function DashboardHomePage() {
               console.log(`  ${index + 1}. ${sub.studentName} - "${task?.title || 'Unknown'}" - Grade: ${sub.grade} (${typeof sub.grade})`);
             });
           }
+
+          if (studentComments.length > 0) {
+            console.log('Unread student comments details:');
+            studentComments.forEach((comment: any, index: number) => {
+              const task = tasks.find((t: any) => t.id === comment.taskId);
+              console.log(`  ${index + 1}. ${comment.studentName} - "${task?.title || 'Unknown'}" - Comment: "${comment.comment.substring(0, 50)}..."`);
+            });
+          }
           
           setPendingTaskSubmissionsCount(pendingSubmissions.length);
+          setUnreadStudentCommentsCount(studentComments.length);
         } else {
           console.log(`[Dashboard] No stored data found for teacher ${user.username}`);
           setPendingTaskSubmissionsCount(0);
+          setUnreadStudentCommentsCount(0);
         }
       } catch (error) {
         console.error('Error loading pending submissions:', error);
         setPendingTaskSubmissionsCount(0);
+        setUnreadStudentCommentsCount(0);
       }
     } else {
       setPendingTaskSubmissionsCount(0);
+      setUnreadStudentCommentsCount(0);
     }
   };
 
@@ -295,21 +356,9 @@ export default function DashboardHomePage() {
           console.log(`[Dashboard] Student ${user.username} has ${pendingTasks.length} pending tasks`);
           
         } else if (user.role === 'teacher') {
-          // Para profesores: contar tareas asignadas por él que tienen entregas pendientes de calificar
-          const teacherTasks = tasks.filter((task: any) => task.assignedBy === user.username);
-          let pendingGradingCount = 0;
-          
-          teacherTasks.forEach((task: any) => {
-            const taskSubmissions = comments.filter((comment: any) => 
-              comment.taskId === task.id && comment.isSubmission
-            );
-            
-            const ungradedSubmissions = taskSubmissions.filter((submission: any) => !submission.grade);
-            pendingGradingCount += ungradedSubmissions.length;
-          });
-          
-          setPendingTasksCount(pendingGradingCount);
-          console.log(`[Dashboard] Teacher ${user.username} has ${pendingGradingCount} submissions pending grading`);
+          // Para profesores, el contador de tareas pendientes no se usa (solo se usa pendingTaskSubmissionsCount)
+          setPendingTasksCount(0);
+          console.log(`[Dashboard] Teacher ${user.username} - pendingTasksCount for card set to 0 (only pendingTaskSubmissionsCount is used)`);
         }
       } else {
         setPendingTasksCount(0);
@@ -339,10 +388,20 @@ export default function DashboardHomePage() {
           const storedComments = localStorage.getItem('smart-student-task-comments');
           if (storedComments) {
             const comments = JSON.parse(storedComments);
-            const unread = comments.filter((comment: any) => 
+            let unread = comments.filter((comment: any) => 
               comment.studentUsername !== user.username && 
               (!comment.readBy?.includes(user.username)) &&
               !comment.isSubmission // NUEVO: Excluir comentarios de entrega
+            );
+
+            // Eliminar duplicados de comentarios del profesor
+            unread = unread.filter((comment: any, idx: number, arr: any[]) =>
+              arr.findIndex((c: any) =>
+                c.taskId === comment.taskId &&
+                c.comment === comment.comment &&
+                c.timestamp === comment.timestamp &&
+                c.studentUsername === comment.studentUsername
+              ) === idx
             );
             setUnreadCommentsCount(unread.length);
           }
@@ -360,10 +419,20 @@ export default function DashboardHomePage() {
         const storedComments = localStorage.getItem('smart-student-task-comments');
         if (storedComments) {
           const comments = JSON.parse(storedComments);
-          const unread = comments.filter((comment: any) => 
+          let unread = comments.filter((comment: any) => 
             comment.studentUsername !== user.username && 
             (!comment.readBy?.includes(user.username)) &&
             !comment.isSubmission // NUEVO: Excluir comentarios de entrega
+          );
+
+          // Eliminar duplicados de comentarios del profesor
+          unread = unread.filter((comment: any, idx: number, arr: any[]) =>
+            arr.findIndex((c: any) =>
+              c.taskId === comment.taskId &&
+              c.comment === comment.comment &&
+              c.timestamp === comment.timestamp &&
+              c.studentUsername === comment.studentUsername
+            ) === idx
           );
           setUnreadCommentsCount(unread.length);
         }
@@ -469,10 +538,10 @@ export default function DashboardHomePage() {
                   const totalCount = user.role === 'admin' 
                     ? pendingPasswordRequestsCount
                     : user.role === 'teacher'
-                      ? pendingTaskSubmissionsCount + pendingTasksCount + taskNotificationsCount // Para profesores: entregas pendientes + tareas pendientes de calificar + notificaciones de tareas
+                      ? pendingTaskSubmissionsCount + unreadStudentCommentsCount + taskNotificationsCount // Para profesores: entregas pendientes + comentarios no leídos + notificaciones (SIN pendingTasksCount para evitar duplicados)
                       : pendingTasksCount + unreadCommentsCount + taskNotificationsCount; // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones de tareas (calificaciones, etc.)
                   
-                  console.log(`[Dashboard] Total count for ${user.username} (${user.role}): ${totalCount} (pending tasks: ${pendingTasksCount}, submissions: ${pendingTaskSubmissionsCount}, comments: ${unreadCommentsCount}, task notifications: ${taskNotificationsCount})`);
+                  console.log(`[Dashboard] Total count for ${user.username} (${user.role}): ${totalCount} (pending tasks: ${pendingTasksCount}, submissions: ${pendingTaskSubmissionsCount}, student comments: ${unreadStudentCommentsCount}, comments: ${unreadCommentsCount}, task notifications: ${taskNotificationsCount})`);
                   
                   return totalCount;
                 })()
@@ -490,7 +559,7 @@ export default function DashboardHomePage() {
                 (() => {
                   const totalTaskCount = user?.role === 'student' 
                     ? pendingTasksCount + unreadCommentsCount + taskNotificationsCount // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones (calificaciones)
-                    : pendingTasksCount + pendingTaskSubmissionsCount + taskNotificationsCount; // Para profesores: tareas pendientes de calificar + entregas + notificaciones
+                    : pendingTaskSubmissionsCount + unreadStudentCommentsCount + taskNotificationsCount; // Para profesores: entregas pendientes + comentarios no leídos + notificaciones (SIN pendingTasksCount para evitar duplicados)
 
                   return totalTaskCount > 0 && (
                     user?.role === 'student' ? (

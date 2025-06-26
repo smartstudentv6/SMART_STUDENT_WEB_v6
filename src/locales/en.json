@@ -481,7 +481,7 @@
     "viewRequest": "View request",
     "noNotifications": "You have no pending notifications",
     "unreadComments": "Unread Comments",
-    "upcomingTasks": "Upcoming Tasks",
+    "upcomingTasks": "Pending Tasks",
     "viewComment": "View comment",
     "viewAllTasks": "View all tasks ({{count}})",
     "teacherNotificationsComingSoon": "Notifications for teachers will be available soon",
@@ -521,7 +521,9 @@
     "cannotDeleteGradedSubmission": "You cannot delete a graded submission",
     "gradedNoDelete": "Graded",
     "pendingTasksAndNotifications": "{count} pending tasks/notifications",
-    "pendingGradingAndNotifications": "{count} pending grading/notifications"
+    "pendingGradingAndNotifications": "{count} pending grading/notifications",
+    "unreadStudentComments": "Unread Comments",
+    "onTask": "On task"
 }
 
 

@@ -319,7 +319,15 @@ export class TaskNotificationManager {
 
   // Contar notificaciones no leídas para un usuario
   static getUnreadCountForUser(username: string, userRole: 'student' | 'teacher'): number {
-    return this.getUnreadNotificationsForUser(username, userRole).length;
+    const unreadNotifications = this.getUnreadNotificationsForUser(username, userRole);
+    
+    // Para profesores, excluir notificaciones de tipo 'task_submission' 
+    // ya que estas se cuentan por separado en pendingTaskSubmissionsCount
+    if (userRole === 'teacher') {
+      return unreadNotifications.filter(n => n.type !== 'task_submission').length;
+    }
+    
+    return unreadNotifications.length;
   }
 
   // Obtener estudiantes en un curso específico

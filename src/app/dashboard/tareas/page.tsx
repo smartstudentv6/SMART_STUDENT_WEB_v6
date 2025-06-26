@@ -123,17 +123,9 @@ export default function TareasPage() {
       // Mark grade notifications as read when entering tasks page
       TaskNotificationManager.markGradeNotificationsAsReadOnTasksView(user.username);
       
-      const unreadNotifications = TaskNotificationManager.getUnreadNotificationsForUser(
-        user.username, 
-        'student'
-      );
-      
-      // Mark all new task notifications as read
-      unreadNotifications
-        .filter(notification => notification.type === 'new_task')
-        .forEach(notification => {
-          TaskNotificationManager.markAsReadByUser(notification.id, user.username);
-        });
+      // NOTE: NO marcar notificaciones de nuevas tareas como leídas aquí
+      // Solo se deben marcar como leídas cuando el estudiante ENTREGA la tarea
+      // Esto se hace en handleAddComment() cuando isSubmission es true
       
       // Trigger notification update event to refresh the UI
       setTimeout(() => {
@@ -426,16 +418,25 @@ export default function TareasPage() {
     saveComments(updatedComments);
 
     // Si es un comentario del profesor, crear notificaciones para todos los estudiantes del curso
+    // SOLO si la tarea no fue recién creada (evitar notificaciones duplicadas)
     if (user?.role === 'teacher') {
-      TaskNotificationManager.createTeacherCommentNotifications(
-        selectedTask.id,
-        selectedTask.title,
-        selectedTask.course,
-        selectedTask.subject,
-        user.username,
-        user.displayName || user.username,
-        newComment
-      );
+      const taskCreatedAt = new Date(selectedTask.createdAt).getTime();
+      const now = new Date().getTime();
+      const timeSinceCreation = now - taskCreatedAt;
+      
+      // Solo crear notificaciones de comentario si han pasado más de 5 minutos desde la creación de la tarea
+      // Esto evita notificaciones duplicadas cuando el profesor agrega comentarios inmediatamente después de crear la tarea
+      if (timeSinceCreation > 5 * 60 * 1000) { // 5 minutos en millisegundos
+        TaskNotificationManager.createTeacherCommentNotifications(
+          selectedTask.id,
+          selectedTask.title,
+          selectedTask.course,
+          selectedTask.subject,
+          user.username,
+          user.displayName || user.username,
+          newComment
+        );
+      }
     }
 
     // Update task status if this is a submission
@@ -1162,9 +1163,11 @@ export default function TareasPage() {
                                 setSelectedTask(task);
                                 setIsSubmission(false); // Reset checkbox state
                                 
-                                // Mark all notifications for this task as read when student reviews it
+                                // NO marcar notificaciones de nueva tarea como leídas al ver la tarea
+                                // Las notificaciones de nueva tarea solo se marcan como leídas cuando se entrega la tarea
+                                // Mark only grade notifications as read when student reviews the task
                                 if (user?.role === 'student') {
-                                  TaskNotificationManager.markTaskNotificationsAsReadOnReview(task.id, user.username);
+                                  TaskNotificationManager.markGradeNotificationsAsReadOnTasksView(user.username);
                                 }
                                 
                                 setShowTaskDialog(true);
@@ -1259,9 +1262,11 @@ export default function TareasPage() {
                             setSelectedTask(task);
                             setIsSubmission(false); // Reset checkbox state
                             
-                            // Mark all notifications for this task as read when student reviews it
+                            // NO marcar notificaciones de nueva tarea como leídas al ver la tarea
+                            // Las notificaciones de nueva tarea solo se marcan como leídas cuando se entrega la tarea
+                            // Mark only grade notifications as read when student reviews the task
                             if (user?.role === 'student') {
-                              TaskNotificationManager.markTaskNotificationsAsReadOnReview(task.id, user.username);
+                              TaskNotificationManager.markGradeNotificationsAsReadOnTasksView(user.username);
                             }
                             
                             setShowTaskDialog(true);
@@ -1765,7 +1770,7 @@ export default function TareasPage() {
                                       size="sm"
                                       variant="outline"
                                       onClick={() => handleGradeSubmission(student.submission)}
-                                      className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700"
+                                      className="bg-orange-50 hover:bg-orange-100 text-orange-900 hover:text-orange-900 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700"
                                     >
                                       {student.submission?.grade !== undefined 
                                         ? translate('editGrade')
@@ -1870,7 +1875,7 @@ export default function TareasPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleGradeSubmission(comment)}
-                                className="ml-2 h-6 px-2 text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700"
+                                className="ml-2 h-6 px-2 text-xs bg-orange-50 hover:bg-orange-100 text-orange-900 hover:text-orange-900 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 dark:text-orange-400 dark:border-orange-700"
                               >
                                 {translate('gradeSubmission')}
                               </Button>

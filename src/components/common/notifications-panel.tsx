@@ -66,6 +66,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
   const [passwordRequests, setPasswordRequests] = useState<PasswordRequest[]>([]);
   const [studentSubmissions, setStudentSubmissions] = useState<(TaskComment & {task?: Task})[]>([]);
+  const [unreadStudentComments, setUnreadStudentComments] = useState<(TaskComment & {task?: Task})[]>([]);
   const [classTasks, setClassTasks] = useState<Task[]>([]);
   const [taskNotifications, setTaskNotifications] = useState<any[]>([]);
   const [pendingGrading, setPendingGrading] = useState<any[]>([]);
@@ -154,9 +155,11 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         const tasks: Task[] = JSON.parse(storedTasks);
         
         // Filter comments that are unread by the current user and not their own
+        // Exclude submissions from other students (students should not see other students' submissions)
         const unread = comments.filter(comment => 
           comment.studentUsername !== user?.username && // Not own comments
-          (!comment.readBy?.includes(user?.username || '')) // Not read by current user
+          (!comment.readBy?.includes(user?.username || '')) && // Not read by current user
+          !comment.isSubmission // Exclude submissions (deliveries) from other students
         ).map(comment => {
           // Find associated task for each comment for display
           const task = tasks.find(t => t.id === comment.taskId);
@@ -274,6 +277,22 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           });
         
         setStudentSubmissions(submissions);
+
+        // Cargar comentarios de estudiantes (NO entregas) para tareas de este profesor
+        // que no hayan sido leídos por el profesor
+        const studentComments = comments
+          .filter(comment => 
+            !comment.isSubmission && // Solo comentarios, no entregas
+            teacherTaskIds.includes(comment.taskId) &&
+            (!comment.readBy?.includes(user.username)) // No leídos por el profesor
+          )
+          .map(comment => {
+            // Encontrar la tarea asociada para mostrar más información
+            const task = tasks.find(t => t.id === comment.taskId);
+            return { ...comment, task };
+          });
+        
+        setUnreadStudentComments(studentComments);
       }
     } catch (error) {
       console.error('Error loading student submissions:', error);
@@ -373,13 +392,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           }
         }
         
-        // Mark all task notifications as read
+        // Mark task notifications as read (except new_task notifications which should only be marked as read on submission)
         if (taskNotifications.length > 0) {
           const notifications = TaskNotificationManager.getNotifications();
           const updatedNotifications = notifications.map(notification => {
             if (
               notification.targetUsernames.includes(user.username) &&
-              !notification.readBy.includes(user.username)
+              !notification.readBy.includes(user.username) &&
+              notification.type !== 'new_task' // Don't mark new_task notifications as read here
             ) {
               hasUpdates = true;
               return {
@@ -439,9 +459,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 md:w-96 p-0" align="end">
-        <Card className="border-0">
-          <CardHeader className="pb-2 pt-4 px-4">
+      <PopoverContent className="w-80 md:w-96 p-0 max-h-[80vh]" align="end">
+        <Card className="border-0 h-full flex flex-col">
+          <CardHeader className="pb-2 pt-4 px-4 flex-shrink-0">
             <CardTitle className="text-lg font-semibold flex items-center justify-between">
               <span>{translate('notifications')}</span>
               {user?.role === 'student' && (unreadComments.length > 0 || taskNotifications.length > 0) && (
@@ -449,7 +469,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                   variant="ghost" 
                   size="sm"
                   onClick={handleReadAll}
-                  className="text-xs hover:bg-secondary text-muted-foreground"
+                  className="text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors duration-200"
                 >
                   {translate('markAllAsRead')}
                 </Button>
@@ -457,7 +477,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
             </CardTitle>
           </CardHeader>
           
-          <ScrollArea className="max-h-[400px]">
+          <ScrollArea className="flex-1 min-h-0 scrollbar-custom" style={{ maxHeight: 'calc(80vh - 80px)' }}>
+            <div className="p-1">
             <CardContent className="p-0">
               {/* Admin: Password Reset Requests */}
               {user?.role === 'admin' && (
@@ -508,48 +529,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
-                      {/* Unread comments section */}
-                      {unreadComments.length > 0 && (
-                        <div className="px-4 py-2 bg-muted/30">
-                          <h3 className="text-sm font-medium text-foreground">
-                            {translate('unreadComments')}
-                          </h3>
-                        </div>
-                      )}
-                      
-                      {unreadComments.map(comment => (
-                        <div key={comment.id} className="p-4 hover:bg-muted/50">
-                          <div className="flex items-start gap-2">
-                            <div className="bg-blue-100 p-2 rounded-full">
-                              <MessageSquare className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <p className="font-medium text-sm">
-                                  {comment.studentName}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatDate(comment.timestamp)}
-                                </p>
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                {comment.comment}
-                              </p>
-                              <p className="text-xs font-medium mt-1">
-                                {comment.task?.title}
-                              </p>
-                              <Link 
-                                href={`/dashboard/tareas?taskId=${comment.taskId}`} 
-                                className="inline-block mt-1 text-xs text-primary hover:underline"
-                              >
-                                {translate('viewComment')}
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {/* Pending tasks section */}
+                      {/* Pending tasks section - MOVED TO FIRST POSITION */}
                       {pendingTasks.length > 0 && (
                         <>
                           <div className="px-4 py-2 bg-muted/30">
@@ -599,9 +579,50 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           )}
                         </>
                       )}
+
+                      {/* Unread comments section - MOVED TO SECOND POSITION */}
+                      {unreadComments.length > 0 && (
+                        <div className="px-4 py-2 bg-muted/30">
+                          <h3 className="text-sm font-medium text-foreground">
+                            {translate('unreadComments')}
+                          </h3>
+                        </div>
+                      )}
                       
-                      {/* Task notifications section (including grades) */}
-                      {taskNotifications.length > 0 && (
+                      {unreadComments.map(comment => (
+                        <div key={comment.id} className="p-4 hover:bg-muted/50">
+                          <div className="flex items-start gap-2">
+                            <div className="bg-blue-100 p-2 rounded-full">
+                              <MessageSquare className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <p className="font-medium text-sm">
+                                  {comment.studentName}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDate(comment.timestamp)}
+                                </p>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                {comment.comment}
+                              </p>
+                              <p className="text-xs font-medium mt-1">
+                                {comment.task?.title}
+                              </p>
+                              <Link 
+                                href={`/dashboard/tareas?taskId=${comment.taskId}`} 
+                                className="inline-block mt-1 text-xs text-primary hover:underline"
+                              >
+                                {translate('viewComment')}
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Task notifications section (including grades) - Only show when no pending tasks */}
+                      {taskNotifications.length > 0 && pendingTasks.length === 0 && (
                         <>
                           <div className="px-4 py-2 bg-muted/30">
                             <h3 className="text-sm font-medium text-foreground">
@@ -634,6 +655,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                         ? translate('reviewGrade')
                                         : notification.type === 'teacher_comment'
                                         ? translate('newTeacherComment')
+                                        : notification.type === 'new_task'
+                                        ? translate('newTaskNotification')
                                         : translate('newComment')
                                       }
                                     </p>
@@ -649,6 +672,11 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                         })
                                       : notification.type === 'teacher_comment'
                                       ? `${translate('commentOnTask')}: ${notification.taskTitle}`
+                                      : notification.type === 'new_task'
+                                      ? translate('newTaskNotificationDesc', { 
+                                          teacherName: notification.teacherName || 'Profesor',
+                                          title: notification.taskTitle 
+                                        })
                                       : `${translate('newTaskAssigned')}: ${notification.taskTitle}`
                                     }
                                   </p>
@@ -675,7 +703,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
               {/* Teacher: Submissions to review */}
               {user?.role === 'teacher' && (
                 <div>
-                  {(studentSubmissions.length === 0 && pendingGrading.length === 0) ? (
+                  {(studentSubmissions.length === 0 && pendingGrading.length === 0 && unreadStudentComments.length === 0) ? (
                     <div className="py-6 text-center text-muted-foreground">
                       {translate('noSubmissionsToReview')}
                     </div>
@@ -719,6 +747,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           ))}
                         </>
                       )}
+                      
                       {/* Sección de entregas de estudiantes */}
                       {studentSubmissions.length > 0 && (
                         <>
@@ -760,11 +789,57 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           ))}
                         </>
                       )}
+
+                      {/* Sección de comentarios no leídos de estudiantes */}
+                      {unreadStudentComments.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-muted/30">
+                            <h3 className="text-sm font-medium text-foreground">
+                              {translate('unreadStudentComments')}
+                            </h3>
+                          </div>
+                          {unreadStudentComments.map(comment => (
+                            <div key={comment.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-blue-100 p-2 rounded-full">
+                                  <MessageSquare className="h-4 w-4 text-blue-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {comment.studentName}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs">
+                                      {comment.task?.subject || translate('task')}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                    {comment.comment}
+                                  </p>
+                                  <p className="text-xs font-medium mt-1">
+                                    {translate('onTask')}: {comment.task?.title}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {formatDate(comment.timestamp)}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${comment.taskId}`}
+                                    className="inline-block mt-2 text-xs text-primary hover:underline"
+                                  >
+                                    {translate('viewComment')}
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
               )}
             </CardContent>
+            </div>
           </ScrollArea>
         </Card>
       </PopoverContent>

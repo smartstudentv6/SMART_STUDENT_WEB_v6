@@ -6,6 +6,74 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+/* Estilos personalizados para scrollbars */
+@layer utilities {
+  /* Scrollbar base */
+  .scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) transparent;
+  }
+
+  .scrollbar-custom:hover {
+    scrollbar-color: rgb(148 163 184) transparent;
+  }
+
+  /* Para navegadores webkit (Chrome, Safari, Edge) */
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225);
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184);
+    background-clip: content-box;
+  }
+
+  /* Dark mode */
+  .dark .scrollbar-custom {
+    scrollbar-color: rgb(71 85 105) transparent;
+  }
+
+  .dark .scrollbar-custom:hover {
+    scrollbar-color: rgb(100 116 139) transparent;
+  }
+
+  .dark .scrollbar-custom::-webkit-scrollbar-thumb {
+    background: rgb(71 85 105);
+  }
+
+  .dark .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background: rgb(100 116 139);
+  }
+
+  /* Scrollbar más visible para pantallas pequeñas */
+  @media (max-width: 768px) {
+    .scrollbar-custom::-webkit-scrollbar {
+      width: 12px;
+    }
+    
+    .scrollbar-custom::-webkit-scrollbar-thumb {
+      background: rgb(148 163 184);
+    }
+    
+    .dark .scrollbar-custom::-webkit-scrollbar-thumb {
+      background: rgb(100 116 139);
+    }
+  }
+}
+
 @layer base {
   :root {
     --background: 220 17% 98%; /* #F9FAFB */
