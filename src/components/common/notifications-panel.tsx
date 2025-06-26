@@ -284,6 +284,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           .filter(comment => 
             !comment.isSubmission && // Solo comentarios, no entregas
             teacherTaskIds.includes(comment.taskId) &&
+            comment.studentUsername !== user.username && // ✅ NUEVO: Excluir comentarios propios del profesor
             (!comment.readBy?.includes(user.username)) // No leídos por el profesor
           )
           .map(comment => {
@@ -611,7 +612,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 {comment.task?.title}
                               </p>
                               <Link 
-                                href={`/dashboard/tareas?taskId=${comment.taskId}`} 
+                                href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}`} 
                                 className="inline-block mt-1 text-xs text-primary hover:underline"
                               >
                                 {translate('viewComment')}
@@ -823,7 +824,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {formatDate(comment.timestamp)}
                                   </p>
                                   <Link 
-                                    href={`/dashboard/tareas?taskId=${comment.taskId}`}
+                                    href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}`}
                                     className="inline-block mt-2 text-xs text-primary hover:underline"
                                   >
                                     {translate('viewComment')}

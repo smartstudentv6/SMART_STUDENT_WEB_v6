@@ -180,6 +180,12 @@ export default function DashboardHomePage() {
   // Función para limpiar datos inconsistentes
   const cleanupInconsistentData = () => {
     try {
+      // ✅ NUEVO: Limpiar notificaciones propias inconsistentes
+      TaskNotificationManager.repairSelfNotifications();
+      
+      // ✅ NUEVO: Reparar notificaciones del sistema con fromUsername incorrecto
+      TaskNotificationManager.repairSystemNotifications();
+      
       // Limpiar notificaciones duplicadas o huérfanas
       const notifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
       const tasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');

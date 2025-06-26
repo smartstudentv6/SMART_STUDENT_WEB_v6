@@ -104,8 +104,8 @@ export class TaskNotificationManager {
       taskTitle,
       targetUserRole: 'teacher',
       targetUsernames: [teacherUsername],
-      fromUsername: teacherUsername,
-      fromDisplayName: teacherDisplayName,
+      fromUsername: 'system', // ✅ CORREGIDO: Usar 'system' para notificaciones del sistema
+      fromDisplayName: 'Sistema',
       course,
       subject,
       timestamp: new Date().toISOString(),
@@ -313,7 +313,8 @@ export class TaskNotificationManager {
     return notifications.filter(notification => 
       notification.targetUserRole === userRole &&
       notification.targetUsernames.includes(username) &&
-      !notification.readBy.includes(username)
+      !notification.readBy.includes(username) &&
+      notification.fromUsername !== username // ✅ NUEVO: Excluir notificaciones de sus propios comentarios
     );
   }
 
@@ -325,6 +326,14 @@ export class TaskNotificationManager {
     // ya que estas se cuentan por separado en pendingTaskSubmissionsCount
     if (userRole === 'teacher') {
       return unreadNotifications.filter(n => n.type !== 'task_submission').length;
+    }
+    
+    // Para estudiantes, excluir notificaciones de comentarios (teacher_comment)
+    // ya que estos se cuentan por separado en unreadCommentsCount para evitar duplicación
+    if (userRole === 'student') {
+      return unreadNotifications.filter(n => 
+        n.type !== 'teacher_comment'
+      ).length;
     }
     
     return unreadNotifications.length;
@@ -530,6 +539,115 @@ export class TaskNotificationManager {
     
     if (filteredNotifications.length < notifications.length) {
       this.saveNotifications(filteredNotifications);
+    }
+  }
+
+  // NUEVA FUNCIÓN: Limpiar notificaciones propias inconsistentes
+  static cleanupSelfNotifications(): void {
+    console.log('[TaskNotificationManager] Iniciando limpieza de notificaciones propias...');
+    const notifications = this.getNotifications();
+    let cleaned = 0;
+    
+    // Filtrar notificaciones donde fromUsername !== targetUsername para cada targetUsername
+    const cleanedNotifications = notifications.filter(notification => {
+      // Si la notificación es del mismo usuario para él mismo, es inconsistente
+      const hasSelfNotification = notification.targetUsernames.includes(notification.fromUsername);
+      
+      if (hasSelfNotification) {
+        console.log(`[TaskNotificationManager] Removiendo notificación propia inconsistente:`, {
+          id: notification.id,
+          type: notification.type,
+          fromUsername: notification.fromUsername,
+          targetUsernames: notification.targetUsernames,
+          taskTitle: notification.taskTitle
+        });
+        cleaned++;
+        return false; // Remover esta notificación
+      }
+      
+      return true; // Mantener esta notificación
+    });
+    
+    if (cleaned > 0) {
+      this.saveNotifications(cleanedNotifications);
+      console.log(`[TaskNotificationManager] Limpieza completada: ${cleaned} notificaciones propias removidas`);
+    } else {
+      console.log('[TaskNotificationManager] No se encontraron notificaciones propias inconsistentes');
+    }
+  }
+
+  // NUEVA FUNCIÓN: Reparar targetUsernames para excluir fromUsername
+  static repairSelfNotifications(): void {
+    console.log('[TaskNotificationManager] Iniciando reparación de notificaciones propias...');
+    const notifications = this.getNotifications();
+    let repaired = 0;
+    
+    const repairedNotifications = notifications.map(notification => {
+      // Si fromUsername está en targetUsernames, removerlo
+      if (notification.targetUsernames.includes(notification.fromUsername)) {
+        console.log(`[TaskNotificationManager] Reparando notificación:`, {
+          id: notification.id,
+          type: notification.type,
+          fromUsername: notification.fromUsername,
+          originalTargets: [...notification.targetUsernames],
+          taskTitle: notification.taskTitle
+        });
+        
+        const repairedTargets = notification.targetUsernames.filter(
+          username => username !== notification.fromUsername
+        );
+        
+        repaired++;
+        return {
+          ...notification,
+          targetUsernames: repairedTargets
+        };
+      }
+      
+      return notification;
+    });
+    
+    if (repaired > 0) {
+      this.saveNotifications(repairedNotifications);
+      console.log(`[TaskNotificationManager] Reparación completada: ${repaired} notificaciones reparadas`);
+    } else {
+      console.log('[TaskNotificationManager] No se encontraron notificaciones que reparar');
+    }
+  }
+
+  // NUEVA FUNCIÓN: Reparar notificaciones del sistema que tienen fromUsername incorrecto
+  static repairSystemNotifications(): void {
+    console.log('[TaskNotificationManager] Iniciando reparación de notificaciones del sistema...');
+    const notifications = this.getNotifications();
+    let repaired = 0;
+    
+    const repairedNotifications = notifications.map(notification => {
+      // Reparar notificaciones pending_grading y task_completed que no sean del sistema
+      if ((notification.type === 'pending_grading' || notification.type === 'task_completed') && 
+          notification.fromUsername !== 'system') {
+        console.log(`[TaskNotificationManager] Reparando notificación del sistema:`, {
+          id: notification.id,
+          type: notification.type,
+          originalFromUsername: notification.fromUsername,
+          taskTitle: notification.taskTitle
+        });
+        
+        repaired++;
+        return {
+          ...notification,
+          fromUsername: 'system',
+          fromDisplayName: 'Sistema'
+        };
+      }
+      
+      return notification;
+    });
+    
+    if (repaired > 0) {
+      this.saveNotifications(repairedNotifications);
+      console.log(`[TaskNotificationManager] Reparación del sistema completada: ${repaired} notificaciones reparadas`);
+    } else {
+      console.log('[TaskNotificationManager] No se encontraron notificaciones del sistema que reparar');
     }
   }
 }

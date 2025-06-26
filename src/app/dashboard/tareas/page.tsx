@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useLanguage } from '@/contexts/language-context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -56,6 +56,8 @@ interface TaskComment {
   gradedBy?: string; // Profesor que calificó
   gradedAt?: string; // Fecha de calificación
   userRole?: 'teacher' | 'student' | 'admin'; // Rol del usuario que hizo el comentario
+  readBy?: string[]; // Array de usuarios que han leído este comentario
+  isNew?: boolean; // Si el comentario es nuevo (para compatibilidad)
 }
 
 interface TaskFile {
@@ -72,6 +74,7 @@ export default function TareasPage() {
   const { user } = useAuth();
   const { translate } = useLanguage();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -134,6 +137,42 @@ export default function TareasPage() {
     }
   }, [user]);
 
+  // Handle navigation from notifications
+  useEffect(() => {
+    const taskId = searchParams.get('taskId');
+    const commentId = searchParams.get('commentId');
+    
+    if (taskId && tasks.length > 0) {
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        // Open the task dialog
+        setSelectedTask(task);
+        setShowTaskDialog(true);
+        
+        // If there's a specific comment to highlight, scroll to it after a brief delay
+        if (commentId) {
+          setTimeout(() => {
+            const commentElement = document.getElementById(`comment-${commentId}`);
+            if (commentElement) {
+              commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              commentElement.classList.add('bg-yellow-100', 'border-yellow-400');
+              setTimeout(() => {
+                commentElement.classList.remove('bg-yellow-100', 'border-yellow-400');
+              }, 3000);
+            }
+          }, 500);
+        }
+        
+        // Mark ALL unread comments in this task as read when navigating from notification
+        // This works for both students and teachers
+        // Add delay to allow users to see highlighted comments first
+        setTimeout(() => {
+          markAllTaskCommentsAsRead(taskId);
+        }, 2000); // 2 seconds delay to allow visual feedback
+      }
+    }
+  }, [tasks, searchParams, user]);
+
   const loadTasks = () => {
     const storedTasks = localStorage.getItem('smart-student-tasks');
     if (storedTasks) {
@@ -144,7 +183,25 @@ export default function TareasPage() {
   const loadComments = () => {
     const storedComments = localStorage.getItem('smart-student-task-comments');
     if (storedComments) {
-      setComments(JSON.parse(storedComments));
+      const commentsData: TaskComment[] = JSON.parse(storedComments);
+      
+      // Migrate existing comments to include readBy and userRole fields if missing
+      const migratedComments = commentsData.map(comment => ({
+        ...comment,
+        readBy: comment.readBy || (comment.userRole === 'teacher' ? [] : [comment.studentUsername]),
+        userRole: comment.userRole || (comment.studentUsername.includes('profesor') || comment.studentUsername.includes('teacher') ? 'teacher' : 'student'),
+        isNew: comment.isNew !== undefined ? comment.isNew : (comment.userRole === 'teacher' || comment.studentUsername.includes('profesor'))
+      }));
+      
+      // Save migrated data back to localStorage if changes were made
+      const originalString = JSON.stringify(commentsData);
+      const migratedString = JSON.stringify(migratedComments);
+      if (originalString !== migratedString) {
+        localStorage.setItem('smart-student-task-comments', migratedString);
+        console.log('📝 Migrated comments data to include readBy and userRole fields');
+      }
+      
+      setComments(migratedComments);
     }
   };
 
@@ -156,6 +213,79 @@ export default function TareasPage() {
   const saveComments = (newComments: TaskComment[]) => {
     localStorage.setItem('smart-student-task-comments', JSON.stringify(newComments));
     setComments(newComments);
+  };
+
+  // Mark a specific comment as read by the current user
+  const markCommentAsRead = (taskId: string, commentId?: string) => {
+    if (!user) return;
+    
+    const storedComments = localStorage.getItem('smart-student-task-comments');
+    if (storedComments) {
+      const commentsData: TaskComment[] = JSON.parse(storedComments);
+      let hasUpdates = false;
+      
+      const updatedComments = commentsData.map(comment => {
+        // Mark specific comment as read, or all comments for the task if no commentId specified
+        if (comment.taskId === taskId && (!commentId || comment.id === commentId)) {
+          if (!comment.readBy?.includes(user.username)) {
+            hasUpdates = true;
+            return {
+              ...comment,
+              isNew: false,
+              readBy: [...(comment.readBy || []), user.username]
+            };
+          }
+        }
+        return comment;
+      });
+      
+      if (hasUpdates) {
+        localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
+        setComments(updatedComments);
+        
+        // Trigger update event to refresh notification panel
+        document.dispatchEvent(new CustomEvent('commentsUpdated'));
+      }
+    }
+  };
+
+  // Mark ALL unread comments in a specific task as read by the current user
+  const markAllTaskCommentsAsRead = (taskId: string) => {
+    if (!user) return;
+    
+    const storedComments = localStorage.getItem('smart-student-task-comments');
+    if (storedComments) {
+      const commentsData: TaskComment[] = JSON.parse(storedComments);
+      let hasUpdates = false;
+      let markedCount = 0;
+      
+      const updatedComments = commentsData.map(comment => {
+        // Mark ALL unread comments in this task as read (from different users)
+        if (comment.taskId === taskId && 
+            comment.studentUsername !== user.username && 
+            !comment.readBy?.includes(user.username)) {
+          hasUpdates = true;
+          markedCount++;
+          console.log(`📩 Marking comment as read: ${comment.comment.substring(0, 30)}...`);
+          return {
+            ...comment,
+            isNew: false,
+            readBy: [...(comment.readBy || []), user.username]
+          };
+        }
+        return comment;
+      });
+      
+      if (hasUpdates) {
+        localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
+        setComments(updatedComments);
+        
+        // Trigger update event to refresh notification panel
+        document.dispatchEvent(new CustomEvent('commentsUpdated'));          console.log(`✅ Marcados como leídos ${markedCount} comentarios de otros usuarios en la tarea ${taskId} para ${user.username}`);
+      } else {
+        console.log(`ℹ️ No hay comentarios no leídos de otros usuarios en la tarea ${taskId} para ${user.username}`);
+      }
+    }
   };
 
   // Get available courses and subjects for teacher
@@ -411,7 +541,9 @@ export default function TareasPage() {
       timestamp: new Date().toISOString(),
       isSubmission: user?.role === 'student' ? isSubmission : false, // Solo estudiantes pueden hacer entregas
       attachments: commentAttachments,
-      userRole: user?.role || 'student'
+      userRole: user?.role || 'student',
+      readBy: user?.role === 'teacher' ? [] : [user?.username || ''], // Teachers: not read by anyone yet, Students: read by themselves
+      isNew: user?.role === 'teacher' // Teacher comments are new for students
     };
 
     const updatedComments = [...comments, comment];
@@ -1801,8 +1933,38 @@ export default function TareasPage() {
                   </div>
                 )}
                 <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {getTaskComments(selectedTask.id).map(comment => (
-                    <div key={comment.id} className="bg-muted p-3 rounded-lg">
+                  {getTaskComments(selectedTask.id).map(comment => {
+                    // Check if comment is unread by current user
+                    // A comment is unread if the current user is not in the readBy array
+                    // AND the comment is from a different user (not their own comment)
+                    const isUnreadByUser = !comment.readBy?.includes(user?.username || '') &&
+                      comment.studentUsername !== user?.username;
+                    
+                    // Debug logging
+                    console.log(`📝 Comment ${comment.id}:`, {
+                      commentAuthor: comment.studentUsername,
+                      commentUserRole: comment.userRole,
+                      currentUser: user?.username,
+                      currentUserRole: user?.role,
+                      readBy: comment.readBy,
+                      isUnread: isUnreadByUser,
+                      commentText: comment.comment.substring(0, 30) + '...'
+                    });
+                    
+                    return (
+                      <div 
+                        key={comment.id} 
+                        id={`comment-${comment.id}`}
+                        className={`bg-muted p-3 rounded-lg transition-colors duration-300 ${
+                          isUnreadByUser ? 'border-2 border-orange-300 bg-orange-50 dark:bg-orange-900/20' : ''
+                        }`}
+                        onClick={() => {
+                          // Mark comment as read when clicked
+                          if (isUnreadByUser) {
+                            markCommentAsRead(selectedTask.id, comment.id);
+                          }
+                        }}
+                      >
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-medium text-sm">{comment.studentName}</span>
                         <div className="flex items-center space-x-2">
@@ -1941,7 +2103,8 @@ export default function TareasPage() {
                         </div>
                       )}
                     </div>
-                  ))}
+                  ); // Close the return statement for the map
+                  })}
                   
                   {getTaskComments(selectedTask.id).length === 0 && (
                     <p className="text-center text-sm text-muted-foreground py-4">
