@@ -135,6 +135,18 @@ export class TaskNotificationManager {
     
     if (studentsInCourse.length === 0) return;
 
+    // ✅ CORRECCIÓN: Asegurar que el profesor NO esté en targetUsernames
+    const targetUsernames = studentsInCourse.map(student => student.username)
+      .filter(username => username !== teacherUsername); // Excluir al profesor de los destinatarios
+
+    console.log(`[createTeacherCommentNotifications] Profesor: ${teacherUsername}, Destinatarios: ${targetUsernames.join(', ')}`);
+
+    // ✅ VALIDACIÓN: Solo crear notificación si hay destinatarios válidos
+    if (targetUsernames.length === 0) {
+      console.log(`[createTeacherCommentNotifications] ⚠️ No hay destinatarios válidos para la notificación`);
+      return;
+    }
+
     const notifications = this.getNotifications();
     
     const newNotification: TaskNotification = {
@@ -143,7 +155,7 @@ export class TaskNotificationManager {
       taskId,
       taskTitle,
       targetUserRole: 'student',
-      targetUsernames: studentsInCourse.map(student => student.username),
+      targetUsernames, // ✅ Ya filtrado para excluir al profesor
       fromUsername: teacherUsername,
       fromDisplayName: teacherDisplayName,
       course,
@@ -152,6 +164,13 @@ export class TaskNotificationManager {
       read: false,
       readBy: []
     };
+
+    console.log(`[createTeacherCommentNotifications] ✅ Creando notificación válida:`, {
+      id: newNotification.id,
+      fromUsername: newNotification.fromUsername,
+      targetUsernames: newNotification.targetUsernames,
+      taskTitle: newNotification.taskTitle
+    });
 
     notifications.push(newNotification);
     this.saveNotifications(notifications);
@@ -649,5 +668,83 @@ export class TaskNotificationManager {
     } else {
       console.log('[TaskNotificationManager] No se encontraron notificaciones del sistema que reparar');
     }
+  }
+
+  // NUEVA FUNCIÓN ESPECÍFICA: Limpiar notificaciones de comentarios propios
+  static cleanupOwnCommentNotifications(): void {
+    console.log('[TaskNotificationManager] 🧹 Limpiando notificaciones de comentarios propios...');
+    const notifications = this.getNotifications();
+    let cleaned = 0;
+    
+    const cleanedNotifications = notifications.filter(notification => {
+      // Eliminar notificaciones de teacher_comment donde el profesor es emisor Y receptor
+      if (notification.type === 'teacher_comment' && 
+          notification.targetUsernames.includes(notification.fromUsername)) {
+        console.log(`[TaskNotificationManager] 🗑️ Eliminando notificación de comentario propio:`, {
+          id: notification.id,
+          type: notification.type,
+          fromUsername: notification.fromUsername,
+          targetUsernames: notification.targetUsernames,
+          taskTitle: notification.taskTitle,
+          timestamp: notification.timestamp
+        });
+        cleaned++;
+        return false; // Eliminar esta notificación
+      }
+      
+      return true; // Mantener esta notificación
+    });
+    
+    if (cleaned > 0) {
+      this.saveNotifications(cleanedNotifications);
+      console.log(`[TaskNotificationManager] ✅ Limpieza completada: ${cleaned} notificaciones de comentarios propios eliminadas`);
+    } else {
+      console.log('[TaskNotificationManager] ✅ No se encontraron notificaciones de comentarios propios para eliminar');
+    }
+  }
+
+  // FUNCIÓN ESPECÍFICA: Eliminar notificaciones de comentarios propios de profesores
+  static removeTeacherOwnCommentNotifications(): void {
+    console.log('[TaskNotificationManager] 🧹 Eliminando notificaciones de comentarios propios de profesores...');
+    const notifications = this.getNotifications();
+    let removed = 0;
+    
+    const filteredNotifications = notifications.filter(notification => {
+      // Eliminar notificaciones de teacher_comment donde el profesor es emisor Y está en targetUsernames
+      if (notification.type === 'teacher_comment' && 
+          notification.targetUsernames.includes(notification.fromUsername)) {
+        console.log(`[TaskNotificationManager] 🗑️ Eliminando comentario propio de profesor:`, {
+          id: notification.id,
+          fromUsername: notification.fromUsername,
+          targetUsernames: notification.targetUsernames,
+          taskTitle: notification.taskTitle,
+          timestamp: notification.timestamp
+        });
+        removed++;
+        return false; // Eliminar esta notificación
+      }
+      
+      return true; // Mantener esta notificación
+    });
+    
+    if (removed > 0) {
+      this.saveNotifications(filteredNotifications);
+      console.log(`[TaskNotificationManager] ✅ Eliminadas ${removed} notificaciones de comentarios propios de profesores`);
+      
+      // Disparar evento para actualizar la UI
+      window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+    } else {
+      console.log('[TaskNotificationManager] ✅ No se encontraron notificaciones de comentarios propios de profesores');
+    }
+  }
+
+  // FUNCIÓN ESPECÍFICA: Prevenir creación de notificaciones de comentarios propios
+  static shouldCreateTeacherCommentNotification(teacherUsername: string, targetUsernames: string[]): boolean {
+    // No crear notificación si el profesor está en la lista de destinatarios
+    if (targetUsernames.includes(teacherUsername)) {
+      console.log(`[TaskNotificationManager] ⚠️ Previniendo notificación propia para profesor ${teacherUsername}`);
+      return false;
+    }
+    return true;
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Bell, MessageSquare, Clock, Key, ClipboardCheck } from 'lucide-react';
+import { Bell, MessageSquare, Clock, Key, ClipboardCheck, ClipboardList } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -80,6 +80,18 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   useEffect(() => {
     // Load data based on user role
     if (user) {
+      console.log(`[NotificationsPanel] Loading data for user: ${user.username}, role: ${user.role}`);
+      
+      // Clear all states first to avoid residual data when switching users/roles
+      setUnreadComments([]);
+      setPendingTasks([]);
+      setPasswordRequests([]);
+      setStudentSubmissions([]);
+      setUnreadStudentComments([]);
+      setClassTasks([]);
+      setTaskNotifications([]);
+      setPendingGrading([]);
+      
       if (user.role === 'admin') {
         loadPasswordRequests();
       } else if (user.role === 'student') {
@@ -87,9 +99,12 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         loadPendingTasks();
         loadTaskNotifications();
       } else if (user.role === 'teacher') {
+        console.log(`[NotificationsPanel] Loading teacher-specific data for ${user.username}`);
         loadStudentSubmissions();
         loadTaskNotifications();
         loadPendingGrading();
+        // Clear pending tasks for teachers as they don't have pending tasks, only submissions to review
+        setPendingTasks([]);
       }
     }
     
@@ -157,7 +172,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         // Filter comments that are unread by the current user and not their own
         // Exclude submissions from other students (students should not see other students' submissions)
         const unread = comments.filter(comment => 
-          comment.studentUsername !== user?.username && // Not own comments
+          comment.studentUsername !== user?.username && // Not own comments/submissions
           (!comment.readBy?.includes(user?.username || '')) && // Not read by current user
           !comment.isSubmission // Exclude submissions (deliveries) from other students
         ).map(comment => {
@@ -263,11 +278,12 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         const teacherTaskIds = teacherTasks.map(task => task.id);
         
         // Filtrar entregas de los estudiantes para las tareas de este profesor
-        // que no hayan sido revisadas (no tienen calificación)
+        // que no hayan sido revisadas (no tienen calificación) y que no sean propias
         const submissions = comments
           .filter(comment => 
             comment.isSubmission && 
             teacherTaskIds.includes(comment.taskId) &&
+            comment.studentUsername !== user.username && // Excluir entregas propias del profesor
             !comment.grade // Solo entregas sin calificar
           )
           .map(submission => {
@@ -378,7 +394,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           if (storedComments) {
             const comments: TaskComment[] = JSON.parse(storedComments);
             const updatedComments = comments.map(comment => {
-              if (!comment.readBy?.includes(user.username)) {
+              // Solo marcar como leído si no es del propio usuario y no está ya leído
+              if (!comment.readBy?.includes(user.username) && comment.studentUsername !== user.username) {
                 hasUpdates = true;
                 return {
                   ...comment,
@@ -416,9 +433,10 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         }
         
         if (hasUpdates) {
-          // Update internal state
+          // Update internal state - only clear comments and notifications, NOT pending tasks
           setUnreadComments([]);
           setTaskNotifications([]);
+          // Note: We don't clear pendingTasks as these should remain until completed/submitted
           
           // Trigger events for other components to update
           document.dispatchEvent(new Event('commentsUpdated'));
@@ -430,6 +448,81 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         setOpen(false);
       } catch (error) {
         console.error('Error marking all notifications as read:', error);
+      }
+    } else if (user?.role === 'teacher') {
+      try {
+        let hasUpdates = false;
+        
+        // Mark all student comments as read for teacher
+        if (unreadStudentComments.length > 0) {
+          const storedComments = localStorage.getItem('smart-student-task-comments');
+          if (storedComments) {
+            const comments: TaskComment[] = JSON.parse(storedComments);
+            const updatedComments = comments.map(comment => {
+              // Solo marcar como leído si no es del propio profesor y no está ya leído
+              if (!comment.readBy?.includes(user.username) && comment.studentUsername !== user.username) {
+                hasUpdates = true;
+                return {
+                  ...comment,
+                  isNew: false,
+                  readBy: [...(comment.readBy || []), user.username]
+                };
+              }
+              return comment;
+            });
+            
+            localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
+          }
+        }
+        
+        // Mark only COMMENT notifications as read for teacher (NOT task assignments or pending grading)
+        if (taskNotifications.length > 0) {
+          const notifications = TaskNotificationManager.getNotifications();
+          const updatedNotifications = notifications.map(notification => {
+            if (
+              notification.targetUsernames.includes(user.username) &&
+              !notification.readBy.includes(user.username) &&
+              // Only mark comment-related notifications as read, NOT pending tasks/grading
+              (notification.type === 'teacher_comment' || notification.type === 'task_submission')
+            ) {
+              hasUpdates = true;
+              return {
+                ...notification,
+                readBy: [...notification.readBy, user.username],
+                read: notification.readBy.length + 1 >= notification.targetUsernames.length
+              };
+            }
+            return notification;
+          });
+          
+          TaskNotificationManager.saveNotifications(updatedNotifications);
+        }
+        
+        if (hasUpdates) {
+          // Update internal state - only clear comments, NOT pending tasks/grading notifications
+          setUnreadStudentComments([]);
+          
+          // Filter taskNotifications to keep only pending grading and new task notifications
+          const filteredTaskNotifications = taskNotifications.filter(notification => 
+            notification.type === 'pending_grading' || 
+            notification.type === 'new_task' ||
+            notification.readBy.includes(user.username) // Keep notifications that are now marked as read
+          );
+          setTaskNotifications(filteredTaskNotifications);
+          
+          // Note: studentSubmissions are NOT cleared here because they represent
+          // actual student work that needs to be reviewed and graded by the teacher
+          
+          // Trigger events for other components to update
+          document.dispatchEvent(new Event('commentsUpdated'));
+          window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+          window.dispatchEvent(new Event('storage'));
+        }
+        
+        // Close panel
+        setOpen(false);
+      } catch (error) {
+        console.error('Error marking all notifications as read for teacher:', error);
       }
     }
   };
@@ -465,7 +558,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           <CardHeader className="pb-2 pt-4 px-4 flex-shrink-0">
             <CardTitle className="text-lg font-semibold flex items-center justify-between">
               <span>{translate('notifications')}</span>
-              {user?.role === 'student' && (unreadComments.length > 0 || taskNotifications.length > 0) && (
+              {((user?.role === 'student' && (unreadComments.length > 0 || taskNotifications.length > 0)) ||
+                (user?.role === 'teacher' && (studentSubmissions.length > 0 || unreadStudentComments.length > 0 || pendingGrading.length > 0))) && (
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -535,7 +629,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                         <>
                           <div className="px-4 py-2 bg-muted/30">
                             <h3 className="text-sm font-medium text-foreground">
-                              {translate('upcomingTasks')}
+                              {translate('upcomingTasks')} ({pendingTasks.length})
                             </h3>
                           </div>
                           
@@ -585,7 +679,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {unreadComments.length > 0 && (
                         <div className="px-4 py-2 bg-muted/30">
                           <h3 className="text-sm font-medium text-foreground">
-                            {translate('unreadComments')}
+                            {translate('unreadComments')} ({unreadComments.length})
                           </h3>
                         </div>
                       )}
@@ -710,15 +804,60 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
-                      {/* Sección de tareas/evaluaciones pendientes de calificar */}
-                      {pendingGrading.length > 0 && (
+                      {/* Sección de evaluaciones pendientes de calificar - SIEMPRE ARRIBA */}
+                      {pendingGrading.filter(notif => notif.taskType === 'evaluation').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-muted/30">
+                          <div className="px-4 py-2 bg-purple-50 border-l-4 border-purple-400">
                             <h3 className="text-sm font-medium text-foreground">
-                              {translate('pendingGradingNotifications', { count: String(pendingGrading.length) })}
+                              {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} ({pendingGrading.filter(notif => notif.taskType === 'evaluation').length})
                             </h3>
                           </div>
-                          {pendingGrading.map(notif => (
+                          {pendingGrading
+                            .filter(notif => notif.taskType === 'evaluation')
+                            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
+                            .map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-purple-100 p-2 rounded-full">
+                                  <ClipboardList className="h-4 w-4 text-purple-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.taskTitle}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs border-purple-200 text-purple-700">
+                                      {notif.subject}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {translate('evaluation') || 'Evaluación'}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${notif.taskId}`}
+                                    className="inline-block mt-2 text-xs text-purple-600 hover:underline"
+                                  >
+                                    {translate('reviewEvaluation') || 'Revisar Evaluación'}
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Sección de tareas pendientes de calificar */}
+                      {pendingGrading.filter(notif => notif.taskType === 'assignment').length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-orange-50 border-l-4 border-orange-400">
+                            <h3 className="text-sm font-medium text-foreground">
+                              {translate('pendingTasks') || 'Tareas Pendientes'} ({pendingGrading.filter(notif => notif.taskType === 'assignment').length})
+                            </h3>
+                          </div>
+                          {pendingGrading
+                            .filter(notif => notif.taskType === 'assignment')
+                            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
+                            .map(notif => (
                             <div key={notif.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-orange-100 p-2 rounded-full">
@@ -729,18 +868,18 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     <p className="font-medium text-sm">
                                       {notif.taskTitle}
                                     </p>
-                                    <Badge variant="outline" className="text-xs">
+                                    <Badge variant="outline" className="text-xs border-orange-200 text-orange-700">
                                       {notif.subject}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {notif.taskType === 'evaluation' ? translate('evaluation') : translate('task')}
+                                    {translate('task') || 'Tarea'}
                                   </p>
                                   <Link 
                                     href={`/dashboard/tareas?taskId=${notif.taskId}`}
-                                    className="inline-block mt-2 text-xs text-primary hover:underline"
+                                    className="inline-block mt-2 text-xs text-orange-600 hover:underline"
                                   >
-                                    {translate('reviewSubmission')}
+                                    {translate('reviewSubmission') || 'Revisar Entrega'}
                                   </Link>
                                 </div>
                               </div>

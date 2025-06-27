@@ -186,6 +186,12 @@ export default function DashboardHomePage() {
       // ✅ NUEVO: Reparar notificaciones del sistema con fromUsername incorrecto
       TaskNotificationManager.repairSystemNotifications();
       
+      // ✅ ESPECÍFICO: Limpiar notificaciones de comentarios propios del profesor
+      TaskNotificationManager.cleanupOwnCommentNotifications();
+      
+      // ✅ ESPECÍFICO: Eliminar notificaciones de comentarios propios de profesores
+      TaskNotificationManager.removeTeacherOwnCommentNotifications();
+      
       // Limpiar notificaciones duplicadas o huérfanas
       const notifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
       const tasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');
@@ -244,9 +250,11 @@ export default function DashboardHomePage() {
           const teacherTaskIds = teacherTasks.map((task: any) => task.id);
           
           // Filtrar entregas sin calificar - ser más estricto con la validación
+          // También excluir entregas propias del profesor
           let pendingSubmissions = comments.filter((comment: any) => 
             comment.isSubmission === true && 
             teacherTaskIds.includes(comment.taskId) &&
+            comment.studentUsername !== user.username && // Excluir entregas propias del profesor
             (!comment.grade || comment.grade === null || comment.grade === undefined)
           );
 
@@ -273,10 +281,11 @@ export default function DashboardHomePage() {
           pendingSubmissions = uniqueSubmissions;
 
           // Cargar comentarios de estudiantes (NO entregas) para tareas de este profesor
-          // que no hayan sido leídos por el profesor
+          // que no hayan sido leídos por el profesor y que no sean propios
           const studentComments = comments.filter((comment: any) => 
             !comment.isSubmission && // Solo comentarios, no entregas
             teacherTaskIds.includes(comment.taskId) &&
+            comment.studentUsername !== user.username && // Excluir comentarios propios del profesor
             (!comment.readBy?.includes(user.username)) // No leídos por el profesor
           );
           

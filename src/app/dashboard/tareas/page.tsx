@@ -802,9 +802,9 @@ export default function TareasPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 hover:bg-orange-100 hover:text-orange-800 focus:bg-orange-100 focus:text-orange-800 dark:hover:bg-orange-900/20 dark:hover:text-orange-400';
+      case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-800 focus:bg-gray-100 focus:text-gray-800 dark:hover:bg-gray-900/20 dark:hover:text-gray-400';
       case 'completed': return 'bg-orange-300 text-orange-900 dark:bg-orange-800/30 dark:text-orange-100 hover:bg-orange-300 hover:text-orange-900 focus:bg-orange-300 focus:text-orange-900 dark:hover:bg-orange-800/30 dark:hover:text-orange-100';
-      default: return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 hover:bg-orange-100 hover:text-orange-800 focus:bg-orange-100 focus:text-orange-800 dark:hover:bg-orange-900/20 dark:hover:text-orange-400';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-800 focus:bg-gray-100 focus:text-gray-800 dark:hover:bg-gray-900/20 dark:hover:text-gray-400';
     }
   };
 
@@ -1732,7 +1732,10 @@ export default function TareasPage() {
               {translate('cancel')}
             </Button>
             <Button onClick={handleCreateTask} className="bg-orange-600 hover:bg-orange-700 text-white">
-              {translate('createTask')}
+              {formData.taskType === 'evaluation' 
+                ? (translate('createEvaluation') || 'Crear Evaluación')
+                : (translate('createTask') || 'Crear Tarea')
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

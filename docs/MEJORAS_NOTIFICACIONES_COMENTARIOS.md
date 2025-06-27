@@ -473,17 +473,6 @@ static getUnreadCountForUser(username: string, userRole: 'student' | 'teacher'):
 }
 ```
 
-### 📊 Lógica de Conteo Final
-**Para estudiantes, el conteo total es**:
-```
-pendingTasksCount + unreadCommentsCount + taskNotificationsCount
-```
-
-**Donde**:
-- `pendingTasksCount`: Tareas asignadas no entregadas
-- `unreadCommentsCount`: Comentarios de otros usuarios no leídos
-- `taskNotificationsCount`: Notificaciones del sistema **EXCLUYENDO** `teacher_comment`
-
 ### 🎯 Resultado
 - ✅ **Antes de la corrección**: Felipe tenía 3 notificaciones (1 + 1 + 1 duplicada)
 - ✅ **Después de la corrección**: Felipe tiene 2 notificaciones (1 + 1 + 0)
@@ -650,81 +639,70 @@ La solución implementada garantiza que:
 3. **Los nuevos comentarios** se crean correctamente desde el inicio
 4. **El sistema** mantiene la lógica de notificaciones para comentarios entre diferentes usuarios
 
-### Estado: ✅ PROBLEMA RESUELTO
+## 🚨 CORRECCIÓN URGENTE - Notificaciones Propias del Profesor Jorge
 
-## 🔧 CORRECCIÓN ADICIONAL - Notificaciones Pendientes de Calificación
+### ❌ Problema Reportado URGENTE
+El profesor Jorge está viendo **2 notificaciones** cuando debería ver solo **1**:
+- ✅ 1 tarea pendiente de calificar (correcto)
+- ❌ 1 notificación de su propio comentario (incorrecto)
 
-### ❌ Problema Adicional Reportado
-Después de resolver las notificaciones de comentarios propios, se identificó otro problema relacionado:
+**Causa específica identificada**: 
+Los profesores están apareciendo como destinatarios (`targetUsernames`) en las notificaciones de sus propios comentarios de tipo `teacher_comment`.
 
-> **"profesor creo una tarea y no aparece dentro de las notificaciones como pendiente"**
+### ✅ Soluciones Específicas Implementadas
 
-### 🔍 Causa Raíz del Problema
-Las notificaciones `pending_grading` que se crean cuando un profesor crea una tarea tenían:
-```typescript
-fromUsername: teacherUsername,  // ❌ El mismo profesor
-targetUsernames: [teacherUsername]
-```
-
-Esto causaba que el filtro de notificaciones propias las excluyera:
-```typescript
-notification.fromUsername !== username // Filtro que excluía estas notificaciones
-```
-
-### ✅ Solución Implementada
-
-#### 1. Corrección en `createPendingGradingNotification`
-Modificado `/src/lib/notifications.ts` para usar el sistema como emisor:
+#### 1. Prevención en Creación de Notificaciones
+Modificada la función `createTeacherCommentNotifications` en `/src/lib/notifications.ts`:
 
 **Antes**:
 ```typescript
-fromUsername: teacherUsername,
-fromDisplayName: teacherDisplayName,
+targetUsernames: studentsInCourse.map(student => student.username),
 ```
 
 **Después**:
 ```typescript
-fromUsername: 'system', // ✅ CORREGIDO: Usar 'system' para notificaciones del sistema
-fromDisplayName: 'Sistema',
+// ✅ CORRECCIÓN: Asegurar que el profesor NO esté en targetUsernames
+const targetUsernames = studentsInCourse.map(student => student.username)
+  .filter(username => username !== teacherUsername); // Excluir al profesor
+
+console.log(`[createTeacherCommentNotifications] Profesor: ${teacherUsername}, Destinatarios: ${targetUsernames.join(', ')}`);
+
+// ✅ VALIDACIÓN: Solo crear notificación si hay destinatarios válidos
+if (targetUsernames.length === 0) {
+  console.log(`[createTeacherCommentNotifications] ⚠️ No hay destinatarios válidos`);
+  return;
+}
 ```
 
-#### 2. Función de Reparación Automática
-Agregada nueva función para corregir notificaciones existentes:
+#### 2. Función de Limpieza Específica
+Agregada nueva función en `/src/lib/notifications.ts`:
 
 ```typescript
-// NUEVA FUNCIÓN: Reparar notificaciones del sistema que tienen fromUsername incorrecto
-static repairSystemNotifications(): void {
-  console.log('[TaskNotificationManager] Iniciando reparación de notificaciones del sistema...');
+// FUNCIÓN ESPECÍFICA: Eliminar notificaciones de comentarios propios de profesores
+static removeTeacherOwnCommentNotifications(): void {
+  console.log('[TaskNotificationManager] 🧹 Eliminando notificaciones de comentarios propios de profesores...');
   const notifications = this.getNotifications();
-  let repaired = 0;
+  let removed = 0;
   
-  const repairedNotifications = notifications.map(notification => {
-    // Reparar notificaciones pending_grading y task_completed que no sean del sistema
-    if ((notification.type === 'pending_grading' || notification.type === 'task_completed') && 
-        notification.fromUsername !== 'system') {
-      console.log(`[TaskNotificationManager] Reparando notificación del sistema:`, {
-        id: notification.id,
-        type: notification.type,
-        originalFromUsername: notification.fromUsername,
+  const filteredNotifications = notifications.filter(notification => {
+    // Eliminar notificaciones de teacher_comment donde el profesor es emisor Y está en targetUsernames
+    if (notification.type === 'teacher_comment' && 
+        notification.targetUsernames.includes(notification.fromUsername)) {
+      console.log(`[TaskNotificationManager] 🗑️ Eliminando comentario propio de profesor:`, {
+        fromUsername: notification.fromUsername,
+        targetUsernames: notification.targetUsernames,
         taskTitle: notification.taskTitle
       });
-      
-      repaired++;
-      return {
-        ...notification,
-        fromUsername: 'system',
-        fromDisplayName: 'Sistema'
-      };
+      removed++;
+      return false; // Eliminar esta notificación
     }
-    
-    return notification;
+    return true; // Mantener esta notificación
   });
   
-  if (repaired > 0) {
-    this.saveNotifications(repairedNotifications);
-    console.log(`[TaskNotificationManager] Reparación del sistema completada: ${repaired} notificaciones reparadas`);
-  } else {
-    console.log('[TaskNotificationManager] No se encontraron notificaciones del sistema que reparar');
+  if (removed > 0) {
+    this.saveNotifications(filteredNotifications);
+    console.log(`[TaskNotificationManager] ✅ Eliminadas ${removed} notificaciones de comentarios propios de profesores`);
+    window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
   }
 }
 ```
@@ -738,8 +716,11 @@ const cleanupInconsistentData = () => {
     // ✅ NUEVO: Limpiar notificaciones propias inconsistentes
     TaskNotificationManager.repairSelfNotifications();
     
-    // ✅ NUEVO: Reparar notificaciones del sistema con fromUsername incorrecto
+    // ✅ NUEVO: Reparar notificaciones del sistema
     TaskNotificationManager.repairSystemNotifications();
+    
+    // ✅ ESPECÍFICO: Eliminar notificaciones de comentarios propios de profesores
+    TaskNotificationManager.removeTeacherOwnCommentNotifications();
     
     // ...resto del código...
   } catch (error) {
@@ -748,63 +729,59 @@ const cleanupInconsistentData = () => {
 };
 ```
 
-#### 4. Herramienta de Testing Específica
-Creada `/test-pending-notifications.html` para:
-- Analizar notificaciones `pending_grading` existentes
-- Crear tareas de prueba y verificar notificaciones
-- Verificar visibilidad para profesores
-- Reparar notificaciones problemáticas
+### 🔧 Herramientas de Corrección Inmediata
 
-### 🎯 Comportamiento Corregido
+#### Para Corrección Inmediata:
+- **`/fix-jorge-comentarios-propios.html`**: Herramienta de corrección específica con diagnóstico
+- **`/debug-jorge-notificaciones.html`**: Herramienta de diagnóstico detallado
 
-#### ✅ Antes vs Después:
+#### Opciones de Corrección:
 
-**Antes de la Corrección**:
-- ❌ Profesor crea tarea → Se crea notificación `pending_grading`
-- ❌ `fromUsername = teacherUsername` 
-- ❌ Filtro excluye notificación por ser "propia"
-- ❌ Profesor NO ve la notificación pendiente
+**Opción 1: Automática (Recomendada)**
+1. Recargar el dashboard → Las funciones de limpieza se ejecutan automáticamente
+2. Verificar que la burbuja muestre solo "1" notificación
 
-**Después de la Corrección**:
-- ✅ Profesor crea tarea → Se crea notificación `pending_grading`
-- ✅ `fromUsername = 'system'`
-- ✅ Filtro NO excluye notificación (no es propia)
-- ✅ Profesor SÍ ve la notificación pendiente
+**Opción 2: Manual con Herramienta**
+1. Abrir `/fix-jorge-comentarios-propios.html`
+2. Hacer clic en "🚑 CORREGIR INMEDIATAMENTE"
+3. Recargar el dashboard
 
-### 📊 Tipos de Notificaciones del Sistema
+**Opción 3: Desde Consola del Navegador**
+```javascript
+// Ejecutar en la consola del navegador (F12)
+const notificaciones = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
+const corregidas = notificaciones.filter(n => !(n.type === 'teacher_comment' && n.targetUsernames.includes(n.fromUsername)));
+localStorage.setItem('smart-student-task-notifications', JSON.stringify(corregidas));
+location.reload();
+```
 
-Las siguientes notificaciones ahora usan correctamente `fromUsername: 'system'`:
+### 🎯 Resultado Final Específico
 
-1. **`pending_grading`**: Cuando se crea una tarea (para el profesor)
-2. **`task_completed`**: Cuando todos los estudiantes entregan (para el profesor)
+#### ✅ Después de la Corrección:
+- **Burbuja de notificaciones**: Muestra "1" (solo tarea pendiente)
+- **Panel de notificaciones**: Solo muestra notificaciones válidas (no propias)
+- **Comportamiento futuro**: Los nuevos comentarios del profesor NO crearán notificaciones propias
 
-### 🔧 Verificación del Fix
+#### ✅ Flujo Corregido:
+1. Profesor hace comentario en tarea → Se crea notificación SOLO para estudiantes
+2. Profesor NO aparece en `targetUsernames`
+3. Profesor NO ve notificación de su propio comentario
+4. Solo ve notificaciones válidas (tareas pendientes, entregas de estudiantes, etc.)
 
-#### Automática:
-- La reparación se ejecuta al cargar el dashboard
-- Corrige automáticamente notificaciones existentes
+### 📊 Verificación del Éxito
 
-#### Manual:
-1. Usar `/test-pending-notifications.html`
-2. Crear tarea como profesor
-3. Verificar que aparece en notificaciones
+**Indicadores de corrección exitosa**:
+- ✅ Burbuja de notificaciones muestra el número correcto
+- ✅ No aparecen notificaciones de comentarios propios en el panel
+- ✅ Solo se muestran notificaciones relevantes (tareas pendientes, entregas)
 
-### 🚀 Resultado Final
+### Estado: 🚑 CORRECCIÓN ESPECÍFICA IMPLEMENTADA
 
-#### ✅ Problemas Resueltos:
-1. **Comentarios propios**: Los usuarios NO ven notificaciones de sus propios comentarios
-2. **Tareas pendientes**: Los profesores SÍ ven notificaciones de tareas que crean y necesitan calificar
+Esta corrección específica resuelve el problema exacto reportado: **"profesor acaba de enviar un comentario dentro de la tarea creada, y en su propia sesion le esta apareciero una burbuja con 2 notificaiones pendientes (comentario creadao por el y la tarea pendiente), lo cual no es correcta que solo deberia estar apareciendo la tarea o sea una burbuja con un 1"**
 
-#### ✅ Lógica Final de Notificaciones:
-- **Comentarios**: `fromUsername = usuario real` → Filtradas para el emisor
-- **Sistema**: `fromUsername = 'system'` → Visibles para todos los destinatarios
-- **Reparación automática**: Corrige datos inconsistentes existentes
-
-### Estado: ✅ AMBOS PROBLEMAS RESUELTOS
-
-Los dos problemas reportados han sido completamente resueltos:
-
-1. ✅ **Comentarios propios eliminados**: Los usuarios no ven notificaciones de sus propios comentarios
-2. ✅ **Tareas pendientes visibles**: Los profesores ven notificaciones de tareas que crean
-
-El sistema ahora funciona correctamente para todos los tipos de notificaciones.
+La solución garantiza que:
+1. **Los profesores NO ven notificaciones de sus propios comentarios**
+2. **Solo ven notificaciones relevantes para su rol**
+3. **El contador de la burbuja refleja el número correcto**
+4. **Los datos existentes se limpian automáticamente**
+5. **Los nuevos comentarios se crean correctamente sin incluir al profesor como destinatario**
