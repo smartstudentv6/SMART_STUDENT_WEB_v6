@@ -1,6 +1,3 @@
-
-'use server';
-
 /**
  * @fileOverview Generates a mind map image from a central theme and book content.
  * This involves two steps:
@@ -32,7 +29,7 @@ export type CreateMindMapOutput = z.infer<typeof CreateMindMapOutputSchema>;
 
 
 // Schema for the structured mind map data
-const MindMapNodeSchema = z.object({
+const MindMapNodeSchema: z.ZodType<any> = z.object({
   label: z.string().describe('The text label for this node.'),
   children: z.array(z.lazy(() => MindMapNodeSchema)).optional().describe('Optional child nodes, forming sub-topics.'),
 });
@@ -151,66 +148,47 @@ If any text is distorted, unreadable, or omitted, or if any text is added that w
 
 
 export async function createMindMap(input: CreateMindMapInput): Promise<CreateMindMapOutput> {
-  // Mock mode for development when AI is not available
-  if (process.env.NODE_ENV === 'development' && !process.env.GOOGLE_AI_API_KEY) {
-    console.log('🧠 Running createMindMap in MOCK mode');
+  console.log('🧠 createMindMap - HÍBRIDO: IA para contenido + SVG para imagen');
+  console.log('📋 Input recibido:', {
+    centralTheme: input.centralTheme,
+    bookTitle: input.bookTitle,
+    language: input.language,
+    isHorizontal: input.isHorizontal
+  });
+  
+  try {
+    // PASO 1: Usar IA para generar contenido intelectual (nodos y subnodos)
+    console.log('🤖 Generando contenido con IA...');
+    const structureResponse = await generateMindMapStructurePrompt(input);
+    const aiGeneratedStructure = structureResponse.output;
+
+    if (!aiGeneratedStructure) {
+      throw new Error('Failed to generate mind map structure with AI.');
+    }
+
+    console.log('📊 Estructura generada por IA:', aiGeneratedStructure);
     
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // PASO 2: Usar SVG manual para generar imagen ultra-clara
+    console.log('🎨 Generando SVG mejorado...');
+    const enhancedSvg = generateEnhancedSvg(aiGeneratedStructure, input.isHorizontal);
+    console.log('🎨 SVG mejorado generado exitosamente - Longitud:', enhancedSvg.length);
     
-    // Return a mock SVG mind map as data URI
-    const mockSvg = `
-      <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-        <style>
-          .node { fill: #f1f5f9; stroke: #334155; stroke-width: 2; }
-          .central { fill: #3b82f6; stroke: #1e40af; }
-          .text { font-family: Arial, sans-serif; font-size: 14px; text-anchor: middle; }
-          .central-text { fill: white; font-weight: bold; font-size: 16px; }
-          .branch-text { fill: #334155; font-weight: 500; }
-          .line { stroke: #64748b; stroke-width: 2; }
-        </style>
-        
-        <!-- Central node -->
-        <circle cx="400" cy="300" r="80" class="node central"/>
-        <text x="400" y="305" class="text central-text">${input.centralTheme}</text>
-        
-        <!-- Branch 1 -->
-        <line x1="480" y1="300" x2="600" y2="200" class="line"/>
-        <circle cx="600" cy="200" r="50" class="node"/>
-        <text x="600" y="205" class="text branch-text">Concepto 1</text>
-        
-        <!-- Branch 2 -->
-        <line x1="400" y1="220" x2="400" y2="100" class="line"/>
-        <circle cx="400" cy="100" r="50" class="node"/>
-        <text x="400" y="105" class="text branch-text">Concepto 2</text>
-        
-        <!-- Branch 3 -->
-        <line x1="320" y1="300" x2="200" y2="200" class="line"/>
-        <circle cx="200" cy="200" r="50" class="node"/>
-        <text x="200" y="205" class="text branch-text">Concepto 3</text>
-        
-        <!-- Branch 4 -->
-        <line x1="400" y1="380" x2="400" y2="500" class="line"/>
-        <circle cx="400" cy="500" r="50" class="node"/>
-        <text x="400" y="505" class="text branch-text">Concepto 4</text>
-        
-        <!-- Sub-nodes -->
-        <line x1="650" y1="200" x2="720" y2="150" class="line"/>
-        <circle cx="720" cy="150" r="30" class="node"/>
-        <text x="720" y="155" class="text branch-text">Detalle</text>
-        
-        <line x1="150" y1="200" x2="80" y2="150" class="line"/>
-        <circle cx="80" cy="150" r="30" class="node"/>
-        <text x="80" y="155" class="text branch-text">Detalle</text>
-      </svg>
-    `;
+    // Convertir a Data URI
+    const dataUri = `data:image/svg+xml;base64,${Buffer.from(enhancedSvg).toString('base64')}`;
     
-    const dataUri = `data:image/svg+xml;base64,${Buffer.from(mockSvg).toString('base64')}`;
+    console.log('✅ Mapa mental híbrido generado exitosamente');
+    return { imageDataUri: dataUri };
+    
+  } catch (error) {
+    console.error('❌ Error en generación híbrida, usando fallback:', error);
+    
+    // Fallback con estructura inteligente basada en tema
+    const fallbackStructure = generateMockMindMapStructure(input);
+    const fallbackSvg = generateEnhancedSvg(fallbackStructure, input.isHorizontal);
+    const dataUri = `data:image/svg+xml;base64,${Buffer.from(fallbackSvg).toString('base64')}`;
+    
     return { imageDataUri: dataUri };
   }
-
-  // Original AI implementation
-  return createMindMapFlow(input);
 }
 
 const createMindMapFlow = ai.defineFlow(
@@ -237,7 +215,7 @@ const createMindMapFlow = ai.defineFlow(
     };
 
     const renderOutput = await renderMindMapImageHandlebarsPrompt.render(renderImageInput);
-    const actualPromptText = renderOutput.messages[0]?.content[0]?.text;
+    const actualPromptText = renderOutput.messages?.[0]?.content?.[0]?.text;
 
     if (!actualPromptText) {
       throw new Error('Failed to render the image generation prompt text from RenderResponse.');
@@ -258,3 +236,846 @@ const createMindMapFlow = ai.defineFlow(
   }
 );
 
+// Helper functions for mock mode
+function generateMockMindMapStructure(input: CreateMindMapInput): MindMapStructure {
+  const centralTheme = input.centralTheme.toLowerCase();
+  const language = input.language;
+  
+  // Define topic-specific branches based on common educational themes
+  const topicMappings: Record<string, {centralLabel: string, branches: Array<{label: string, children: string[]}>}> = {
+    'sistema respiratorio': {
+      centralLabel: language === 'es' ? 'Sistema Respiratorio' : 'Respiratory System',
+      branches: [
+        {
+          label: language === 'es' ? 'Órganos Principales' : 'Main Organs',
+          children: language === 'es' ? ['Pulmones', 'Tráquea', 'Bronquios'] : ['Lungs', 'Trachea', 'Bronchi']
+        },
+        {
+          label: language === 'es' ? 'Proceso de Respiración' : 'Breathing Process',
+          children: language === 'es' ? ['Inspiración', 'Espiración', 'Intercambio de Gases'] : ['Inspiration', 'Expiration', 'Gas Exchange']
+        },
+        {
+          label: language === 'es' ? 'Funciones' : 'Functions',
+          children: language === 'es' ? ['Oxigenación', 'Eliminación CO2', 'Regulación pH'] : ['Oxygenation', 'CO2 Removal', 'pH Regulation']
+        },
+        {
+          label: language === 'es' ? 'Enfermedades Comunes' : 'Common Diseases',
+          children: language === 'es' ? ['Asma', 'Neumonía', 'Bronquitis'] : ['Asthma', 'Pneumonia', 'Bronchitis']
+        }
+      ]
+    },
+    'aparato respiratorio': {
+      centralLabel: language === 'es' ? 'Aparato Respiratorio' : 'Respiratory System',
+      branches: [
+        {
+          label: language === 'es' ? 'Órganos Principales' : 'Main Organs',
+          children: language === 'es' ? ['Pulmones', 'Tráquea', 'Bronquios'] : ['Lungs', 'Trachea', 'Bronchi']
+        },
+        {
+          label: language === 'es' ? 'Proceso de Respiración' : 'Breathing Process',
+          children: language === 'es' ? ['Inspiración', 'Espiración', 'Intercambio de Gases'] : ['Inspiration', 'Expiration', 'Gas Exchange']
+        },
+        {
+          label: language === 'es' ? 'Funciones' : 'Functions',
+          children: language === 'es' ? ['Oxigenación', 'Eliminación CO2', 'Regulación pH'] : ['Oxygenation', 'CO2 Removal', 'pH Regulation']
+        },
+        {
+          label: language === 'es' ? 'Enfermedades Comunes' : 'Common Diseases',
+          children: language === 'es' ? ['Asma', 'Neumonía', 'Bronquitis'] : ['Asthma', 'Pneumonia', 'Bronchitis']
+        }
+      ]
+    },
+    'respiración': {
+      centralLabel: language === 'es' ? 'Respiración' : 'Respiration',
+      branches: [
+        {
+          label: language === 'es' ? 'Tipos de Respiración' : 'Types of Respiration',
+          children: language === 'es' ? ['Respiración Pulmonar', 'Respiración Celular', 'Respiración Externa'] : ['Pulmonary Respiration', 'Cellular Respiration', 'External Respiration']
+        },
+        {
+          label: language === 'es' ? 'Mecánica Respiratoria' : 'Respiratory Mechanics',
+          children: language === 'es' ? ['Inspiración', 'Espiración', 'Ventilación'] : ['Inspiration', 'Expiration', 'Ventilation']
+        },
+        {
+          label: language === 'es' ? 'Transporte de Gases' : 'Gas Transport',
+          children: language === 'es' ? ['Hemoglobina', 'Difusión', 'Perfusión'] : ['Hemoglobin', 'Diffusion', 'Perfusion']
+        }
+      ]
+    },
+    'fotosíntesis': {
+      centralLabel: language === 'es' ? 'Fotosíntesis' : 'Photosynthesis',
+      branches: [
+        {
+          label: language === 'es' ? 'Reactivos' : 'Reactants',
+          children: language === 'es' ? ['Dióxido de Carbono', 'Agua', 'Luz Solar'] : ['Carbon Dioxide', 'Water', 'Sunlight']
+        },
+        {
+          label: language === 'es' ? 'Productos' : 'Products',
+          children: language === 'es' ? ['Glucosa', 'Oxígeno'] : ['Glucose', 'Oxygen']
+        },
+        {
+          label: language === 'es' ? 'Fases' : 'Phases',
+          children: language === 'es' ? ['Fase Luminosa', 'Fase Oscura', 'Ciclo de Calvin'] : ['Light Phase', 'Dark Phase', 'Calvin Cycle']
+        },
+        {
+          label: language === 'es' ? 'Ubicación' : 'Location',
+          children: language === 'es' ? ['Cloroplastos', 'Hojas', 'Células Vegetales'] : ['Chloroplasts', 'Leaves', 'Plant Cells']
+        }
+      ]
+    },
+    'célula': {
+      centralLabel: language === 'es' ? 'La Célula' : 'The Cell',
+      branches: [
+        {
+          label: language === 'es' ? 'Tipos Celulares' : 'Cell Types',
+          children: language === 'es' ? ['Célula Procariota', 'Célula Eucariota'] : ['Prokaryotic Cell', 'Eukaryotic Cell']
+        },
+        {
+          label: language === 'es' ? 'Organelos' : 'Organelles',
+          children: language === 'es' ? ['Núcleo', 'Mitocondrias', 'Ribosomas'] : ['Nucleus', 'Mitochondria', 'Ribosomes']
+        },
+        {
+          label: language === 'es' ? 'Funciones' : 'Functions',
+          children: language === 'es' ? ['Reproducción', 'Metabolismo', 'Homeostasis'] : ['Reproduction', 'Metabolism', 'Homeostasis']
+        }
+      ]
+    },
+    'plantas': {
+      centralLabel: language === 'es' ? 'Las Plantas' : 'Plants',
+      branches: [
+        {
+          label: language === 'es' ? 'Tipos de Plantas' : 'Plant Types',
+          children: language === 'es' ? ['Angiospermas', 'Gimnospermas', 'Helechos'] : ['Angiosperms', 'Gymnosperms', 'Ferns']
+        },
+        {
+          label: language === 'es' ? 'Partes de la Planta' : 'Plant Parts',
+          children: language === 'es' ? ['Raíz', 'Tallo', 'Hojas'] : ['Root', 'Stem', 'Leaves']
+        },
+        {
+          label: language === 'es' ? 'Funciones' : 'Functions',
+          children: language === 'es' ? ['Fotosíntesis', 'Respiración', 'Reproducción'] : ['Photosynthesis', 'Respiration', 'Reproduction']
+        }
+      ]
+    },
+    'agua': {
+      centralLabel: language === 'es' ? 'El Agua' : 'Water',
+      branches: [
+        {
+          label: language === 'es' ? 'Estados del Agua' : 'Water States',
+          children: language === 'es' ? ['Líquido', 'Sólido', 'Gaseoso'] : ['Liquid', 'Solid', 'Gas']
+        },
+        {
+          label: language === 'es' ? 'Ciclo del Agua' : 'Water Cycle',
+          children: language === 'es' ? ['Evaporación', 'Condensación', 'Precipitación'] : ['Evaporation', 'Condensation', 'Precipitation']
+        },
+        {
+          label: language === 'es' ? 'Importancia' : 'Importance',
+          children: language === 'es' ? ['Vida', 'Ecosistemas', 'Agricultura'] : ['Life', 'Ecosystems', 'Agriculture']
+        }
+      ]
+    },
+    'ecosistema': {
+      centralLabel: language === 'es' ? 'Ecosistema' : 'Ecosystem',
+      branches: [
+        {
+          label: language === 'es' ? 'Componentes Vivos' : 'Living Components',
+          children: language === 'es' ? ['Productores', 'Consumidores', 'Descomponedores'] : ['Producers', 'Consumers', 'Decomposers']
+        },
+        {
+          label: language === 'es' ? 'Componentes No Vivos' : 'Non-Living Components',
+          children: language === 'es' ? ['Agua', 'Suelo', 'Clima'] : ['Water', 'Soil', 'Climate']
+        },
+        {
+          label: language === 'es' ? 'Interacciones' : 'Interactions',
+          children: language === 'es' ? ['Cadenas Alimentarias', 'Simbiosis', 'Competencia'] : ['Food Chains', 'Symbiosis', 'Competition']
+        }
+      ]
+    }
+  };
+  
+  // Find matching topic or create generic structure
+  let structure = topicMappings[centralTheme];
+  
+  if (!structure) {
+    // Check for partial matches
+    for (const [key, value] of Object.entries(topicMappings)) {
+      if (centralTheme.includes(key) || key.includes(centralTheme)) {
+        structure = value;
+        break;
+      }
+    }
+  }
+  
+  if (!structure) {
+    // Generic fallback structure
+    structure = {
+      centralLabel: input.centralTheme,
+      branches: [
+        {
+          label: language === 'es' ? 'Concepto Principal' : 'Main Concept',
+          children: language === 'es' ? ['Definición', 'Características'] : ['Definition', 'Characteristics']
+        },
+        {
+          label: language === 'es' ? 'Componentes' : 'Components',
+          children: language === 'es' ? ['Elemento 1', 'Elemento 2'] : ['Element 1', 'Element 2']
+        },
+        {
+          label: language === 'es' ? 'Aplicaciones' : 'Applications',
+          children: language === 'es' ? ['Uso Práctico', 'Importancia'] : ['Practical Use', 'Importance']
+        }
+      ]
+    };
+  }
+  
+  return {
+    centralThemeLabel: structure.centralLabel.toUpperCase(),
+    mainBranches: structure.branches.map(branch => ({
+      label: branch.label,
+      children: branch.children.map(child => ({ label: child }))
+    }))
+  };
+}
+
+function generateMockSvg(structure: MindMapStructure, isHorizontal?: boolean): string {
+  // GENERACIÓN SVG ULTRA-LIMPIA - MÁXIMA CLARIDAD Y LEGIBILIDAD - AGRANDADO
+  const width = isHorizontal ? 1400 : 1000; // Agrandado de 900 a 1000
+  const height = isHorizontal ? 900 : 1200;  // Agrandado de 800 a 1200
+  const centerX = isHorizontal ? 200 : width / 2;
+  const centerY = height / 2;
+  
+  let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 ${width} ${height}" style="background: #fafafa;">
+    <defs>
+      <filter id="cleanShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.15)"/>
+      </filter>
+      <style>
+        .node-text { 
+          font-family: 'Segoe UI', 'Arial', sans-serif; 
+          text-anchor: middle; 
+          dominant-baseline: middle; 
+          font-weight: 600;
+          letter-spacing: 0.5px;
+        }
+        .central-text { fill: #ffffff; font-size: 18px; font-weight: 700; }
+        .branch-text { fill: #ffffff; font-size: 14px; font-weight: 600; }
+        .sub-text { fill: #ffffff; font-size: 12px; font-weight: 500; }
+        .connection-line { 
+          stroke: #8b9dc3; 
+          stroke-width: 3; 
+          stroke-linecap: round;
+          opacity: 0.7;
+        }
+      </style>
+    </defs>`;
+
+  if (isHorizontal) {
+    // DISEÑO HORIZONTAL ULTRA-CLARO
+    
+    // Configuración de dimensiones
+    const centralWidth = 180;
+    const centralHeight = 80;
+    const centralX = centerX;
+    const centralY = centerY;
+    const branches = structure.mainBranches;
+    const availableHeight = height - 180;
+    const branchSpacing = availableHeight / (branches.length + 1);
+    
+    // PASO 1: DIBUJAR TODAS LAS LÍNEAS PRIMERO (AL FONDO)
+    branches.forEach((branch, branchIdx) => {
+      const branchY = 90 + (branchIdx + 1) * branchSpacing;
+      const branchX = centralX + 300;
+      const branchWidth = 150;
+      
+      // Línea de conexión central a rama
+      svg += `<line x1="${centralX + centralWidth/2}" y1="${centralY}" 
+        x2="${branchX - branchWidth/2}" y2="${branchY}" class="connection-line"/>`;
+      
+      // Líneas de conexión de rama a subnodos
+      if (branch.children && branch.children.length > 0) {
+        const subStartX = branchX + 180;
+        const subSpacing = Math.min(140, (width - subStartX - 100) / branch.children.length);
+        
+        branch.children.forEach((child: MindMapNode, childIdx: number) => {
+          const subX = subStartX + (childIdx * subSpacing);
+          const subY = branchY;
+          const subRadius = 55; // Agrandado de 38 a 55 para consistencia
+          
+          // Línea de conexión rama a subnodo
+          svg += `<line x1="${branchX + branchWidth/2}" y1="${branchY}" 
+            x2="${subX - subRadius - 2}" y2="${subY}" class="connection-line"/>`; // Ajustado para subnodos más grandes
+        });
+      }
+    });
+    
+    // PASO 2: DIBUJAR NODO CENTRAL
+    // Fondo blanco para el nodo central
+    svg += `<rect x="${centralX - centralWidth/2 - 2}" y="${centralY - centralHeight/2 - 2}" 
+      width="${centralWidth + 4}" height="${centralHeight + 4}" rx="15" 
+      fill="#ffffff" stroke="#e1e8ed" stroke-width="2"/>`;
+    
+    // Nodo central principal
+    svg += `<rect x="${centralX - centralWidth/2}" y="${centralY - centralHeight/2}" 
+      width="${centralWidth}" height="${centralHeight}" rx="12" 
+      fill="#2563eb" stroke="#1e40af" stroke-width="3" filter="url(#cleanShadow)"/>`;
+    
+    // Texto central - múltiples líneas si es necesario
+    const centralLines = cleanTextWrap(structure.centralThemeLabel, 16);
+    const lineHeight = 20;
+    const startY = centralY - ((centralLines.length - 1) * lineHeight / 2);
+    
+    centralLines.forEach((line, idx) => {
+      svg += `<text x="${centralX}" y="${startY + (idx * lineHeight)}" class="node-text central-text">${line}</text>`;
+    });
+    
+    // PASO 3: DIBUJAR RAMAS Y SUBNODOS
+    branches.forEach((branch, branchIdx) => {
+      const branchY = 90 + (branchIdx + 1) * branchSpacing;
+      const branchX = centralX + 300;
+      const branchWidth = 150;
+      const branchHeight = 60;
+      
+      // Fondo blanco para nodo rama
+      svg += `<rect x="${branchX - branchWidth/2 - 2}" y="${branchY - branchHeight/2 - 2}" 
+        width="${branchWidth + 4}" height="${branchHeight + 4}" rx="12" 
+        fill="#ffffff" stroke="#e1e8ed" stroke-width="2"/>`;
+      
+      // Nodo rama principal
+      svg += `<rect x="${branchX - branchWidth/2}" y="${branchY - branchHeight/2}" 
+        width="${branchWidth}" height="${branchHeight}" rx="10" 
+        fill="#059669" stroke="#047857" stroke-width="3" filter="url(#cleanShadow)"/>`;
+      
+      // Texto de rama - múltiples líneas
+      const branchLines = cleanTextWrap(branch.label, 18);
+      const branchStartY = branchY - ((branchLines.length - 1) * 16 / 2);
+      
+      branchLines.forEach((line, lineIdx) => {
+        svg += `<text x="${branchX}" y="${branchStartY + (lineIdx * 16)}" class="node-text branch-text">${line}</text>`;
+      });
+      
+      // Subnodos con espaciado perfecto
+      if (branch.children && branch.children.length > 0) {
+        const subStartX = branchX + 180;
+        const subSpacing = Math.min(160, (width - subStartX - 100) / branch.children.length); // Más espaciado
+        
+        branch.children.forEach((child: MindMapNode, childIdx: number) => {
+          const subX = subStartX + (childIdx * subSpacing);
+          const subY = branchY;
+          const subRadius = 55; // Agrandado de 45 a 55 para mejor formato de texto
+          
+          // Fondo blanco para subnodo
+          svg += `<circle cx="${subX}" cy="${subY}" r="${subRadius + 2}" 
+            fill="#ffffff" stroke="#e1e8ed" stroke-width="2"/>`;
+          
+          // Subnodo principal
+          svg += `<circle cx="${subX}" cy="${subY}" r="${subRadius}" 
+            fill="#dc2626" stroke="#b91c1c" stroke-width="3" filter="url(#cleanShadow)"/>`;
+          
+          // Texto del subnodo - ajustado para subnodos aún más grandes
+          const subLines = cleanTextWrap(child.label, 14); // Más caracteres por línea
+          const subStartY = subY - ((subLines.length - 1) * 14 / 2);
+          
+          subLines.forEach((line, lineIdx) => {
+            svg += `<text x="${subX}" y="${subStartY + (lineIdx * 14)}" class="node-text sub-text" 
+              style="font-size: 14px;">${line}</text>`; // Texto más grande
+          });
+        });
+      }
+    });
+    
+  } else {
+    // DISEÑO VERTICAL - JERARQUÍA TOP-DOWN SIMPLE - AGRANDADO
+    const centerX = width / 2;
+    const centerY = height * 0.15; // Nodo central más arriba para dar más espacio
+    const branches = structure.mainBranches;
+    
+    // 1. Líneas de conexión (más ligeras y siempre por debajo)
+    branches.forEach((branch, idx) => {
+      const branchY = centerY + 200; // Más espacio entre central y ramas
+      const branchX = (width / (branches.length + 1)) * (idx + 1);
+      
+      // Línea desde la parte inferior del nodo central
+      svg += `<line x1="${centerX}" y1="${centerY + 50}" 
+        x2="${branchX}" y2="${branchY - 30}" 
+        stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>`;
+      
+      if (branch.children && branch.children.length > 0) {
+        branch.children.forEach((child: MindMapNode, childIdx: number) => {
+          const subY = branchY + 140 + (childIdx * 90); // Más espacio entre subnodos
+          // Línea desde la parte inferior del nodo rama
+          svg += `<line x1="${branchX}" y1="${branchY + 30}" 
+            x2="${branchX}" y2="${subY - 30}" 
+            stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>`;
+        });
+      }
+    });
+    
+    // 2. Nodo central (agrandado)
+    svg += `<circle cx="${centerX}" cy="${centerY}" r="50" 
+      fill="#4f46e5" stroke="none"/>`;
+    
+    const centralLines = wrapText(structure.centralThemeLabel, 14);
+    const centralStartY = centerY - ((centralLines.length - 1) * 16 / 2);
+    
+    centralLines.forEach((line, idx) => {
+      svg += `<text x="${centerX}" y="${centralStartY + (idx * 16)}" 
+        font-family="Arial, sans-serif" font-size="18" font-weight="bold" 
+        fill="white" text-anchor="middle" dominant-baseline="middle">${line}</text>`;
+    });
+    
+    // 3. Ramas y subnodos (agrandados)
+    branches.forEach((branch, idx) => {
+      const branchY = centerY + 200; // Más espacio
+      const branchX = (width / (branches.length + 1)) * (idx + 1);
+      
+      // Nodo rama (agrandado)
+      svg += `<rect x="${branchX - 80}" y="${branchY - 30}" 
+        width="160" height="60" rx="12" 
+        fill="#059669" stroke="none"/>`;
+      
+      const branchLines = wrapText(branch.label, 18);
+      const branchStartY = branchY - ((branchLines.length - 1) * 14 / 2);
+      
+      branchLines.forEach((line, lineIdx) => {
+        svg += `<text x="${branchX}" y="${branchStartY + (lineIdx * 14)}" 
+          font-family="Arial, sans-serif" font-size="14" font-weight="600" 
+          fill="white" text-anchor="middle" dominant-baseline="middle">${line}</text>`;
+      });
+      
+      // Subnodos (agrandados para mejor formato de texto)
+      if (branch.children && branch.children.length > 0) {
+        branch.children.forEach((child: MindMapNode, childIdx: number) => {
+          const subY = branchY + 140 + (childIdx * 90); // Más espacio
+          
+          svg += `<circle cx="${branchX}" cy="${subY}" r="50" 
+            fill="#ef4444" stroke="none"/>`; // Agrandado de 45 a 50
+          
+          const subLines = wrapText(child.label, 14); // Más caracteres para subnodos más grandes
+          const subStartY = subY - ((subLines.length - 1) * 14 / 2);
+          
+          subLines.forEach((line, lineIdx) => {
+            svg += `<text x="${branchX}" y="${subStartY + (lineIdx * 14)}" 
+              font-family="Arial, sans-serif" font-size="14" font-weight="500" 
+              fill="white" text-anchor="middle" dominant-baseline="middle">${line}</text>`; // Texto más grande
+          });
+        });
+      }
+    });
+  }
+  
+  svg += '</svg>';
+  return svg;
+}
+
+// Función de envoltura de texto ultra-inteligente inspirada en D3.js
+function intelligentTextWrap(text: string, maxChars: number): string[] {
+  if (!text || text.length <= maxChars) return [text || ''];
+  
+  // Algoritmo de wrapping optimizado
+  const words = text.split(' ');
+  if (words.length === 1) {
+    // Manejo inteligente de palabras largas
+    if (text.length > maxChars * 1.5) {
+      const midPoint = Math.ceil(text.length / 2);
+      return [text.substring(0, midPoint), text.substring(midPoint)];
+    }
+    return [text];
+  }
+  
+  const lines: string[] = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    
+    if (testLine.length <= maxChars) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        // Palabra muy larga - dividir inteligentemente
+        if (word.length > maxChars) {
+          lines.push(word.substring(0, maxChars));
+          currentLine = word.substring(maxChars);
+        } else {
+          currentLine = word;
+        }
+      }
+    }
+  }
+  
+  if (currentLine) lines.push(currentLine);
+  
+  // Máximo 2 líneas para mantener diseño limpio
+  return lines.slice(0, 2);
+}
+
+// Función de envoltura de texto ultra-simple para compatibilidad
+function ultraSimpleWrap(text: string, maxChars: number): string[] {
+  if (!text || text.length <= maxChars) return [text || ''];
+  
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    
+    if (testLine.length <= maxChars) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        // Si una palabra es muy larga, córtala de forma simple
+        lines.push(word.substring(0, maxChars));
+        currentLine = word.length > maxChars ? word.substring(maxChars) : '';
+      }
+    }
+  }
+  
+  if (currentLine) lines.push(currentLine);
+  
+  // Máximo 2 líneas para mantener el diseño ultra-simple
+  return lines.slice(0, 2);
+}
+
+// Función de envoltura de texto simple y limpia (mantenida para compatibilidad)
+function cleanTextWrap(text: string, maxChars: number): string[] {
+  if (!text || text.length <= maxChars) return [text || ''];
+  
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    
+    if (testLine.length <= maxChars) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        // Si una palabra es muy larga, córtala
+        lines.push(word.substring(0, maxChars));
+        currentLine = word.length > maxChars ? word.substring(maxChars) : '';
+      }
+    }
+  }
+  
+  if (currentLine) lines.push(currentLine);
+  
+  // Máximo 2 líneas para mantener legibilidad
+  return lines.slice(0, 2);
+}
+
+// Función de utilidad mantenida para compatibilidad
+function wrapText(text: string, maxLength: number): string[] {
+  return cleanTextWrap(text, maxLength);
+}
+
+// ============================================================================
+// FUNCIONES MEJORADAS PARA GENERACIÓN SVG ULTRA-PROFESIONAL
+// ============================================================================
+
+/**
+ * Genera un SVG con diseño ultra-profesional inspirado en D3.js
+ */
+function generateEnhancedSvg(structure: MindMapStructure, isHorizontal?: boolean): string {
+  // DISEÑO ULTRA-PROFESIONAL - CANVAS OPTIMIZADO
+  const width = isHorizontal ? 1400 : 1000;
+  const height = isHorizontal ? 800 : 1200;
+  
+  // Paleta de colores profesional inspirada en D3.js Tableau10
+  const colorScheme = [
+    '#4e79a7', // Central - azul profundo
+    '#f28e2c', // Rama 1 - naranja
+    '#e15759', // Rama 2 - rojo coral
+    '#76b7b2', // Rama 3 - verde azulado
+    '#59a14f', // Rama 4 - verde
+    '#edc949', // Rama 5 - amarillo
+    '#af7aa1', // Rama 6 - púrpura
+    '#ff9d9a', // Subnodos - rosa claro
+    '#9c755f', // Extra - marrón
+    '#bab0ab'  // Extra - gris
+  ];
+  
+  const colors = {
+    background: '#ffffff',
+    text: '#ffffff',
+    line: '#999999',
+    accent: '#f8f9fa',
+    shadow: 'rgba(0,0,0,0.1)'
+  };
+  
+  let svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 ${width} ${height}" style="background: ${colors.background};">
+    
+    <defs>
+      <filter id="professionalShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="${colors.shadow}" flood-opacity="0.3"/>
+      </filter>
+      <style>
+        .professional-text { 
+          font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif; 
+          text-anchor: middle; 
+          dominant-baseline: middle; 
+          font-weight: 600;
+          letter-spacing: 0.3px;
+        }
+        .central-text { fill: ${colors.text}; font-size: 20px; font-weight: 700; }
+        .branch-text { fill: ${colors.text}; font-size: 15px; font-weight: 600; }
+        .sub-text { fill: ${colors.text}; font-size: 13px; font-weight: 500; }
+        .connection-line { 
+          stroke: ${colors.line}; 
+          stroke-width: 2.5; 
+          stroke-linecap: round;
+          opacity: 0.8;
+        }
+      </style>
+    </defs>`;
+
+  if (isHorizontal) {
+    // DISEÑO HORIZONTAL PROFESIONAL - INSPIRADO EN D3.js
+    const centerX = 180;
+    const centerY = height / 2;
+    const centralW = 180;
+    const centralH = 80;
+    const branches = structure.mainBranches;
+    
+    // Algoritmo de posicionamiento mejorado - evita colisiones
+    const branchSpacing = Math.max(120, (height - 120) / branches.length);
+    const branchStartY = centerY - ((branches.length - 1) * branchSpacing / 2);
+    
+    // PASO 1: Líneas de conexión profesionales
+    branches.forEach((branch, idx) => {
+      const branchY: number = branchStartY + (idx * branchSpacing);
+      const branchX = centerX + 300;
+      const branchColor = colorScheme[idx + 1] || colorScheme[1];
+      
+      // Línea central → rama con mejor estilo
+      svg += `<line x1="${centerX + centralW/2}" y1="${centerY}" 
+        x2="${branchX - 80}" y2="${branchY}" class="connection-line" 
+        stroke="${colors.line}" stroke-width="3"/>`;
+      
+      // Líneas rama → subnodos con espaciado inteligente
+      if (branch.children && branch.children.length > 0) {
+        const subStartX = branchX + 220;
+        const subSpacing = Math.max(130, 400 / branch.children.length); // Espaciado adaptativo
+        
+        branch.children.forEach((child: MindMapNode, childIdx: number) => {
+          const subX = subStartX + (childIdx * subSpacing);
+          const subRadius = 50; // Tamaño óptimo
+          
+          svg += `<line x1="${branchX + 80}" y1="${branchY}" 
+            x2="${subX - subRadius}" y2="${branchY}" class="connection-line" 
+            stroke="${colors.line}" stroke-width="2"/>`;
+        });
+      }
+    });
+    
+    // PASO 2: Nodo central profesional
+    svg += `<rect x="${centerX - centralW/2}" y="${centerY - centralH/2}" 
+      width="${centralW}" height="${centralH}" rx="20" 
+      fill="${colorScheme[0]}" stroke="none" filter="url(#professionalShadow)"/>`;
+    
+    const centralLines = intelligentTextWrap(structure.centralThemeLabel, 16);
+    const centralStartY = centerY - ((centralLines.length - 1) * 20 / 2);
+    centralLines.forEach((line: string, idx: number) => {
+      svg += `<text x="${centerX}" y="${centralStartY + (idx * 20)}" class="professional-text central-text">${line}</text>`;
+    });
+    
+    // PASO 3: Ramas y subnodos con colores diferenciados
+    branches.forEach((branch, idx) => {
+      const branchY: number = branchStartY + (idx * branchSpacing);
+      const branchX = centerX + 300;
+      const branchW = 160;
+      const branchH = 60;
+      const branchColor = colorScheme[idx + 1] || colorScheme[1];
+      
+      // Nodo rama con color único
+      svg += `<rect x="${branchX - branchW/2}" y="${branchY - branchH/2}" 
+        width="${branchW}" height="${branchH}" rx="15" 
+        fill="${branchColor}" stroke="none" filter="url(#professionalShadow)"/>`;
+      
+      const branchLines = intelligentTextWrap(branch.label, 18);
+      const branchTextStartY: number = branchY - ((branchLines.length - 1) * 16 / 2);
+      branchLines.forEach((line: string, lineIdx: number) => {
+        svg += `<text x="${branchX}" y="${branchTextStartY + (lineIdx * 16)}" class="professional-text branch-text">${line}</text>`;
+      });
+      
+      // Subnodos optimizados
+      if (branch.children && branch.children.length > 0) {
+        const subStartX = branchX + 220;
+        const subSpacing = Math.max(130, 400 / branch.children.length);
+        const subColor = colorScheme[7]; // Color consistente para subnodos
+        
+        branch.children.forEach((child: MindMapNode, childIdx: number) => {
+          const subX = subStartX + (childIdx * subSpacing);
+          const subRadius = 50;
+          
+          svg += `<circle cx="${subX}" cy="${branchY}" r="${subRadius}" 
+            fill="${subColor}" stroke="none" filter="url(#professionalShadow)"/>`;
+          
+          const subLines = intelligentTextWrap(child.label, 12);
+          const subTextStartY: number = branchY - ((subLines.length - 1) * 14 / 2);
+          subLines.forEach((line: string, lineIdx: number) => {
+            svg += `<text x="${subX}" y="${subTextStartY + (lineIdx * 14)}" class="professional-text sub-text">${line}</text>`;
+          });
+        });
+      }
+    });
+    
+  } else {
+    // DISEÑO VERTICAL PROFESIONAL - INSPIRADO EN D3.js
+    const centerX = width / 2;
+    const startY = 120;
+    const centralR = 85; // Agrandado
+    const branches = structure.mainBranches;
+    
+    // PASO 1: ALGORITMO DE POSICIONAMIENTO INTELIGENTE
+    const branchY = startY + 250; // Más espacio
+    const totalBranchWidth = Math.min(width - 120, branches.length * 200); // Más ancho
+    const branchStartX = centerX - (totalBranchWidth / 2);
+    const branchSpacing = totalBranchWidth / branches.length;
+    
+    // Líneas de conexión profesionales
+    branches.forEach((branch, idx) => {
+      const branchX = branchStartX + (idx + 0.5) * branchSpacing;
+      const branchColor = colorScheme[idx + 1] || colorScheme[1];
+      
+      // Línea central → rama (desde la parte inferior del central)
+      svg += `<line x1="${centerX}" y1="${startY + centralR}" 
+        x2="${branchX}" y2="${branchY - 35}" class="connection-line" 
+        stroke="${colors.line}" stroke-width="3"/>`;
+      
+      // Líneas rama → subnodos
+      if (branch.children && branch.children.length > 0) {
+        const subStartY = branchY + 140;
+        const subSpacing = 100; // Espaciado optimizado
+        
+        branch.children.forEach((child: MindMapNode, childIdx: number) => {
+          const subY = subStartY + (childIdx * subSpacing);
+          const subR = 50; // Agrandado de 40 a 50 para mejor formato de texto
+          
+          svg += `<line x1="${branchX}" y1="${branchY + 35}" 
+            x2="${branchX}" y2="${subY - subR}" class="connection-line" 
+            stroke="${colors.line}" stroke-width="2"/>`;
+        });
+      }
+    });
+    
+    // PASO 2: NODO CENTRAL PROFESIONAL
+    svg += `<circle cx="${centerX}" cy="${startY}" r="${centralR}" 
+      fill="${colorScheme[0]}" stroke="none" filter="url(#professionalShadow)"/>`;
+    
+    const centralLines = intelligentTextWrap(structure.centralThemeLabel, 16);
+    const centralTextY = startY - ((centralLines.length - 1) * 22 / 2);
+    centralLines.forEach((line: string, idx: number) => {
+      svg += `<text x="${centerX}" y="${centralTextY + (idx * 22)}" class="professional-text central-text" 
+        style="font-size: 22px;">${line}</text>`;
+    });
+    
+    // PASO 3: RAMAS PRINCIPALES CON COLORES ÚNICOS
+    branches.forEach((branch, idx) => {
+      const branchX = branchStartX + (idx + 0.5) * branchSpacing;
+      const branchW = 170; // Agrandado
+      const branchH = 70;  // Agrandado
+      const branchColor = colorScheme[idx + 1] || colorScheme[1];
+      
+      // Nodo rama profesional
+      svg += `<rect x="${branchX - branchW/2}" y="${branchY - branchH/2}" 
+        width="${branchW}" height="${branchH}" rx="18" 
+        fill="${branchColor}" stroke="none" filter="url(#professionalShadow)"/>`;
+      
+      const branchLines = intelligentTextWrap(branch.label, 18);
+      const branchTextY = branchY - ((branchLines.length - 1) * 18 / 2);
+      branchLines.forEach((line: string, lineIdx: number) => {
+        svg += `<text x="${branchX}" y="${branchTextY + (lineIdx * 18)}" class="professional-text branch-text" 
+          style="font-size: 16px;">${line}</text>`;
+      });
+      
+      // PASO 4: SUBNODOS OPTIMIZADOS
+      if (branch.children && branch.children.length > 0) {
+        const subStartY = branchY + 140;
+        const subSpacing = 100;
+        const subColor = colorScheme[7]; // Color consistente para subnodos
+        
+        branch.children.forEach((child: MindMapNode, childIdx: number) => {
+          const subY = subStartY + (childIdx * subSpacing);
+          const subR = 50; // Agrandado de 40 a 50 para mejor texto
+          
+          // Subnodo profesional
+          svg += `<circle cx="${branchX}" cy="${subY}" r="${subR}" 
+            fill="${subColor}" stroke="none" filter="url(#professionalShadow)"/>`;
+          
+          const subLines = intelligentTextWrap(child.label, 12); // Más caracteres por línea
+          const subTextY = subY - ((subLines.length - 1) * 14 / 2);
+          subLines.forEach((line: string, lineIdx: number) => {
+            svg += `<text x="${branchX}" y="${subTextY + (lineIdx * 14)}" class="professional-text sub-text" 
+              style="font-size: 14px;">${line}</text>`; // Texto más grande
+          });
+        });
+      }
+    });
+  }
+  
+  svg += '</svg>';
+  return svg;
+}
+
+/**
+ * Función mejorada de envoltura de texto con algoritmo más inteligente
+ */
+function smartTextWrap(text: string, maxChars: number): string[] {
+  if (!text || text.length <= maxChars) return [text || ''];
+  
+  // Primero intentar cortar por palabras
+  const words = text.split(' ');
+  if (words.length === 1) {
+    // Si es una sola palabra muy larga, cortarla inteligentemente
+    if (text.length > maxChars * 2) {
+      return [text.substring(0, maxChars), text.substring(maxChars, maxChars * 2)];
+    }
+    return [text];
+  }
+  
+  const lines: string[] = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    
+    if (testLine.length <= maxChars) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        // Si una palabra es muy larga, cortarla inteligentemente
+        if (word.length > maxChars) {
+          lines.push(word.substring(0, maxChars));
+          currentLine = word.substring(maxChars);
+        } else {
+          currentLine = word;
+        }
+      }
+    }
+  }
+  
+  if (currentLine) lines.push(currentLine);
+  
+  // Máximo 3 líneas para el nuevo diseño mejorado
+  return lines.slice(0, 3);
+}
+
+// Función de utilidad para compatibilidad con el diseño anterior
+function enhancedTextWrap(text: string, maxChars: number): string[] {
+  return smartTextWrap(text, maxChars);
+}

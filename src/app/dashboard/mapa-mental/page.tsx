@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Network, Sparkles, Download, Newspaper as SummaryIcon, FileQuestion, ClipboardList } from 'lucide-react'; 
 import { BookCourseSelector } from '@/components/common/book-course-selector';
-import { createMindMap } from '@/ai/flows/create-mind-map';
+import { createMindMapAction } from '@/actions/mind-map-actions';
 import { useToast } from "@/hooks/use-toast";
 import { useAIProgress } from "@/hooks/use-ai-progress";
 import { cn } from '@/lib/utils';
@@ -46,7 +46,7 @@ export default function MapaMentalPage() {
     const progressInterval = startProgress('mindmap', 10000);
     
     try {
-      const result = await createMindMap({
+      const result = await createMindMapAction({
         centralTheme: centralTheme.trim(),
         bookTitle: selectedBook,
         language: currentUiLanguage,
@@ -76,7 +76,7 @@ export default function MapaMentalPage() {
   const handleDownloadPdf = () => {
     if (!mindMapResult) return;
 
-    const title = `${translate('mindMapResultTitle')} - ${currentCentralThemeForDisplay.toUpperCase()}`;
+    const title = `${translate('mindMapResultTitle').toUpperCase()} - ${currentCentralThemeForDisplay.toUpperCase()}`;
     
     const contentHtml = `
       <html>
@@ -172,7 +172,7 @@ export default function MapaMentalPage() {
         <Card className="w-full max-w-3xl text-left shadow-md">
            <CardHeader>
             <CardTitle className="font-headline text-center mind-map-title">
-              {translate('mindMapResultTitle')} - {currentCentralThemeForDisplay.toUpperCase()}
+              {translate('mindMapResultTitle').toUpperCase()} - {currentCentralThemeForDisplay.toUpperCase()}
             </CardTitle>
           </CardHeader>
           <CardContent>
