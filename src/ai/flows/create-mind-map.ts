@@ -571,13 +571,17 @@ function generateMockSvg(structure: MindMapStructure, isHorizontal?: boolean): s
           svg += `<circle cx="${subX}" cy="${subY}" r="${subRadius}" 
             fill="#dc2626" stroke="#b91c1c" stroke-width="3" filter="url(#cleanShadow)"/>`;
           
-          // Texto del subnodo - ajustado para subnodos aún más grandes
+          // Texto del subnodo - perfectamente centrado en el círculo
           const subLines = cleanTextWrap(child.label, 14); // Más caracteres por línea
-          const subStartY = subY - ((subLines.length - 1) * 14 / 2);
+          const lineHeight = 14;
+          const totalTextHeight = (subLines.length - 1) * lineHeight;
+          const subStartY = subY - (totalTextHeight / 2);
           
           subLines.forEach((line, lineIdx) => {
-            svg += `<text x="${subX}" y="${subStartY + (lineIdx * 14)}" class="node-text sub-text" 
-              style="font-size: 14px;">${line}</text>`; // Texto más grande
+            const yPosition = subStartY + (lineIdx * lineHeight);
+            svg += `<text x="${subX}" y="${yPosition}" class="node-text sub-text" 
+              text-anchor="middle" dominant-baseline="middle" 
+              style="font-size: 14px;">${line}</text>`; // Texto perfectamente centrado
           });
         });
       }
@@ -651,12 +655,15 @@ function generateMockSvg(structure: MindMapStructure, isHorizontal?: boolean): s
             fill="#ef4444" stroke="none"/>`; // Agrandado de 45 a 50
           
           const subLines = wrapText(child.label, 14); // Más caracteres para subnodos más grandes
-          const subStartY = subY - ((subLines.length - 1) * 14 / 2);
+          const lineHeight = 14;
+          const totalTextHeight = (subLines.length - 1) * lineHeight;
+          const subStartY = subY - (totalTextHeight / 2);
           
           subLines.forEach((line, lineIdx) => {
-            svg += `<text x="${branchX}" y="${subStartY + (lineIdx * 14)}" 
+            const yPosition = subStartY + (lineIdx * lineHeight);
+            svg += `<text x="${branchX}" y="${yPosition}" 
               font-family="Arial, sans-serif" font-size="14" font-weight="500" 
-              fill="white" text-anchor="middle" dominant-baseline="middle">${line}</text>`; // Texto más grande
+              fill="white" text-anchor="middle" dominant-baseline="middle">${line}</text>`; // Texto perfectamente centrado
           });
         });
       }
@@ -923,9 +930,13 @@ function generateEnhancedSvg(structure: MindMapStructure, isHorizontal?: boolean
             fill="${subColor}" stroke="none" filter="url(#professionalShadow)"/>`;
           
           const subLines = intelligentTextWrap(child.label, 12);
-          const subTextStartY: number = branchY - ((subLines.length - 1) * 14 / 2);
+          const lineHeight = 14;
+          const totalTextHeight = (subLines.length - 1) * lineHeight;
+          const subTextStartY: number = branchY - (totalTextHeight / 2);
           subLines.forEach((line: string, lineIdx: number) => {
-            svg += `<text x="${subX}" y="${subTextStartY + (lineIdx * 14)}" class="professional-text sub-text">${line}</text>`;
+            const yPosition = subTextStartY + (lineIdx * lineHeight);
+            svg += `<text x="${subX}" y="${yPosition}" class="professional-text sub-text" 
+              text-anchor="middle" dominant-baseline="middle">${line}</text>`;
           });
         });
       }
@@ -1015,10 +1026,13 @@ function generateEnhancedSvg(structure: MindMapStructure, isHorizontal?: boolean
             fill="${subColor}" stroke="none" filter="url(#professionalShadow)"/>`;
           
           const subLines = intelligentTextWrap(child.label, 12); // Más caracteres por línea
-          const subTextY = subY - ((subLines.length - 1) * 14 / 2);
+          const lineHeight = 14;
+          const totalTextHeight = (subLines.length - 1) * lineHeight;
+          const subTextY = subY - (totalTextHeight / 2);
           subLines.forEach((line: string, lineIdx: number) => {
-            svg += `<text x="${branchX}" y="${subTextY + (lineIdx * 14)}" class="professional-text sub-text" 
-              style="font-size: 14px;">${line}</text>`; // Texto más grande
+            const yPosition = subTextY + (lineIdx * lineHeight);
+            svg += `<text x="${branchX}" y="${yPosition}" class="professional-text sub-text" 
+              text-anchor="middle" dominant-baseline="middle" style="font-size: 14px;">${line}</text>`; // Texto perfectamente centrado
           });
         });
       }

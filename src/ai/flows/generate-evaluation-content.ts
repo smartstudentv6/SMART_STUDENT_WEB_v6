@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -16,6 +15,8 @@ const GenerateEvaluationInputSchema = z.object({
   topic: z.string().describe('The specific topic for the evaluation.'),
   bookTitle: z.string().describe('The title of the book to base the evaluation on.'),
   language: z.enum(['es', 'en']).describe('The language for the evaluation content (e.g., "es" for Spanish, "en" for English).'),
+  questionCount: z.number().optional().describe('Number of questions to generate (default: 15)'),
+  timeLimit: z.number().optional().describe('Time limit in seconds (default: 120)'),
 });
 type GenerateEvaluationInput = z.infer<typeof GenerateEvaluationInputSchema>;
 
@@ -27,6 +28,8 @@ const GenerateDynamicEvaluationInputSchema = z.object({
   pdfContent: z.string().describe('The actual content extracted from the PDF book.'),
   timestamp: z.number().describe('Timestamp to ensure uniqueness.'),
   randomSeed: z.number().describe('Random seed to ensure variability in questions.'),
+  questionCount: z.number().optional().describe('Number of questions to generate (default: 15)'),
+  timeLimit: z.number().optional().describe('Time limit in seconds (default: 120)'),
 });
 type GenerateDynamicEvaluationInput = z.infer<typeof GenerateDynamicEvaluationInputSchema>;
 
@@ -68,131 +71,75 @@ type GenerateEvaluationOutput = z.infer<typeof GenerateEvaluationOutputSchema>;
 
 export async function generateEvaluationContent(input: GenerateEvaluationInput): Promise<GenerateEvaluationOutput> {
   try {
+    const questionCount = input.questionCount || 15;
+    
+    console.log('🔍 generateEvaluationContent called with:', {
+      questionCount: input.questionCount,
+      questionCountUsed: questionCount,
+      topic: input.topic,
+      bookTitle: input.bookTitle,
+      timeLimit: input.timeLimit
+    });
+    
     // Check if API key is available
     if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'your_google_api_key_here') {
-      // Return mock data for development
+      console.log('📝 Using mock generation with questionCount:', questionCount);
+      // Generate mock data dynamically based on questionCount
+      const mockQuestions: EvaluationQuestion[] = [];
+      
+      // Generate questions dynamically
+      for (let i = 1; i <= questionCount; i++) {
+        const questionTypes: ('TRUE_FALSE' | 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECTION')[] = ['TRUE_FALSE', 'MULTIPLE_CHOICE', 'MULTIPLE_SELECTION'];
+        const type = questionTypes[(i - 1) % 3]; // Distribute evenly
+        
+        if (type === 'TRUE_FALSE') {
+          mockQuestions.push({
+            id: i.toString(),
+            type: 'TRUE_FALSE',
+            questionText: `¿El concepto ${i} de "${input.topic}" está relacionado con "${input.bookTitle}"?`,
+            correctAnswer: i % 2 === 1, // Alternate true/false
+            explanation: `Esta es una pregunta de ejemplo ${i} mientras se configura la API.`
+          });
+        } else if (type === 'MULTIPLE_CHOICE') {
+          mockQuestions.push({
+            id: i.toString(),
+            type: 'MULTIPLE_CHOICE',
+            questionText: `¿Cuál es el aspecto más importante del concepto ${i} en "${input.topic}"?`,
+            options: [
+              `Característica A del concepto ${i}`,
+              `Característica B del concepto ${i}`,
+              `Característica C del concepto ${i}`,
+              `Característica D del concepto ${i}`
+            ],
+            correctAnswerIndex: (i - 1) % 4, // Distribute answers
+            explanation: `Esta es una pregunta de ejemplo ${i} mientras se configura la API.`
+          });
+        } else {
+          mockQuestions.push({
+            id: i.toString(),
+            type: 'MULTIPLE_SELECTION',
+            questionText: `¿Cuáles son las características principales del concepto ${i} en "${input.topic}"? (Selecciona todas las correctas)`,
+            options: [
+              `Característica principal A del concepto ${i}`,
+              `Característica principal B del concepto ${i}`,
+              `Característica principal C del concepto ${i}`,
+              `Característica principal D del concepto ${i}`
+            ],
+            correctAnswerIndices: [0, (i % 3) + 1], // Two correct answers
+            explanation: `Esta es una pregunta de ejemplo ${i} mientras se configura la API.`
+          });
+        }
+      }
+      
+      console.log('✅ Mock questions generated:', {
+        requested: questionCount,
+        generated: mockQuestions.length,
+        questions: mockQuestions.map(q => ({ id: q.id, type: q.type, text: q.questionText.substring(0, 50) + '...' }))
+      });
+      
       return {
         evaluationTitle: `Evaluación - ${input.topic.toUpperCase()}`,
-        questions: [
-          // 5 True/False questions
-          {
-            id: '1',
-            type: 'TRUE_FALSE',
-            questionText: `¿El tema "${input.topic}" está relacionado con "${input.bookTitle}"?`,
-            correctAnswer: true,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '2',
-            type: 'TRUE_FALSE',
-            questionText: `¿Los conceptos de "${input.topic}" son fundamentales en "${input.bookTitle}"?`,
-            correctAnswer: true,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '3',
-            type: 'TRUE_FALSE',
-            questionText: `¿El estudio de "${input.topic}" requiere comprensión previa?`,
-            correctAnswer: false,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '4',
-            type: 'TRUE_FALSE',
-            questionText: `¿Los principios de "${input.topic}" se aplican en la práctica?`,
-            correctAnswer: true,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '5',
-            type: 'TRUE_FALSE',
-            questionText: `¿El tema "${input.topic}" es complejo de entender?`,
-            correctAnswer: false,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          // 5 Multiple Choice questions
-          {
-            id: '6',
-            type: 'MULTIPLE_CHOICE',
-            questionText: `¿Cuál es el concepto principal de "${input.topic}"?`,
-            options: ['Opción A', 'Opción B', 'Opción C', 'Opción D'],
-            correctAnswerIndex: 0,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '7',
-            type: 'MULTIPLE_CHOICE',
-            questionText: `¿Qué aplicación práctica tiene "${input.topic}"?`,
-            options: ['Aplicación 1', 'Aplicación 2', 'Aplicación 3', 'Aplicación 4'],
-            correctAnswerIndex: 1,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '8',
-            type: 'MULTIPLE_CHOICE',
-            questionText: `¿Cuál es la importancia de "${input.topic}" en "${input.bookTitle}"?`,
-            options: ['Muy importante', 'Poco importante', 'No importante', 'Fundamental'],
-            correctAnswerIndex: 3,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '9',
-            type: 'MULTIPLE_CHOICE',
-            questionText: `¿Qué metodología se usa para "${input.topic}"?`,
-            options: ['Método A', 'Método B', 'Método C', 'Método D'],
-            correctAnswerIndex: 2,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '10',
-            type: 'MULTIPLE_CHOICE',
-            questionText: `¿Cuál es el resultado esperado de "${input.topic}"?`,
-            options: ['Resultado 1', 'Resultado 2', 'Resultado 3', 'Resultado 4'],
-            correctAnswerIndex: 0,
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          // 5 Multiple Selection questions
-          {
-            id: '11',
-            type: 'MULTIPLE_SELECTION',
-            questionText: `¿Cuáles son las características de "${input.topic}"? (Selecciona todas las correctas)`,
-            options: ['Característica A', 'Característica B', 'Característica C', 'Característica D'],
-            correctAnswerIndices: [0, 2],
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '12',
-            type: 'MULTIPLE_SELECTION',
-            questionText: `¿Qué elementos incluye "${input.topic}"? (Selecciona todas las correctas)`,
-            options: ['Elemento 1', 'Elemento 2', 'Elemento 3', 'Elemento 4'],
-            correctAnswerIndices: [1, 3],
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '13',
-            type: 'MULTIPLE_SELECTION',
-            questionText: `¿Cuáles son los beneficios de "${input.topic}"? (Selecciona todas las correctas)`,
-            options: ['Beneficio A', 'Beneficio B', 'Beneficio C', 'Beneficio D'],
-            correctAnswerIndices: [0, 1, 2],
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '14',
-            type: 'MULTIPLE_SELECTION',
-            questionText: `¿Qué herramientas se usan en "${input.topic}"? (Selecciona todas las correctas)`,
-            options: ['Herramienta 1', 'Herramienta 2', 'Herramienta 3', 'Herramienta 4'],
-            correctAnswerIndices: [0, 3],
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          },
-          {
-            id: '15',
-            type: 'MULTIPLE_SELECTION',
-            questionText: `¿Cuáles son los pasos para "${input.topic}"? (Selecciona todas las correctas)`,
-            options: ['Paso 1', 'Paso 2', 'Paso 3', 'Paso 4'],
-            correctAnswerIndices: [1, 2],
-            explanation: 'Esta es una pregunta de ejemplo mientras se configura la API.'
-          }
-        ]
+        questions: mockQuestions
       };
     }
     
@@ -201,14 +148,13 @@ export async function generateEvaluationContent(input: GenerateEvaluationInput):
     console.error('Error generating evaluation content:', error);
     // Return fallback data
     return {
-      title: `Evaluación - ${input.topic.toUpperCase()}`,
+      evaluationTitle: `Evaluación - ${input.topic.toUpperCase()}`,
       questions: [
         {
-          id: 1,
-          type: 'true_false',
-          question: `¿El tema "${input.topic}" está relacionado con "${input.bookTitle}"?`,
-          options: [],
-          correct_answer: true,
+          id: '1',
+          type: 'TRUE_FALSE',
+          questionText: `¿El tema "${input.topic}" está relacionado con "${input.bookTitle}"?`,
+          correctAnswer: true,
           explanation: 'Pregunta generada como respaldo debido a un error en la API.'
         }
       ]
@@ -229,19 +175,19 @@ The language for all content (title, questions, options, explanations) MUST be {
 
 The evaluation must adhere to the following structure:
 1.  **Evaluation Title**: The title must be "{{title_prefix}} - {{topic_uppercase}}".
-2.  **Total Questions**: Generate exactly 15 unique questions. It is CRITICAL that you generate a COMPLETELY NEW and UNIQUE set of questions for this topic from this book, different from any set you might have generated previously for the same inputs. Do not repeat questions or question structures you may have used before for this specific topic and book. Avoid repetition.
-3.  **Question Types**:
-    *   Generate exactly 5 True/False questions.
-    *   Generate exactly 5 Multiple Choice questions.
-    *   Generate exactly 5 Multiple Selection questions.
+2.  **Total Questions**: Generate exactly {{questionCount}} unique questions. It is CRITICAL that you generate a COMPLETELY NEW and UNIQUE set of questions for this topic from this book, different from any set you might have generated previously for the same inputs. Do not repeat questions or question structures you may have used before for this specific topic and book. Avoid repetition.
+3.  **Question Types** (distribute evenly among the {{questionCount}} questions):
+    *   Generate approximately {{questionCount}}/3 True/False questions (rounded).
+    *   Generate approximately {{questionCount}}/3 Multiple Choice questions (rounded).
+    *   Generate approximately {{questionCount}}/3 Multiple Selection questions (rounded).
 4.  **For each question, ensure you provide**:
-    *   \`id\`: A unique string identifier for the question (e.g., "q1", "q2", "q3", ..., "q15").
+    *   \`id\`: A unique string identifier for the question (e.g., "q1", "q2", "q3", ..., "q{{questionCount}}").
     *   \`type\`: Set to "TRUE_FALSE" for true/false questions, "MULTIPLE_CHOICE" for multiple-choice questions, or "MULTIPLE_SELECTION" for multiple-selection questions.
     *   \`questionText\`: The clear and concise text of the question.
     *   \`explanation\`: A brief and clear explanation for why the correct answer is correct, referencing concepts from the book "{{bookTitle}}" if possible.
-5.  **Specifics for True/False Questions** (5 questions):
+5.  **Specifics for True/False Questions**:
     *   \`correctAnswer\`: A boolean value (\`true\` or \`false\`).
-6.  **Specifics for Multiple Choice Questions** (5 questions):
+6.  **Specifics for Multiple Choice Questions**:
     *   \`options\`: An array of exactly 4 distinct string options. Label them implicitly as A, B, C, D for the user, but just provide the string array.
     *   \`correctAnswerIndex\`: A number from 0 to 3 indicating the index of the correct option in the 'options' array.
 7.  **Specifics for Multiple Selection Questions** (5 questions):
@@ -251,20 +197,6 @@ The evaluation must adhere to the following structure:
 Example of a True/False question structure (if language is "es"):
 {
   "id": "q1",
-  "type": "TRUE_FALSE",
-  "questionText": "El sol gira alrededor de la tierra.",
-  "correctAnswer": false,
-  "explanation": "La tierra gira alrededor del sol, según el modelo heliocéntrico."
-}
-
-Example of a Multiple Choice question structure (if language is "es"):
-{
-  "id": "q2",
-  "type": "MULTIPLE_CHOICE",
-  "questionText": "¿Cuál es la capital de Francia?",
-  "options": ["Londres", "París", "Berlín", "Madrid"],
-  "correctAnswerIndex": 1,
-  "explanation": "París es la capital y ciudad más poblada de Francia."
 }
 
 Example of a Multiple Selection question structure (if language is "es"):
@@ -309,19 +241,19 @@ CRITICAL INSTRUCTIONS:
 
 The evaluation must adhere to the following structure:
 1.  **Evaluation Title**: The title must be "{{title_prefix}} - {{topic_uppercase}}".
-2.  **Total Questions**: Generate exactly 15 unique questions based on the PDF content above.
-3.  **Question Types** (EXACTLY 5 OF EACH):
-    *   Generate exactly 5 True/False questions (type: "TRUE_FALSE")
-    *   Generate exactly 5 Multiple Choice questions (type: "MULTIPLE_CHOICE") - single correct answer
-    *   Generate exactly 5 Multiple Selection questions (type: "MULTIPLE_SELECTION") - multiple correct answers
+2.  **Total Questions**: Generate exactly {{questionCount}} unique questions based on the PDF content above.
+3.  **Question Types** (distribute evenly among the {{questionCount}} questions):
+    *   Generate approximately {{questionCount}}/3 True/False questions (type: "TRUE_FALSE", rounded)
+    *   Generate approximately {{questionCount}}/3 Multiple Choice questions (type: "MULTIPLE_CHOICE", rounded) - single correct answer
+    *   Generate approximately {{questionCount}}/3 Multiple Selection questions (type: "MULTIPLE_SELECTION", rounded) - multiple correct answers
 4.  **For each question, ensure you provide**:
-    *   \`id\`: A unique string identifier including the timestamp (e.g., "q1_{{timestamp}}", "q2_{{timestamp}}", ..., "q15_{{timestamp}}").
+    *   \`id\`: A unique string identifier including the timestamp (e.g., "q1_{{timestamp}}", "q2_{{timestamp}}", ..., "q{{questionCount}}_{{timestamp}}").
     *   \`type\`: Set to "TRUE_FALSE", "MULTIPLE_CHOICE", or "MULTIPLE_SELECTION".
     *   \`questionText\`: The clear and concise text of the question, referencing specific content from the PDF.
     *   \`explanation\`: A brief explanation referencing the specific part of the PDF content where this information can be found.
-5.  **Specifics for True/False Questions** (5 questions):
+5.  **Specifics for True/False Questions**:
     *   \`correctAnswer\`: A boolean value (\`true\` or \`false\`).
-6.  **Specifics for Multiple Choice Questions (single answer)** (5 questions):
+6.  **Specifics for Multiple Choice Questions (single answer)**:
     *   \`options\`: An array of exactly 4 distinct string options based on the PDF content.
     *   \`correctAnswerIndex\`: A number from 0 to 3 indicating the index of the correct option.
 7.  **Specifics for Multiple Selection Questions (multiple answers)** (5 questions):
@@ -351,21 +283,23 @@ const generateEvaluationFlow = ai.defineFlow(
     outputSchema: GenerateEvaluationOutputSchema,
   },
   async (input: GenerateEvaluationInput): Promise<GenerateEvaluationOutput> => {
+    const questionCount = input.questionCount || 15;
     const titlePrefix = input.language === 'es' ? 'EVALUACIÓN' : 'EVALUATION';
     const promptInput = {
       ...input,
+      questionCount,
       topic_uppercase: input.topic.toUpperCase(),
       title_prefix: titlePrefix,
     };
     const {output} = await generateEvaluationPrompt(promptInput);
 
-    if (!output || !output.questions || output.questions.length !== 15) {
+    if (!output || !output.questions || output.questions.length !== questionCount) {
       console.error('AI response:', JSON.stringify(output, null, 2));
       if (output && output.questions) {
-        console.error(`Expected 15 questions, but received ${output.questions.length}.`);
+        console.error(`Expected ${questionCount} questions, but received ${output.questions.length}.`);
       }
       throw new Error(
-        `AI failed to generate the required 15 evaluation questions or the format is incorrect. Expected 15, got ${output?.questions?.length || 0}.`
+        `AI failed to generate the required ${questionCount} evaluation questions or the format is incorrect. Expected ${questionCount}, got ${output?.questions?.length || 0}.`
       );
     }
     return output;
@@ -380,21 +314,23 @@ const generateDynamicEvaluationFlow = ai.defineFlow(
     outputSchema: GenerateEvaluationOutputSchema,
   },
   async (input: GenerateDynamicEvaluationInput): Promise<GenerateEvaluationOutput> => {
+    const questionCount = input.questionCount || 15;
     const titlePrefix = input.language === 'es' ? 'EVALUACIÓN' : 'EVALUATION';
     const promptInput = {
       ...input,
+      questionCount,
       topic_uppercase: input.topic.toUpperCase(),
       title_prefix: titlePrefix,
     };
     const {output} = await generateDynamicEvaluationPrompt(promptInput);
 
-    if (!output || !output.questions || output.questions.length !== 15) {
+    if (!output || !output.questions || output.questions.length !== questionCount) {
       console.error('AI response:', JSON.stringify(output, null, 2));
       if (output && output.questions) {
-        console.error(`Expected 15 questions, but received ${output.questions.length}.`);
+        console.error(`Expected ${questionCount} questions, but received ${output.questions.length}.`);
       }
       throw new Error(
-        `AI failed to generate the required 15 evaluation questions or the format is incorrect. Expected 15, got ${output?.questions?.length || 0}.`
+        `AI failed to generate the required ${questionCount} evaluation questions or the format is incorrect. Expected ${questionCount}, got ${output?.questions?.length || 0}.`
       );
     }
     return output;

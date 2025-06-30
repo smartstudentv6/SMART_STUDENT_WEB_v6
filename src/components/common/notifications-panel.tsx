@@ -42,6 +42,7 @@ interface Task {
   course: string;
   assignedBy: string;
   assignedByName: string;
+  taskType: 'assignment' | 'evaluation'; // Tipo de tarea: normal o evaluación
 }
 
 interface PasswordRequest {
@@ -72,6 +73,33 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   const [pendingGrading, setPendingGrading] = useState<any[]>([]);
   const [count, setCount] = useState(propCount);
 
+  // Función para dividir texto en dos líneas para badges
+  const splitTextForBadge = (text: string, maxLength: number = 8): string[] => {
+    if (text.length <= maxLength) return [text];
+    
+    const words = text.split(' ');
+    if (words.length === 1) {
+      // Si es una sola palabra muy larga, dividirla por la mitad
+      const mid = Math.ceil(text.length / 2);
+      return [text.substring(0, mid), text.substring(mid)];
+    }
+    
+    let firstLine = '';
+    let secondLine = '';
+    let switchToSecond = false;
+    
+    for (const word of words) {
+      if (!switchToSecond && (firstLine + word).length <= maxLength) {
+        firstLine += (firstLine ? ' ' : '') + word;
+      } else {
+        switchToSecond = true;
+        secondLine += (secondLine ? ' ' : '') + word;
+      }
+    }
+    
+    return firstLine && secondLine ? [firstLine, secondLine] : [text];
+  };
+
   // Use the count provided by the parent component instead of calculating our own
   useEffect(() => {
     setCount(propCount);
@@ -81,6 +109,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     // Load data based on user role
     if (user) {
       console.log(`[NotificationsPanel] Loading data for user: ${user.username}, role: ${user.role}`);
+      
+      // 🔧 MIGRACIÓN: Actualizar notificaciones que muestran "Sistema"
+      TaskNotificationManager.migrateSystemNotifications();
       
       // Clear all states first to avoid residual data when switching users/roles
       setUnreadComments([]);
@@ -148,6 +179,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
 
     // Custom event listener for task notifications
     const handleTaskNotificationsUpdated = () => {
+      // 🔧 MEJORA: Ejecutar migración antes de recargar
+      TaskNotificationManager.migrateSystemNotifications();
       loadTaskNotifications();
     };
     window.addEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
@@ -204,7 +237,6 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         const now = new Date();
         const studentTasks = tasks.filter(task => {
           // Check if task is assigned to this student
-          // and if it hasn't been submitted yet
           const isAssigned = (
             task.course && user?.activeCourses?.includes(task.course)
           );
@@ -212,7 +244,19 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           const dueDate = new Date(task.dueDate);
           const isApproaching = dueDate > now; // Only include not overdue tasks
           
-          // Check if the student has already submitted this task
+          // 🔥 NUEVO: Para evaluaciones, verificar si ya fueron completadas
+          if (task.taskType === 'evaluation') {
+            const isCompleted = TaskNotificationManager.isEvaluationCompletedByStudent(
+              task.id, 
+              user?.username || ''
+            );
+            if (isCompleted) {
+              console.log(`[loadPendingTasks] ✅ Filtering out completed evaluation: ${task.title} for ${user?.username}`);
+              return false; // No mostrar evaluaciones completadas
+            }
+          }
+          
+          // Para tareas regulares, verificar si ya fueron entregadas
           const hasSubmitted = comments.some(comment => 
             comment.taskId === task.id && 
             comment.studentUsername === user?.username && 
@@ -228,6 +272,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         );
         
         setPendingTasks(studentTasks);
+        console.log(`[loadPendingTasks] Loaded ${studentTasks.length} pending tasks for ${user?.username}`);
       }
     } catch (error) {
       console.error('Error loading pending tasks:', error);
@@ -339,6 +384,26 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         user.username, 
         user.role as 'student' | 'teacher'
       );
+      
+      // Debug adicional para evaluaciones (solo para estudiantes)
+      if (user.role === 'student') {
+        const evaluationNotifications = notifications.filter(n => 
+          n.type === 'new_task' && n.taskType === 'evaluation'
+        );
+        
+        console.log(`[NotificationsPanel] ${user.username} evaluation notifications:`, 
+          evaluationNotifications.length);
+        
+        evaluationNotifications.forEach(n => {
+          const isCompleted = TaskNotificationManager.isEvaluationCompletedByStudent(
+            n.taskId, user.username
+          );
+          console.log(`[NotificationsPanel] ${n.taskTitle}: completed=${isCompleted}`);
+          if (isCompleted) {
+            console.warn(`[NotificationsPanel] ⚠️ COMPLETED evaluation still showing: ${n.taskTitle} for ${user.username}`);
+          }
+        });
+      }
       
       setTaskNotifications(notifications);
       console.log(`[NotificationsPanel] Loaded ${notifications.length} task notifications for ${user.username}`);
@@ -624,28 +689,33 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
-                      {/* Pending tasks section - MOVED TO FIRST POSITION */}
-                      {pendingTasks.length > 0 && (
+                      {/* Evaluaciones Pendientes section - FIRST POSITION */}
+                      {pendingTasks.filter(task => task.taskType === 'evaluation').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-muted/30">
-                            <h3 className="text-sm font-medium text-foreground">
-                              {translate('upcomingTasks')} ({pendingTasks.length})
+                          <div className="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400 dark:border-purple-500">
+                            <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                              {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} ({pendingTasks.filter(task => task.taskType === 'evaluation').length})
                             </h3>
                           </div>
                           
-                          {pendingTasks.slice(0, 3).map(task => (
+                          {pendingTasks
+                            .filter(task => task.taskType === 'evaluation')
+                            .slice(0, 3)
+                            .map(task => (
                             <div key={task.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
-                                <div className="bg-orange-100 p-2 rounded-full">
-                                  <Clock className="h-4 w-4 text-orange-600" />
+                                <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
+                                  <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-300" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <p className="font-medium text-sm">
                                       {task.title}
                                     </p>
-                                    <Badge variant="outline" className="text-xs">
-                                      {task.subject}
+                                    <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(task.subject).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
@@ -653,7 +723,63 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   </p>
                                   <Link 
                                     href={`/dashboard/tareas?taskId=${task.id}`}
-                                    className="inline-block mt-2 text-xs text-primary hover:underline"
+                                    className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                                  >
+                                    Ver Evaluación
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {pendingTasks.filter(task => task.taskType === 'evaluation').length > 3 && (
+                            <div className="px-4 py-3 text-center">
+                              <Link 
+                                href="/dashboard/tareas" 
+                                className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                              >
+                                {translate('viewAllTasks', { count: String(pendingTasks.filter(task => task.taskType === 'evaluation').length) })}
+                              </Link>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Tareas Pendientes section - SECOND POSITION */}
+                      {pendingTasks.filter(task => task.taskType === 'assignment').length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
+                            <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                              {translate('pendingTasks') || 'Tareas Pendientes'} ({pendingTasks.filter(task => task.taskType === 'assignment').length})
+                            </h3>
+                          </div>
+                          
+                          {pendingTasks
+                            .filter(task => task.taskType === 'assignment')
+                            .slice(0, 3)
+                            .map(task => (
+                            <div key={task.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
+                                  <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {task.title}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(task.subject).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {translate('duePrefix')} {formatDate(task.dueDate)}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${task.id}`}
+                                    className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
                                   >
                                     {translate('viewTask')}
                                   </Link>
@@ -662,13 +788,13 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             </div>
                           ))}
                           
-                          {pendingTasks.length > 3 && (
+                          {pendingTasks.filter(task => task.taskType === 'assignment').length > 3 && (
                             <div className="px-4 py-3 text-center">
                               <Link 
                                 href="/dashboard/tareas" 
-                                className="text-xs text-primary hover:underline"
+                                className="text-xs text-orange-600 dark:text-orange-400 hover:underline"
                               >
-                                {translate('viewAllTasks', { count: String(pendingTasks.length) })}
+                                {translate('viewAllTasks', { count: String(pendingTasks.filter(task => task.taskType === 'assignment').length) })}
                               </Link>
                             </div>
                           )}
@@ -798,17 +924,66 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
               {/* Teacher: Submissions to review */}
               {user?.role === 'teacher' && (
                 <div>
-                  {(studentSubmissions.length === 0 && pendingGrading.length === 0 && unreadStudentComments.length === 0) ? (
+                  {(studentSubmissions.length === 0 && pendingGrading.length === 0 && unreadStudentComments.length === 0 && taskNotifications.length === 0) ? (
                     <div className="py-6 text-center text-muted-foreground">
                       {translate('noSubmissionsToReview')}
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
+                      {/* Sección de evaluaciones completadas por estudiantes - NUEVA */}
+                      {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 dark:border-green-500">
+                            <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                              {translate('evaluationsCompleted') || 'Evaluaciones Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length})
+                            </h3>
+                          </div>
+                          {taskNotifications
+                            .filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation')
+                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                            .map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-green-600 dark:text-green-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.fromDisplayName || notif.fromUsername}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="text-xs border-green-200 dark:border-green-600 text-green-700 dark:text-green-300 flex flex-col items-center justify-center text-center leading-tight">
+                                        {splitTextForBadge(notif.subject).map((line, index) => (
+                                          <div key={index}>{line}</div>
+                                        ))}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {translate('studentCompletedEvaluation') || 'Completó la evaluación'}: {notif.taskTitle}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {formatDate(notif.timestamp)}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${notif.taskId}`}
+                                    className="inline-block mt-2 text-xs text-green-600 dark:text-green-400 hover:underline"
+                                  >
+                                    {translate('viewResults') || 'Ver Resultados'}
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
                       {/* Sección de evaluaciones pendientes de calificar - SIEMPRE ARRIBA */}
                       {pendingGrading.filter(notif => notif.taskType === 'evaluation').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-purple-50 border-l-4 border-purple-400">
-                            <h3 className="text-sm font-medium text-foreground">
+                          <div className="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400 dark:border-purple-500">
+                            <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200">
                               {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} ({pendingGrading.filter(notif => notif.taskType === 'evaluation').length})
                             </h3>
                           </div>
@@ -818,16 +993,18 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .map(notif => (
                             <div key={notif.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
-                                <div className="bg-purple-100 p-2 rounded-full">
-                                  <ClipboardList className="h-4 w-4 text-purple-600" />
+                                <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
+                                  <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-300" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <p className="font-medium text-sm">
-                                      {notif.taskTitle}
+                                      {notif.fromDisplayName || `${notif.taskTitle} (${notif.course})`}
                                     </p>
-                                    <Badge variant="outline" className="text-xs border-purple-200 text-purple-700">
-                                      {notif.subject}
+                                    <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(notif.subject).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
@@ -835,7 +1012,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   </p>
                                   <Link 
                                     href={`/dashboard/tareas?taskId=${notif.taskId}`}
-                                    className="inline-block mt-2 text-xs text-purple-600 hover:underline"
+                                    className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
                                   >
                                     {translate('reviewEvaluation') || 'Revisar Evaluación'}
                                   </Link>
@@ -849,8 +1026,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {/* Sección de tareas pendientes de calificar */}
                       {pendingGrading.filter(notif => notif.taskType === 'assignment').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-orange-50 border-l-4 border-orange-400">
-                            <h3 className="text-sm font-medium text-foreground">
+                          <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
+                            <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
                               {translate('pendingTasks') || 'Tareas Pendientes'} ({pendingGrading.filter(notif => notif.taskType === 'assignment').length})
                             </h3>
                           </div>
@@ -860,16 +1037,18 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .map(notif => (
                             <div key={notif.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
-                                <div className="bg-orange-100 p-2 rounded-full">
-                                  <ClipboardCheck className="h-4 w-4 text-orange-600" />
+                                <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-orange-600 dark:text-orange-300" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <p className="font-medium text-sm">
-                                      {notif.taskTitle}
+                                      {notif.fromDisplayName || `${notif.taskTitle} (${notif.course})`}
                                     </p>
-                                    <Badge variant="outline" className="text-xs border-orange-200 text-orange-700">
-                                      {notif.subject}
+                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(notif.subject).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
@@ -877,7 +1056,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   </p>
                                   <Link 
                                     href={`/dashboard/tareas?taskId=${notif.taskId}`}
-                                    className="inline-block mt-2 text-xs text-orange-600 hover:underline"
+                                    className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
                                   >
                                     {translate('reviewSubmission') || 'Revisar Entrega'}
                                   </Link>
@@ -907,8 +1086,10 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     <p className="font-medium text-sm">
                                       {submission.studentName}
                                     </p>
-                                    <Badge variant="outline" className="text-xs">
-                                      {submission.task?.subject || translate('task')}
+                                    <Badge variant="outline" className="text-xs flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(submission.task?.subject || translate('task')).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
@@ -949,8 +1130,10 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     <p className="font-medium text-sm">
                                       {comment.studentName}
                                     </p>
-                                    <Badge variant="outline" className="text-xs">
-                                      {comment.task?.subject || translate('task')}
+                                    <Badge variant="outline" className="text-xs flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(comment.task?.subject || translate('task')).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">

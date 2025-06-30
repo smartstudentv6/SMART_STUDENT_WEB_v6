@@ -41,7 +41,8 @@ export class TaskNotificationManager {
     course: string,
     subject: string,
     teacherUsername: string,
-    teacherDisplayName: string
+    teacherDisplayName: string,
+    taskType: 'assignment' | 'evaluation' = 'assignment'
   ): void {
     console.log('=== DEBUG createNewTaskNotifications ===');
     console.log('TaskId:', taskId);
@@ -71,7 +72,8 @@ export class TaskNotificationManager {
       subject,
       timestamp: new Date().toISOString(),
       read: false,
-      readBy: []
+      readBy: [],
+      taskType // 🔥 AGREGADO: Incluir el tipo de tarea
     };
 
     notifications.push(newNotification);
@@ -105,7 +107,7 @@ export class TaskNotificationManager {
       targetUserRole: 'teacher',
       targetUsernames: [teacherUsername],
       fromUsername: 'system', // ✅ CORREGIDO: Usar 'system' para notificaciones del sistema
-      fromDisplayName: 'Sistema',
+      fromDisplayName: `${taskTitle} (${course})`, // ✅ CORRECCIÓN: Usar título de evaluación y curso
       course,
       subject,
       timestamp: new Date().toISOString(),
@@ -226,7 +228,7 @@ export class TaskNotificationManager {
       targetUserRole: 'teacher',
       targetUsernames: [teacherUsername],
       fromUsername: 'system',
-      fromDisplayName: 'Sistema',
+      fromDisplayName: `${taskTitle} (${course})`, // ✅ CORRECCIÓN: Usar título de tarea y curso
       course,
       subject,
       timestamp: new Date().toISOString(),
@@ -326,15 +328,83 @@ export class TaskNotificationManager {
     }
   }
 
+  // Eliminar completamente las notificaciones de evaluaciones cuando el estudiante las completa
+  static removeEvaluationNotificationOnCompletion(taskId: string, studentUsername: string): void {
+    console.log('=== DEBUG removeEvaluationNotificationOnCompletion ===');
+    console.log('TaskId:', taskId, 'Student:', studentUsername);
+    
+    const notifications = this.getNotifications();
+    const initialCount = notifications.length;
+    
+    // Buscar y eliminar notificaciones de nueva tarea para esta evaluación específica del estudiante
+    const filteredNotifications = notifications.filter(notification => {
+      // Mantener la notificación si NO es una nueva tarea para este estudiante y esta evaluación
+      if (notification.type === 'new_task' && 
+          notification.taskId === taskId && 
+          notification.targetUsernames.includes(studentUsername)) {
+        
+        // Si la notificación tiene otros destinatarios, solo remover este estudiante
+        if (notification.targetUsernames.length > 1) {
+          notification.targetUsernames = notification.targetUsernames.filter(username => username !== studentUsername);
+          notification.readBy = notification.readBy.filter(username => username !== studentUsername);
+          return true; // Mantener la notificación pero modificada
+        } else {
+          // Si este estudiante es el único destinatario, eliminar completamente la notificación
+          return false; // Eliminar la notificación
+        }
+      }
+      return true; // Mantener todas las demás notificaciones
+    });
+    
+    const removedCount = initialCount - filteredNotifications.length;
+    console.log(`Processed ${removedCount} evaluation notifications for student completion`);
+    
+    if (removedCount > 0 || filteredNotifications.some(n => n.type === 'new_task' && n.taskId === taskId)) {
+      this.saveNotifications(filteredNotifications);
+      console.log('Evaluation notifications updated after student completion');
+    }
+  }
+
+  // Verificar si un estudiante completó una evaluación específica
+  static isEvaluationCompletedByStudent(taskId: string, studentUsername: string): boolean {
+    try {
+      const userTasksKey = `userTasks_${studentUsername}`;
+      const userTasks = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+      
+      const task = userTasks.find((t: any) => t.id === taskId);
+      return task && task.status === 'completed';
+    } catch (error) {
+      console.error('Error checking evaluation completion:', error);
+      return false;
+    }
+  }
+
   // Obtener notificaciones no leídas para un usuario específico
   static getUnreadNotificationsForUser(username: string, userRole: 'student' | 'teacher'): TaskNotification[] {
     const notifications = this.getNotifications();
-    return notifications.filter(notification => 
-      notification.targetUserRole === userRole &&
-      notification.targetUsernames.includes(username) &&
-      !notification.readBy.includes(username) &&
-      notification.fromUsername !== username // ✅ NUEVO: Excluir notificaciones de sus propios comentarios
-    );
+    return notifications.filter(notification => {
+      // Filtros básicos
+      const basicFilters = notification.targetUserRole === userRole &&
+        notification.targetUsernames.includes(username) &&
+        !notification.readBy.includes(username) &&
+        notification.fromUsername !== username; // Excluir notificaciones de sus propios comentarios
+
+      if (!basicFilters) return false;
+
+      // Para estudiantes: filtrar evaluaciones completadas
+      if (userRole === 'student' && notification.type === 'new_task') {
+        // Verificar si la tarea es una evaluación y si ya fue completada
+        if (notification.taskType === 'evaluation') {
+          const isCompleted = this.isEvaluationCompletedByStudent(notification.taskId, username);
+          if (isCompleted) {
+            console.log(`[getUnreadNotificationsForUser] Filtering out completed evaluation: ${notification.taskTitle} for student: ${username}`);
+            return false; // No mostrar notificaciones de evaluaciones completadas
+          }
+        }
+      }
+
+      return true;
+    });
   }
 
   // Contar notificaciones no leídas para un usuario
@@ -655,7 +725,7 @@ export class TaskNotificationManager {
         return {
           ...notification,
           fromUsername: 'system',
-          fromDisplayName: 'Sistema'
+          fromDisplayName: `${notification.taskTitle} (${notification.course})`
         };
       }
       
@@ -746,5 +816,109 @@ export class TaskNotificationManager {
       return false;
     }
     return true;
+  }
+
+  // 🔥 NUEVA FUNCIÓN: Crear notificación cuando un estudiante completa una evaluación
+  static createEvaluationCompletedNotification(
+    taskId: string,
+    taskTitle: string,
+    course: string,
+    subject: string,
+    studentUsername: string,
+    studentDisplayName: string,
+    teacherUsername: string,
+    evaluationResults: {
+      score: number;
+      totalQuestions: number;
+      completionPercentage: number;
+      completedAt: string;
+    }
+  ): void {
+    console.log('=== DEBUG createEvaluationCompletedNotification ===');
+    console.log('Creating evaluation completion notification for teacher:', teacherUsername);
+    console.log('Student:', studentUsername, 'Results:', evaluationResults);
+    
+    const notifications = this.getNotifications();
+    
+    const newNotification: TaskNotification = {
+      id: `eval_completed_${taskId}_${studentUsername}_${Date.now()}`,
+      type: 'task_completed',
+      taskId,
+      taskTitle,
+      targetUserRole: 'teacher',
+      targetUsernames: [teacherUsername],
+      fromUsername: studentUsername,
+      fromDisplayName: studentDisplayName,
+      course,
+      subject,
+      timestamp: new Date().toISOString(),
+      read: false,
+      readBy: [],
+      taskType: 'evaluation'
+      // ✅ CORRECCIÓN: Eliminado el campo grade para no mostrar resultado en notificación
+    };
+
+    notifications.push(newNotification);
+    console.log('Evaluation completion notification created:', newNotification);
+    
+    this.saveNotifications(notifications);
+    console.log('Evaluation completion notification saved for teacher:', teacherUsername);
+  }
+
+  // 🔧 FUNCIÓN DE MIGRACIÓN: Actualizar notificaciones existentes que muestran "Sistema"
+  static migrateSystemNotifications(): void {
+    console.log('[TaskNotificationManager] 🔄 Migrando notificaciones que muestran "Sistema"...');
+    
+    const notifications = this.getNotifications();
+    let migrated = 0;
+    
+    // Obtener tareas para poder acceder a los títulos y cursos
+    const globalTasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');
+    
+    const updatedNotifications = notifications.map(notification => {
+      if (notification.fromDisplayName === 'Sistema' || notification.fromDisplayName === 'system') {
+        // Buscar la tarea correspondiente para obtener el título correcto
+        const relatedTask = globalTasks.find((task: any) => task.id === notification.taskId);
+        
+        if (relatedTask) {
+          console.log(`Migrando notificación de "${notification.fromDisplayName}" a "${relatedTask.title} (${relatedTask.course})"`);
+          migrated++;
+          return {
+            ...notification,
+            fromDisplayName: `${relatedTask.title} (${relatedTask.course})`
+          };
+        } else {
+          // Si no se encuentra la tarea, usar información de la notificación
+          const newDisplayName = `${notification.taskTitle} (${notification.course})`;
+          console.log(`Migrando notificación de "${notification.fromDisplayName}" a "${newDisplayName}"`);
+          migrated++;
+          return {
+            ...notification,
+            fromDisplayName: newDisplayName
+          };
+        }
+      }
+      
+      return notification;
+    });
+    
+    if (migrated > 0) {
+      this.saveNotifications(updatedNotifications);
+      console.log(`[TaskNotificationManager] ✅ ${migrated} notificaciones migradas exitosamente`);
+      
+      // 🔧 MEJORA: Disparar múltiples eventos para asegurar actualización de UI
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+        window.dispatchEvent(new Event('storage')); // Para componentes que escuchan cambios de localStorage
+        // Pequeño delay para asegurar que todos los eventos se propaguen
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('notificationsMigrated', { 
+            detail: { migratedCount: migrated } 
+          }));
+        }, 100);
+      }
+    } else {
+      console.log('[TaskNotificationManager] ℹ️ No se encontraron notificaciones que necesiten migración');
+    }
   }
 }

@@ -40,6 +40,20 @@ interface Task {
     questionCount: number; // Cantidad de preguntas
     timeLimit: number; // Tiempo límite en minutos
   };
+  // Resultados de evaluaciones por estudiante
+  evaluationResults?: {
+    [studentUsername: string]: {
+      score: number; // Puntaje obtenido (número de respuestas correctas)
+      totalQuestions: number; // Total de preguntas en la evaluación
+      completionPercentage: number; // Porcentaje obtenido (0-100)
+      completedAt: string; // Fecha de finalización
+      attempt: number; // Número de intento (para futuras mejoras)
+    };
+  };
+  // Propiedades adicionales para la copia local del estudiante
+  score?: number; // Puntaje del estudiante (para su copia local)
+  completionPercentage?: number; // Porcentaje del estudiante (para su copia local)
+  completedAt?: string; // Fecha de completado (para su copia local)
 }
 
 interface TaskComment {
@@ -137,6 +151,76 @@ export default function TareasPage() {
     }
   }, [user]);
 
+  // Recargar tareas cuando la página vuelve a ser visible (ej: regresando de evaluación)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user?.role === 'student') {
+        console.log('📋 Page visible again, reloading tasks to check for updates');
+        
+        // Forzar recarga múltiple para asegurar que se actualizan los datos
+        loadTasks();
+        setTimeout(() => {
+          loadTasks();
+          console.log('🔄 Second reload after visibility change');
+        }, 100);
+        setTimeout(() => {
+          loadTasks();
+          console.log('🔄 Third reload after visibility change');
+        }, 500);
+      }
+    };
+
+    const handleFocus = () => {
+      if (user?.role === 'student') {
+        console.log('📋 Window focused, reloading tasks');
+        loadTasks();
+      }
+    };
+
+    // Listener personalizado para actualizaciones de evaluación
+    const handleEvaluationCompleted = (event: any) => {
+      console.log('🎯 Evaluation completed event received:', event.detail);
+      
+      // Forzar recarga inmediata de tareas
+      loadTasks();
+      
+      // Si hay una tarea seleccionada que coincida con la que se completó, actualizarla
+      if (selectedTask && event.detail.taskId === selectedTask.id) {
+        console.log('🔄 Updating selected task data after evaluation completion');
+        setTimeout(() => {
+          loadTasks();
+          // Forzar re-render del modal
+          setShowTaskDialog(false);
+          setTimeout(() => {
+            const updatedTasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');
+            const userTasksKey = `userTasks_${user?.username}`;
+            const userTasks = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+            
+            // Buscar la tarea actualizada
+            let updatedTask = userTasks.find((t: any) => t.id === event.detail.taskId) || 
+                              updatedTasks.find((t: any) => t.id === event.detail.taskId);
+            
+            if (updatedTask) {
+              console.log('✅ Found updated task, reopening modal with new data:', updatedTask);
+              setSelectedTask(updatedTask);
+              setShowTaskDialog(true);
+            }
+          }, 100);
+        }, 500);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('evaluationCompleted', handleEvaluationCompleted);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('evaluationCompleted', handleEvaluationCompleted);
+    };
+  }, [user]);
+
   // Handle navigation from notifications
   useEffect(() => {
     const taskId = searchParams.get('taskId');
@@ -145,8 +229,12 @@ export default function TareasPage() {
     if (taskId && tasks.length > 0) {
       const task = tasks.find(t => t.id === taskId);
       if (task) {
-        // Open the task dialog
-        setSelectedTask(task);
+        // 🔧 MEJORA: Cargar datos frescos de localStorage antes de abrir el diálogo
+        const freshTasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');
+        const freshTask = freshTasks.find((t: any) => t.id === taskId);
+        
+        // Open the task dialog with fresh data
+        setSelectedTask(freshTask || task);
         setShowTaskDialog(true);
         
         // If there's a specific comment to highlight, scroll to it after a brief delay
@@ -174,10 +262,88 @@ export default function TareasPage() {
   }, [tasks, searchParams, user]);
 
   const loadTasks = () => {
+    let allTasks: Task[] = [];
+    
+    // Cargar tareas globales del profesor
     const storedTasks = localStorage.getItem('smart-student-tasks');
     if (storedTasks) {
-      setTasks(JSON.parse(storedTasks));
+      allTasks = JSON.parse(storedTasks);
     }
+    
+    // Si es estudiante, también cargar sus tareas específicas
+    if (user?.role === 'student') {
+      const userTasksKey = `userTasks_${user.username}`;
+      const userTasks = localStorage.getItem(userTasksKey);
+      if (userTasks) {
+        const userTasksData: Task[] = JSON.parse(userTasks);
+        console.log(`📋 Loading user-specific tasks for ${user.username}:`, userTasksData);
+        
+        // Combinar tareas, priorizando las tareas específicas del usuario
+        userTasksData.forEach(userTask => {
+          const existingIndex = allTasks.findIndex(task => task.id === userTask.id);
+          if (existingIndex !== -1) {
+            // Reemplazar con la versión del usuario (puede tener estado actualizado)
+            allTasks[existingIndex] = userTask;
+            console.log(`✅ Updated task status for ${userTask.title}: ${userTask.status}`);
+            
+            // Debug específico para evaluaciones completadas
+            if (userTask.taskType === 'evaluation' && userTask.status === 'completed') {
+              console.log(`🎯 EVALUATION COMPLETED DETECTED:`, {
+                taskId: userTask.id,
+                title: userTask.title,
+                status: userTask.status,
+                score: userTask.score,
+                completionPercentage: userTask.completionPercentage,
+                completedAt: userTask.completedAt
+              });
+            }
+          } else {
+            // Agregar nueva tarea específica del usuario
+            allTasks.push(userTask);
+          }
+        });
+      }
+      
+      // NUEVO: Sincronizar tareas asignadas al estudiante que no estén en su userTasks
+      console.log('🔄 Synchronizing tasks assigned to student...');
+      let userTasksData: Task[] = userTasks ? JSON.parse(userTasks) : [];
+      let hasChanges = false;
+      
+      allTasks.forEach(globalTask => {
+        // Verificar si esta tarea está asignada al estudiante
+        const isAssignedToStudent = (
+          globalTask.assignedTo === 'course' && user.activeCourses?.includes(globalTask.course)
+        ) || (
+          globalTask.assignedTo === 'student' && globalTask.assignedStudents?.includes(user.username)
+        );
+        
+        if (isAssignedToStudent) {
+          const existsInUserTasks = userTasksData.find(ut => ut.id === globalTask.id);
+          if (!existsInUserTasks) {
+            console.log(`📥 Adding missing task to user tasks: ${globalTask.title}`);
+            userTasksData.push(globalTask);
+            hasChanges = true;
+          }
+        }
+      });
+      
+      // Guardar cambios si hubo sincronización
+      if (hasChanges) {
+        localStorage.setItem(userTasksKey, JSON.stringify(userTasksData));
+        console.log('✅ Synchronized user tasks with global tasks');
+        
+        // Actualizar allTasks con los datos sincronizados
+        userTasksData.forEach(userTask => {
+          const existingIndex = allTasks.findIndex(task => task.id === userTask.id);
+          if (existingIndex !== -1) {
+            allTasks[existingIndex] = userTask;
+          }
+        });
+      }
+    }
+    
+    console.log('📋 Final tasks loaded:', allTasks.map(t => ({id: t.id, title: t.title, status: t.status, taskType: t.taskType})));
+    setTasks(allTasks);
   };
 
   const loadComments = () => {
@@ -470,7 +636,8 @@ export default function TareasPage() {
         newTask.course,
         newTask.subject,
         user.username,
-        user.displayName || user.username
+        user.displayName || user.username,
+        newTask.taskType
       );
       
       // Crear notificación pendiente para el profesor
@@ -735,12 +902,47 @@ export default function TareasPage() {
   const confirmDeleteTask = () => {
     if (!taskToDelete) return;
 
+    console.log(`[DeleteTask] Deleting task: ${taskToDelete.title} (ID: ${taskToDelete.id})`);
+
+    // 1. Eliminar de tareas globales
     const updatedTasks = tasks.filter(task => task.id !== taskToDelete.id);
     saveTasks(updatedTasks);
 
-    // Also remove related comments
+    // 2. Eliminar comentarios relacionados
     const updatedComments = comments.filter(comment => comment.taskId !== taskToDelete.id);
     saveComments(updatedComments);
+
+    // 3. 🔥 NUEVO: Eliminar de tareas individuales de cada usuario
+    try {
+      const allUsers = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+      let totalUsersUpdated = 0;
+      
+      Object.keys(allUsers).forEach(username => {
+        const userTasksKey = `userTasks_${username}`;
+        const userTasks = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+        const filteredUserTasks = userTasks.filter((task: any) => task.id !== taskToDelete.id);
+        
+        if (filteredUserTasks.length !== userTasks.length) {
+          localStorage.setItem(userTasksKey, JSON.stringify(filteredUserTasks));
+          totalUsersUpdated++;
+          console.log(`[DeleteTask] Removed task ${taskToDelete.id} from user ${username}`);
+        }
+      });
+
+      console.log(`[DeleteTask] Updated ${totalUsersUpdated} user task lists`);
+
+      // 4. 🔥 NUEVO: Eliminar notificaciones relacionadas con esta tarea
+      const notifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
+      const filteredNotifications = notifications.filter((n: any) => n.taskId !== taskToDelete.id);
+      
+      if (filteredNotifications.length !== notifications.length) {
+        localStorage.setItem('smart-student-task-notifications', JSON.stringify(filteredNotifications));
+        console.log(`[DeleteTask] Removed ${notifications.length - filteredNotifications.length} related notifications`);
+      }
+
+    } catch (error) {
+      console.error('[DeleteTask] Error cleaning up user data:', error);
+    }
 
     toast({
       title: translate('taskDeleted'),
@@ -749,6 +951,10 @@ export default function TareasPage() {
 
     setTaskToDelete(null);
     setShowDeleteDialog(false);
+    
+    // 5. Disparar eventos para actualizar las interfaces
+    window.dispatchEvent(new Event('taskNotificationsUpdated'));
+    window.dispatchEvent(new Event('tasksUpdated'));
   };
 
   const getTaskComments = (taskId: string) => {
@@ -947,6 +1153,41 @@ export default function TareasPage() {
 
   // Get task status for a specific student
   const getTaskStatusForStudent = (task: Task, studentUsername: string) => {
+    console.log(`🔍 Checking task status for: ${task.title} (${task.id}) - Student: ${studentUsername}`);
+    
+    // Para evaluaciones, verificar si el estudiante la ha completado
+    if (task.taskType === 'evaluation') {
+      console.log(`📊 Task is evaluation, checking completion status...`);
+      
+      // Verificar en evaluationResults si existe
+      if (task.evaluationResults && task.evaluationResults[studentUsername]) {
+        console.log(`✅ Found evaluation results in task.evaluationResults:`, task.evaluationResults[studentUsername]);
+        return 'completed'; // Evaluation completed
+      }
+      
+      // También revisar en el localStorage del usuario específico
+      if (user?.username === studentUsername) {
+        const userTasksKey = `userTasks_${studentUsername}`;
+        const userTasks = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+        const userTask = userTasks.find((ut: any) => ut.id === task.id);
+        console.log(`📋 Checking user task in localStorage:`, userTask);
+        
+        if (userTask && userTask.status === 'completed') {
+          console.log(`✅ Found completed evaluation in user tasks:`, {
+            status: userTask.status,
+            score: userTask.score,
+            completionPercentage: userTask.completionPercentage,
+            completedAt: userTask.completedAt
+          });
+          return 'completed'; // Evaluation completed
+        }
+      }
+      
+      console.log(`❌ Evaluation not completed yet for ${studentUsername}`);
+      return 'pending'; // Evaluation not completed yet
+    }
+    
+    // Para tareas normales, verificar si hay submisión
     if (hasStudentSubmitted(task.id, studentUsername)) {
       return 'submitted'; // Student has submitted
     }
@@ -958,6 +1199,7 @@ export default function TareasPage() {
     const status = getTaskStatusForStudent(task, studentUsername);
     switch (status) {
       case 'submitted': return translate('statusSubmitted');
+      case 'completed': return translate('statusCompleted');
       case 'pending': return translate('statusPending');
       default: return translate('statusPending');
     }
@@ -968,9 +1210,160 @@ export default function TareasPage() {
     const status = getTaskStatusForStudent(task, studentUsername);
     switch (status) {
       case 'submitted': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 cursor-default pointer-events-none';
+      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400 cursor-default pointer-events-none';
       case 'pending': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400 cursor-default pointer-events-none';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400 cursor-default pointer-events-none';
     }
+  };
+
+  // Get evaluation results for a student
+  const getEvaluationResults = (task: Task, studentUsername: string) => {
+    if (task.taskType !== 'evaluation') return null;
+    
+    console.log(`🔍 Getting evaluation results for: ${task.title} - Student: ${studentUsername}`);
+    
+    // First check evaluationResults in the task
+    if (task.evaluationResults && task.evaluationResults[studentUsername]) {
+      console.log(`✅ Found results in task.evaluationResults:`, task.evaluationResults[studentUsername]);
+      return task.evaluationResults[studentUsername];
+    }
+    
+    // Then check user-specific localStorage
+    if (user?.username === studentUsername) {
+      const userTasksKey = `userTasks_${studentUsername}`;
+      const userTasks = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+      const userTask = userTasks.find((ut: any) => ut.id === task.id);
+      console.log(`📋 Checking user task for results:`, userTask);
+      
+      if (userTask && userTask.status === 'completed') {
+        const results = {
+          score: userTask.score || 0,
+          completionPercentage: userTask.completionPercentage || 0,
+          completedAt: userTask.completedAt,
+          totalQuestions: userTask.evaluationConfig?.questionCount || task.evaluationConfig?.questionCount || 0
+        };
+        console.log(`✅ Found results in user tasks:`, results);
+        return results;
+      }
+    }
+    
+    console.log(`❌ No evaluation results found for ${studentUsername}`);
+    return null;
+  };
+
+  // Helper function to get all student usernames
+  const getAllStudentUsernames = () => {
+    const usersObj = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+    return Object.entries(usersObj)
+      .filter(([_, userData]: [string, any]) => userData.role === 'student')
+      .map(([username, _]: [string, any]) => username);
+  };
+
+  // Helper function to get student user data
+  const getStudentUserData = (username: string) => {
+    const usersObj = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+    return usersObj[username] || { displayName: username, activeCourses: [] };
+  };
+
+  // Get all evaluation results for a task (for teacher view)
+  const getAllEvaluationResults = (task: Task) => {
+    if (task.taskType !== 'evaluation') return [];
+    
+    console.log('🔍 getAllEvaluationResults called for task:', task.id, task.title);
+    console.log('📊 Current task.evaluationResults:', task.evaluationResults);
+    
+    // 🔧 MEJORA: Forzar recarga completa de datos desde localStorage
+    const freshTasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');
+    const freshTask = freshTasks.find((t: any) => t.id === task.id);
+    if (freshTask) {
+      console.log('🔄 Using fresh task data from localStorage:', freshTask.evaluationResults);
+      task = freshTask; // Usar la tarea más actualizada
+    }
+    
+    const results: Array<{
+      studentUsername: string;
+      studentName: string;
+      score: number;
+      completionPercentage: number;
+      completedAt: string;
+      totalQuestions: number;
+    }> = [];
+    
+    // Get all students who should take this evaluation
+    const targetStudents = task.assignedTo === 'course' 
+      ? getAllStudentUsernames().filter(student => {
+          const userData = getStudentUserData(student);
+          return userData.activeCourses?.includes(task.course);
+        })
+      : task.assignedStudents || [];
+    
+    console.log('👥 Target students for evaluation:', targetStudents);
+    
+    targetStudents.forEach(studentUsername => {
+      console.log(`🔍 Checking results for student: ${studentUsername}`);
+      
+      // Check if student has completed evaluation in task.evaluationResults
+      if (task.evaluationResults && task.evaluationResults[studentUsername]) {
+        const result = task.evaluationResults[studentUsername];
+        console.log(`✅ Found results in task.evaluationResults for ${studentUsername}:`, result);
+        results.push({
+          studentUsername,
+          studentName: getStudentUserData(studentUsername).displayName || studentUsername,
+          ...result
+        });
+        return;
+      }
+      
+      // 🔧 MEJORA: Check más exhaustivo en student's localStorage
+      const userTasksKey = `userTasks_${studentUsername}`;
+      const userTasksString = localStorage.getItem(userTasksKey);
+      if (userTasksString) {
+        try {
+          const userTasks = JSON.parse(userTasksString);
+          const userTask = userTasks.find((ut: any) => ut.id === task.id);
+          console.log(`📋 User task for ${studentUsername}:`, userTask);
+          
+          if (userTask && userTask.status === 'completed') {
+            console.log(`✅ Found completed evaluation in user tasks for ${studentUsername}`);
+            
+            // 🔧 SINCRONIZACIÓN: Actualizar los resultados en la tarea global si no existen
+            if (!task.evaluationResults) {
+              task.evaluationResults = {};
+            }
+            if (!task.evaluationResults[studentUsername]) {
+              const resultData = {
+                score: userTask.score || 0,
+                completionPercentage: userTask.completionPercentage || 0,
+                completedAt: userTask.completedAt,
+                totalQuestions: userTask.evaluationConfig?.questionCount || task.evaluationConfig?.questionCount || 0,
+                attempt: 1 // Agregar campo attempt requerido
+              };
+              
+              task.evaluationResults[studentUsername] = resultData;
+              
+              // Guardar en localStorage
+              const updatedTasks = freshTasks.map((t: any) => t.id === task.id ? task : t);
+              localStorage.setItem('smart-student-tasks', JSON.stringify(updatedTasks));
+              console.log(`🔧 Synced evaluation results for ${studentUsername} to global task`);
+            }
+            
+            results.push({
+              studentUsername,
+              studentName: getStudentUserData(studentUsername).displayName || studentUsername,
+              score: userTask.score || 0,
+              completionPercentage: userTask.completionPercentage || 0,
+              completedAt: userTask.completedAt,
+              totalQuestions: userTask.evaluationConfig?.questionCount || task.evaluationConfig?.questionCount || 0
+            });
+          }
+        } catch (error) {
+          console.error(`Error parsing userTasks for ${studentUsername}:`, error);
+        }
+      }
+    });
+    
+    console.log('📊 Final evaluation results:', results);
+    return results.sort((a, b) => b.completionPercentage - a.completionPercentage); // Sort by highest score first
   };
 
   // Delete student submission to allow re-submission
@@ -1292,8 +1685,36 @@ export default function TareasPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                setSelectedTask(task);
-                                setIsSubmission(false); // Reset checkbox state
+                                // NUEVO: Forzar recarga de datos antes de mostrar la tarea (especialmente para evaluaciones)
+                                if (task.taskType === 'evaluation' && user?.role === 'teacher') {
+                                  console.log('🔄 Teacher opening evaluation task, forcing complete data reload...');
+                                  console.log('📊 Current task data:', task);
+                                  
+                                  // Forzar múltiples recargas para asegurar datos actualizados
+                                  loadTasks(); 
+                                  
+                                  setTimeout(() => {
+                                    // Usar la tarea más actualizada directamente del localStorage
+                                    const updatedTasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');
+                                    const freshTask = updatedTasks.find((t: any) => t.id === task.id);
+                                    
+                                    if (freshTask) {
+                                      console.log('📊 Using fresh task data from localStorage:', freshTask);
+                                      console.log('📊 Fresh task evaluationResults:', freshTask.evaluationResults);
+                                      setSelectedTask(freshTask);
+                                    } else {
+                                      console.log('⚠️ Fresh task not found, using original');
+                                      setSelectedTask(task);
+                                    }
+                                    
+                                    setIsSubmission(false);
+                                    setShowTaskDialog(true);
+                                  }, 200); // Dar más tiempo para la recarga
+                                } else {
+                                  setSelectedTask(task);
+                                  setIsSubmission(false); // Reset checkbox state
+                                  setShowTaskDialog(true);
+                                }
                                 
                                 // NO marcar notificaciones de nueva tarea como leídas al ver la tarea
                                 // Las notificaciones de nueva tarea solo se marcan como leídas cuando se entrega la tarea
@@ -1301,8 +1722,6 @@ export default function TareasPage() {
                                 if (user?.role === 'student') {
                                   TaskNotificationManager.markGradeNotificationsAsReadOnTasksView(user.username);
                                 }
-                                
-                                setShowTaskDialog(true);
                               }}
                               title={translate('viewTask')}
                               className="text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/20 transition-colors"
@@ -1391,7 +1810,11 @@ export default function TareasPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setSelectedTask(task);
+                            // 🔧 MEJORA: Cargar datos frescos de localStorage antes de abrir el diálogo
+                            const freshTasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');
+                            const freshTask = freshTasks.find((t: any) => t.id === task.id);
+                            
+                            setSelectedTask(freshTask || task);
                             setIsSubmission(false); // Reset checkbox state
                             
                             // NO marcar notificaciones de nueva tarea como leídas al ver la tarea
@@ -1441,21 +1864,6 @@ export default function TareasPage() {
                           <Calendar className="w-3 h-3 mr-1" />
                           {translate('duePrefix')} {formatDate(task.dueDate)}
                         </span>
-                        <span className="flex items-center">
-                          {task.assignedTo === 'course' ? (
-                            <>
-                              <Users className="w-3 h-3 mr-1" />
-                              {task.course}
-                            </>
-                          ) : (
-                            <>
-                              <User className="w-3 h-3 mr-1" />
-                              {task.assignedStudents?.length} {translate('studentsCount')}
-                            </>
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center">
                         <MessageSquare className="w-3 h-3 mr-1" />
                         {getTaskComments(task.id).length} {translate('commentsCount')}
                       </div>
@@ -1753,10 +2161,14 @@ export default function TareasPage() {
       }}>
         <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedTask?.title}</DialogTitle>
-            <DialogDescription>
-              {selectedTask?.assignedByName} • {selectedTask?.course} • {selectedTask?.subject}
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <DialogTitle>{selectedTask?.title}</DialogTitle>
+                <DialogDescription>
+                  {selectedTask?.assignedByName} • {selectedTask?.course} • {selectedTask?.subject}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           
           {selectedTask && (
@@ -1765,6 +2177,118 @@ export default function TareasPage() {
                 <h4 className="font-medium mb-2">{translate('taskDescriptionDetail')}</h4>
                 <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
               </div>
+
+              {/* Botón "Realizar Evaluación" para estudiantes cuando es una evaluación */}
+              {user?.role === 'student' && selectedTask?.taskType === 'evaluation' && (
+                <div className="mb-3 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                  {(() => {
+                    console.log(`🎯 RENDERING EVALUATION UI for task: ${selectedTask.title} (${selectedTask.id})`);
+                    console.log(`📊 Task data:`, {
+                      taskType: selectedTask.taskType,
+                      status: selectedTask.status,
+                      evaluationConfig: selectedTask.evaluationConfig,
+                      evaluationResults: selectedTask.evaluationResults
+                    });
+                    
+                    const evaluationResults = getEvaluationResults(selectedTask, user.username);
+                    const isCompleted = getTaskStatusForStudent(selectedTask, user.username) === 'completed';
+                    
+                    console.log(`🔍 UI State Check:`, {
+                      isCompleted,
+                      evaluationResults,
+                      hasResults: !!evaluationResults,
+                      shouldShowResults: isCompleted && evaluationResults
+                    });
+                    
+                    if (isCompleted && evaluationResults) {
+                      console.log(`✅ SHOWING COMPLETED RESULTS UI`);
+                      // Mostrar resultados de la evaluación completada
+                      return (
+                        <div className="text-center">
+                          <div className="flex items-center justify-center mb-3">
+                            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                              <GraduationCap className="w-8 h-8 text-green-600 dark:text-green-400" />
+                            </div>
+                          </div>
+                          <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">
+                            {translate('evalCompletedStatus')}
+                          </h4>
+                          
+                          {/* Información original de la evaluación */}
+                          {selectedTask.evaluationConfig && (
+                            <div className="text-xs text-green-600 dark:text-green-400 mb-3 space-y-1">
+                              <div>{translate('evalTopic', { topic: selectedTask.evaluationConfig.topic })}</div>
+                              <div>{translate('evalQuestions', { count: selectedTask.evaluationConfig.questionCount.toString() })}</div>
+                              <div>{translate('evalTimeLimit', { time: selectedTask.evaluationConfig.timeLimit.toString() })}</div>
+                            </div>
+                          )}
+                          
+                          {/* Resultados de la evaluación */}
+                          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 space-y-2">
+                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                              {translate('evalCompletedPercentage', { percentage: (evaluationResults.completionPercentage?.toFixed(1) || '0.0') })}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {translate('evalCompletedScore', { 
+                                score: evaluationResults.score || 0, 
+                                total: evaluationResults.totalQuestions || selectedTask.evaluationConfig?.questionCount || 0 
+                              })}
+                            </div>
+                            {evaluationResults.completedAt && (
+                              <div className="text-xs text-gray-500 dark:text-gray-500">
+                                {translate('evalCompletedDate', { date: new Date(evaluationResults.completedAt).toLocaleString() })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      console.log(`🔄 SHOWING TAKE EVALUATION BUTTON`);
+                      // Mostrar botón para realizar evaluación
+                      return (
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm text-purple-700 dark:text-purple-300 mb-2">
+                              {translate('evalTakeInstruction')}
+                            </p>
+                            {selectedTask.evaluationConfig && (
+                              <div className="text-xs text-purple-600 dark:text-purple-400 space-y-1">
+                                <div>{translate('evalTopic', { topic: selectedTask.evaluationConfig.topic })}</div>
+                                <div>{translate('evalQuestions', { count: selectedTask.evaluationConfig.questionCount.toString() })}</div>
+                                <div>{translate('evalTimeLimit', { time: selectedTask.evaluationConfig.timeLimit.toString() })}</div>
+                              </div>
+                            )}
+                          </div>
+                          <Button 
+                            className="ml-4 bg-purple-600 hover:bg-purple-700 text-white"
+                            onClick={() => {
+                              // Navegar directamente a la evaluación con los parámetros de la tarea
+                              setShowTaskDialog(false);
+                              
+                              // Construir URL con parámetros de la tarea para auto-iniciar evaluación
+                              const params = new URLSearchParams({
+                                course: selectedTask.course,
+                                book: selectedTask.subject, // subject representa la asignatura/libro
+                                topic: selectedTask.evaluationConfig?.topic || '',
+                                autoStart: 'true', // Indicador para auto-iniciar
+                                taskId: selectedTask.id,
+                                // Parámetros específicos del profesor
+                                questionCount: selectedTask.evaluationConfig?.questionCount?.toString() || '15',
+                                timeLimit: selectedTask.evaluationConfig?.timeLimit?.toString() || '120'
+                              });
+                              
+                              router.push(`/dashboard/evaluacion?${params.toString()}`);
+                            }}
+                          >
+                            <GraduationCap className="w-4 h-4 mr-2" />
+                            {translate('evalTakeButton')}
+                          </Button>
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+              )}
 
               {/* Task Attachments */}
               {selectedTask.attachments && selectedTask.attachments.length > 0 && (
@@ -1921,6 +2445,117 @@ export default function TareasPage() {
                       </table>
                     </div>
                   </div>
+                  
+                  {/* Evaluation Results - Only visible for teacher when task is evaluation */}
+                  {selectedTask.taskType === 'evaluation' && (
+                    <>
+                      <div className="mt-6">
+                        <h4 className="font-medium mb-3">{translate('evaluationResults')}</h4>
+                        <div className="border rounded-md overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead className="bg-muted">
+                              <tr>
+                                <th className="py-2 px-3 text-left font-medium">{translate('studentName')}</th>
+                                <th className="py-2 px-3 text-left font-medium">{translate('scoreColumn')}</th>
+                                <th className="py-2 px-3 text-left font-medium">{translate('percentageColumn')}</th>
+                                <th className="py-2 px-3 text-left font-medium">{translate('completedAtColumn')}</th>
+                                <th className="py-2 px-3 text-left font-medium">{translate('statusColumn')}</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-muted">
+                              {(() => {
+                                const evaluationResults = getAllEvaluationResults(selectedTask);
+                                
+                                if (evaluationResults.length === 0) {
+                                  return (
+                                    <tr>
+                                      <td colSpan={5} className="py-4 px-3 text-center text-muted-foreground">
+                                        {translate('noEvaluationResults') || "Ningún estudiante ha completado la evaluación aún"}
+                                      </td>
+                                    </tr>
+                                  );
+                                }
+                                
+                                return evaluationResults.map(result => (
+                                  <tr key={result.studentUsername}>
+                                    <td className="py-2 px-3">{result.studentName}</td>
+                                    <td className="py-2 px-3">
+                                      <span className="font-medium">
+                                        {result.score}/{result.totalQuestions}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <Badge className={
+                                        result.completionPercentage >= 80 
+                                          ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                                          : result.completionPercentage >= 60
+                                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                                          : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                      }>
+                                        {result.completionPercentage.toFixed(1)}%
+                                      </Badge>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      {result.completedAt 
+                                        ? new Date(result.completedAt).toLocaleString()
+                                        : '-'
+                                      }
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                                        {translate('statusCompleted')}
+                                      </Badge>
+                                    </td>
+                                  </tr>
+                                ));
+                              })()}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        {/* Evaluation Summary */}
+                        {(() => {
+                          const results = getAllEvaluationResults(selectedTask);
+                          if (results.length > 0) {
+                            const avgScore = results.reduce((sum, r) => sum + r.completionPercentage, 0) / results.length;
+                            const passedCount = results.filter(r => r.completionPercentage >= 60).length;
+                            
+                            return (
+                              <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                  <div className="text-center">
+                                    <div className="font-semibold text-blue-600 dark:text-blue-400">
+                                      {results.length}
+                                    </div>
+                                    <div className="text-muted-foreground">{translate('completed')}</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-semibold text-green-600 dark:text-green-400">
+                                      {avgScore.toFixed(1)}%
+                                    </div>
+                                    <div className="text-muted-foreground">{translate('average')}</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-semibold text-purple-600 dark:text-purple-400">
+                                      {passedCount}
+                                    </div>
+                                    <div className="text-muted-foreground">{translate('passed')} (≥60%)</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-semibold text-orange-600 dark:text-orange-400">
+                                      {results.length - passedCount}
+                                    </div>
+                                    <div className="text-muted-foreground">{translate('needsImprovement')}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    </>
+                  )}
                 </>
               )}
               
@@ -2189,7 +2824,7 @@ export default function TareasPage() {
                     
                     <div className="flex justify-between items-center mt-3">
                       <div className="flex items-center space-x-2">
-                        {user?.role === 'student' && (
+                        {user?.role === 'student' && selectedTask?.taskType !== 'evaluation' && (
                           <>
                             <input
                               type="checkbox"
@@ -2571,6 +3206,7 @@ export default function TareasPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
