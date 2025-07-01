@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Bell, MessageSquare, Clock, Key, ClipboardCheck, ClipboardList } from 'lucide-react';
+import { Bell, MessageSquare, Clock, Key, ClipboardCheck, ClipboardList, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -618,8 +618,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 md:w-96 p-0 max-h-[80vh]" align="end">
-        <Card className="border-0 h-full flex flex-col">
+      <PopoverContent className="w-80 md:w-96 p-0 max-h-[80vh] overflow-hidden" align="end">
+        <Card className="border-0 h-full flex flex-col max-h-[80vh]">
           <CardHeader className="pb-2 pt-4 px-4 flex-shrink-0">
             <CardTitle className="text-lg font-semibold flex items-center justify-between">
               <span>{translate('notifications')}</span>
@@ -637,9 +637,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
             </CardTitle>
           </CardHeader>
           
-          <ScrollArea className="flex-1 min-h-0 scrollbar-custom" style={{ maxHeight: 'calc(80vh - 80px)' }}>
-            <div className="p-1">
-            <CardContent className="p-0">
+          <ScrollArea className="flex-1 h-full">
+            <div className="max-h-[60vh] overflow-y-auto px-1">
+            <CardContent className="p-0 space-y-0">
               {/* Admin: Password Reset Requests */}
               {user?.role === 'admin' && (
                 <div className="divide-y divide-border">
@@ -930,60 +930,11 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
-                      {/* Sección de evaluaciones completadas por estudiantes - NUEVA */}
-                      {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length > 0 && (
-                        <>
-                          <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 dark:border-green-500">
-                            <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
-                              {translate('evaluationsCompleted') || 'Evaluaciones Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length})
-                            </h3>
-                          </div>
-                          {taskNotifications
-                            .filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation')
-                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                            .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
-                                <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full">
-                                  <ClipboardCheck className="h-4 w-4 text-green-600 dark:text-green-300" />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
-                                      {notif.fromDisplayName || notif.fromUsername}
-                                    </p>
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="outline" className="text-xs border-green-200 dark:border-green-600 text-green-700 dark:text-green-300 flex flex-col items-center justify-center text-center leading-tight">
-                                        {splitTextForBadge(notif.subject).map((line, index) => (
-                                          <div key={index}>{line}</div>
-                                        ))}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {translate('studentCompletedEvaluation') || 'Completó la evaluación'}: {notif.taskTitle}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {formatDate(notif.timestamp)}
-                                  </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${notif.taskId}`}
-                                    className="inline-block mt-2 text-xs text-green-600 dark:text-green-400 hover:underline"
-                                  >
-                                    {translate('viewResults') || 'Ver Resultados'}
-                                  </Link>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </>
-                      )}
-
-                      {/* Sección de evaluaciones pendientes de calificar - SIEMPRE ARRIBA */}
+                      {/* Sección de evaluaciones pendientes de calificar - PRIMERO */}
                       {pendingGrading.filter(notif => notif.taskType === 'evaluation').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400 dark:border-purple-500">
-                            <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                          <div className="px-4 py-2 bg-purple-25 dark:bg-purple-900/10 border-l-4 border-purple-300 dark:border-purple-400">
+                            <h3 className="text-sm font-medium text-purple-700 dark:text-purple-300">
                               {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} ({pendingGrading.filter(notif => notif.taskType === 'evaluation').length})
                             </h3>
                           </div>
@@ -1015,6 +966,55 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
                                   >
                                     {translate('reviewEvaluation') || 'Revisar Evaluación'}
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Sección de evaluaciones completadas por estudiantes - SEGUNDO */}
+                      {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-purple-25 dark:bg-purple-900/10 border-l-4 border-purple-300 dark:border-purple-400">
+                            <h3 className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                              {translate('evaluationsCompleted') || 'Evaluaciones Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length})
+                            </h3>
+                          </div>
+                          {taskNotifications
+                            .filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation')
+                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                            .map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-purple-50 dark:bg-purple-700/30 p-2 rounded-full">
+                                  <ClipboardList className="h-4 w-4 text-purple-700 dark:text-purple-200" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.fromDisplayName || notif.fromUsername}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-500 text-purple-600 dark:text-purple-400 flex flex-col items-center justify-center text-center leading-tight">
+                                        {splitTextForBadge(notif.subject).map((line, index) => (
+                                          <div key={index}>{line}</div>
+                                        ))}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {translate('studentCompletedEvaluation') || 'Completó la evaluación'}: {notif.taskTitle}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {formatDate(notif.timestamp)}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${notif.taskId}`}
+                                    className="inline-block mt-2 text-xs text-purple-500 dark:text-purple-400 hover:underline"
+                                  >
+                                    {translate('viewResults') || 'Ver Resultados'}
                                   </Link>
                                 </div>
                               </div>
@@ -1058,7 +1058,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     href={`/dashboard/tareas?taskId=${notif.taskId}`}
                                     className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
                                   >
-                                    {translate('reviewSubmission') || 'Revisar Entrega'}
+                                    {translate('reviewSubmission') || 'Ver Tarea'}
                                   </Link>
                                 </div>
                               </div>
@@ -1070,9 +1070,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {/* Sección de entregas de estudiantes */}
                       {studentSubmissions.length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-muted/30">
-                            <h3 className="text-sm font-medium text-foreground">
-                              {translate('pendingSubmissions')}
+                          <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
+                            <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                              {translate('tasksToReview') || 'Tareas por Revisar'} ({studentSubmissions.length})
                             </h3>
                           </div>
                           {studentSubmissions.map(submission => (
@@ -1086,23 +1086,23 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     <p className="font-medium text-sm">
                                       {submission.studentName}
                                     </p>
-                                    <Badge variant="outline" className="text-xs flex flex-col items-center justify-center text-center leading-tight">
+                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
                                       {splitTextForBadge(submission.task?.subject || translate('task')).map((line, index) => (
                                         <div key={index}>{line}</div>
                                       ))}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                    {translate('submittedTask')}: {submission.task?.title}
+                                    {translate('submittedTask')}: {submission.task?.title && submission.task?.course ? `${submission.task.title} (${submission.task.course})` : submission.task?.title || 'Tarea'}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(submission.timestamp)}
                                   </p>
                                   <Link 
                                     href={`/dashboard/tareas?taskId=${submission.taskId}`}
-                                    className="inline-block mt-2 text-xs text-primary hover:underline"
+                                    className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
                                   >
-                                    {translate('reviewSubmission')}
+                                    {translate('reviewSubmission') || 'Ver Tarea'}
                                   </Link>
                                 </div>
                               </div>
@@ -1140,7 +1140,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {comment.comment}
                                   </p>
                                   <p className="text-xs font-medium mt-1">
-                                    {translate('onTask')}: {comment.task?.title}
+                                    {translate('onTask')}: {comment.task?.title && comment.task?.course ? `${comment.task.title} (${comment.task.course})` : comment.task?.title || 'Tarea'}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(comment.timestamp)}
