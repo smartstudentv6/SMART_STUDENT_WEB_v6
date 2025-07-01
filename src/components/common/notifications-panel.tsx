@@ -803,7 +803,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
 
                       {/* Unread comments section - MOVED TO SECOND POSITION */}
                       {unreadComments.length > 0 && (
-                        <div className="px-4 py-2 bg-muted/30">
+                        <div className="px-4 py-2 bg-muted/30 border-l-4 border-gray-300 dark:border-gray-500">
                           <h3 className="text-sm font-medium text-foreground">
                             {translate('unreadComments')} ({unreadComments.length})
                           </h3>
@@ -933,7 +933,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {/* Sección de evaluaciones pendientes de calificar - PRIMERO */}
                       {pendingGrading.filter(notif => notif.taskType === 'evaluation').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-purple-25 dark:bg-purple-900/10 border-l-4 border-purple-300 dark:border-purple-400">
+                          <div className="px-4 py-2 bg-purple-100 dark:bg-purple-900/10 border-l-4 border-gray-200 dark:border-gray-700">
                             <h3 className="text-sm font-medium text-purple-700 dark:text-purple-300">
                               {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} ({pendingGrading.filter(notif => notif.taskType === 'evaluation').length})
                             </h3>
@@ -977,7 +977,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {/* Sección de evaluaciones completadas por estudiantes - SEGUNDO */}
                       {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-purple-25 dark:bg-purple-900/10 border-l-4 border-purple-300 dark:border-purple-400">
+                          <div className="px-4 py-2 bg-purple-100 dark:bg-purple-900/10 border-l-4 border-gray-300 dark:border-gray-500">
                             <h3 className="text-sm font-medium text-purple-700 dark:text-purple-300">
                               {translate('evaluationsCompleted') || 'Evaluaciones Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length})
                             </h3>
@@ -1058,7 +1058,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     href={`/dashboard/tareas?taskId=${notif.taskId}`}
                                     className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
                                   >
-                                    {translate('reviewSubmission') || 'Ver Tarea'}
+                                    {translate('viewTask') || 'Ver Tarea'}
                                   </Link>
                                 </div>
                               </div>
@@ -1067,7 +1067,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                         </>
                       )}
                       
-                      {/* Sección de entregas de estudiantes */}
+                      {/* Sección de entregas de estudiantes - CAMBIO DE COLOR A NARANJA */}
                       {studentSubmissions.length > 0 && (
                         <>
                           <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
@@ -1078,8 +1078,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           {studentSubmissions.map(submission => (
                             <div key={submission.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
-                                <div className="bg-orange-100 p-2 rounded-full">
-                                  <ClipboardCheck className="h-4 w-4 text-orange-600" />
+                                <div className="bg-orange-50 dark:bg-orange-900/30 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-orange-600 dark:text-orange-300" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
@@ -1102,7 +1102,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     href={`/dashboard/tareas?taskId=${submission.taskId}`}
                                     className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
                                   >
-                                    {translate('reviewSubmission') || 'Ver Tarea'}
+                                    {translate('reviewTask') || 'Revisar Tarea'}
                                   </Link>
                                 </div>
                               </div>
@@ -1114,7 +1114,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {/* Sección de comentarios no leídos de estudiantes */}
                       {unreadStudentComments.length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-muted/30">
+                          <div className="px-4 py-2 bg-muted/30 border-l-4 border-gray-300 dark:border-gray-500">
                             <h3 className="text-sm font-medium text-foreground">
                               {translate('unreadStudentComments')}
                             </h3>
