@@ -72,6 +72,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   const [taskNotifications, setTaskNotifications] = useState<any[]>([]);
   const [pendingGrading, setPendingGrading] = useState<any[]>([]);
   const [count, setCount] = useState(propCount);
+  const [isMarking, setIsMarking] = useState(false);
 
   // Función para dividir texto en dos líneas para badges
   const splitTextForBadge = (text: string, maxLength: number = 8): string[] => {
@@ -385,28 +386,45 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         user.role as 'student' | 'teacher'
       );
       
-      // Debug adicional para evaluaciones (solo para estudiantes)
+      // ✅ MEJORA: Filtrar mejor las notificaciones de evaluaciones completadas
       if (user.role === 'student') {
+        // Para estudiantes, filtrar evaluaciones completadas
+        const filteredNotifications = notifications.filter(n => {
+          if (n.type === 'new_task' && n.taskType === 'evaluation') {
+            const isCompleted = TaskNotificationManager.isEvaluationCompletedByStudent(
+              n.taskId, user.username
+            );
+            
+            if (isCompleted) {
+              console.log(`[NotificationsPanel] ✅ Filtering out completed evaluation: ${n.taskTitle} for ${user.username}`);
+              return false; // No mostrar evaluaciones completadas
+            }
+          }
+          return true;
+        });
+        
+        setTaskNotifications(filteredNotifications);
+        console.log(`[NotificationsPanel] Loaded ${filteredNotifications.length} task notifications for ${user.username}`);
+      } else if (user.role === 'teacher') {
+        // Para profesores, separar notificaciones de evaluaciones y tareas
+        setTaskNotifications(notifications);
+        
+        // Debug para evaluaciones pendientes
         const evaluationNotifications = notifications.filter(n => 
-          n.type === 'new_task' && n.taskType === 'evaluation'
+          (n.type === 'pending_grading' || n.type === 'task_completed') && 
+          n.taskType === 'evaluation'
         );
         
-        console.log(`[NotificationsPanel] ${user.username} evaluation notifications:`, 
-          evaluationNotifications.length);
+        console.log(`[NotificationsPanel] ${user.username} evaluation notifications:`, evaluationNotifications.length);
         
-        evaluationNotifications.forEach(n => {
-          const isCompleted = TaskNotificationManager.isEvaluationCompletedByStudent(
-            n.taskId, user.username
-          );
-          console.log(`[NotificationsPanel] ${n.taskTitle}: completed=${isCompleted}`);
-          if (isCompleted) {
-            console.warn(`[NotificationsPanel] ⚠️ COMPLETED evaluation still showing: ${n.taskTitle} for ${user.username}`);
-          }
-        });
+        // Debug para tareas pendientes
+        const taskNotifications = notifications.filter(n => 
+          (n.type === 'pending_grading' || n.type === 'task_completed') && 
+          n.taskType === 'assignment'
+        );
+        
+        console.log(`[NotificationsPanel] ${user.username} task notifications:`, taskNotifications.length);
       }
-      
-      setTaskNotifications(notifications);
-      console.log(`[NotificationsPanel] Loaded ${notifications.length} task notifications for ${user.username}`);
     } catch (error) {
       console.error('Error loading task notifications:', error);
     }
@@ -449,6 +467,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   };
 
   const handleReadAll = () => {
+    setIsMarking(true);
+    
     if (user?.role === 'student') {
       try {
         let hasUpdates = false;
@@ -482,7 +502,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
             if (
               notification.targetUsernames.includes(user.username) &&
               !notification.readBy.includes(user.username) &&
-              notification.type !== 'new_task' // Don't mark new_task notifications as read here
+              // 🔥 MEJORA: Solo marcar como leídos los comentarios, no las tareas/evaluaciones pendientes
+              notification.type !== 'new_task' && 
+              notification.type !== 'pending_grading'
             ) {
               hasUpdates = true;
               return {
@@ -498,10 +520,17 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         }
         
         if (hasUpdates) {
-          // Update internal state - only clear comments and notifications, NOT pending tasks
+          // Update internal state - only clear comments and comment notifications, NOT pending tasks
           setUnreadComments([]);
-          setTaskNotifications([]);
+          // ✅ MEJORA: Filtrar para mantener tareas y evaluaciones pendientes
+          const filteredNotifications = taskNotifications.filter(notification => 
+            notification.type === 'new_task' || notification.type === 'pending_grading'
+          );
+          setTaskNotifications(filteredNotifications);
           // Note: We don't clear pendingTasks as these should remain until completed/submitted
+          
+          // Restablecer el estado del botón después de un breve retraso
+          setTimeout(() => setIsMarking(false), 500);
           
           // Trigger events for other components to update
           document.dispatchEvent(new Event('commentsUpdated'));
@@ -547,8 +576,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
             if (
               notification.targetUsernames.includes(user.username) &&
               !notification.readBy.includes(user.username) &&
-              // Only mark comment-related notifications as read, NOT pending tasks/grading
-              (notification.type === 'teacher_comment' || notification.type === 'task_submission')
+              // ✅ MEJORA: Solo marcar como leídos los comentarios, no las tareas/evaluaciones pendientes
+              notification.type === 'teacher_comment'
             ) {
               hasUpdates = true;
               return {
@@ -567,13 +596,17 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           // Update internal state - only clear comments, NOT pending tasks/grading notifications
           setUnreadStudentComments([]);
           
-          // Filter taskNotifications to keep only pending grading and new task notifications
+          // ✅ MEJORA: Filtrar para mantener tareas y evaluaciones pendientes
           const filteredTaskNotifications = taskNotifications.filter(notification => 
             notification.type === 'pending_grading' || 
             notification.type === 'new_task' ||
-            notification.readBy.includes(user.username) // Keep notifications that are now marked as read
+            notification.type === 'task_submission' ||
+            notification.type === 'task_completed'
           );
           setTaskNotifications(filteredTaskNotifications);
+          
+          // Restablecer el estado del botón después de un breve retraso
+          setTimeout(() => setIsMarking(false), 500);
           
           // Note: studentSubmissions are NOT cleared here because they represent
           // actual student work that needs to be reviewed and graded by the teacher
@@ -592,55 +625,63 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     }
   };
 
+  // Retorna el componente del panel de notificaciones
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="icon"
-          className={`relative transition-all duration-200 ${
-            open 
-              ? 'bg-primary/15 text-primary hover:bg-primary/20 ring-2 ring-primary/30 shadow-md' 
-              : 'hover:bg-secondary/80 hover:text-foreground'
-          }`}
-          title={translate('notifications')}
-        >
-          <Bell className={`h-5 w-5 transition-all duration-200 ${
-            open ? 'text-primary scale-110' : 'text-muted-foreground hover:text-foreground'
-          }`} />
-          {count > 0 && (
-            <Badge 
-              className="absolute -top-1 -right-1 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
-              title={translate('unreadNotificationsCount', { count: String(count) })}
-            >
-              {count > 99 ? '99+' : count}
-            </Badge>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 md:w-96 p-0 max-h-[80vh] overflow-hidden" align="end">
-        <Card className="border-0 h-full flex flex-col max-h-[80vh]">
-          <CardHeader className="pb-2 pt-4 px-4 flex-shrink-0">
-            <CardTitle className="text-lg font-semibold flex items-center justify-between">
-              <span>{translate('notifications')}</span>
-              {((user?.role === 'student' && (unreadComments.length > 0 || taskNotifications.length > 0)) ||
-                (user?.role === 'teacher' && (studentSubmissions.length > 0 || unreadStudentComments.length > 0 || pendingGrading.length > 0))) && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={handleReadAll}
-                  className="text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors duration-200"
-                >
-                  {translate('markAllAsRead')}
-                </Button>
-              )}
-            </CardTitle>
-          </CardHeader>
-          
-          <ScrollArea className="flex-1 h-full">
-            <div className="max-h-[60vh] overflow-y-auto px-1">
-            <CardContent className="p-0 space-y-0">
-              {/* Admin: Password Reset Requests */}
+    <div className="relative">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className={`relative transition-all duration-200 ${
+              open 
+                ? 'bg-primary/15 text-primary hover:bg-primary/20 ring-2 ring-primary/30 shadow-md' 
+                : 'hover:bg-secondary/80 hover:text-foreground'
+            }`}
+            title={translate('notifications')}
+          >
+            <Bell className={`h-5 w-5 transition-all duration-200 ${
+              open ? 'text-primary scale-110' : 'text-muted-foreground hover:text-foreground'
+            }`} />
+            {count > 0 && (
+              <Badge 
+                className="absolute -top-1 -right-1 bg-red-500 text-white hover:bg-red-600 text-xs px-[0.4rem] py-[0.1rem] rounded-full"
+                title={translate('unreadNotificationsCount', { count: String(count) })}
+              >
+                {count > 99 ? '99+' : count}
+              </Badge>
+            )}
+          </Button>
+        </PopoverTrigger>
+        
+        <PopoverContent className="w-80 md:w-96 p-0 max-h-[80vh] overflow-hidden" align="end">
+          <Card className="border-0 h-full flex flex-col max-h-[80vh]">
+            <CardHeader className="pb-2 pt-4 px-4 flex-shrink-0">
+              <CardTitle className="text-lg font-semibold flex items-center justify-between">
+                <span>{translate('notifications')}</span>
+                {((user?.role === 'student' && (unreadComments.length > 0 || taskNotifications.length > 0)) ||
+                  (user?.role === 'teacher' && (studentSubmissions.length > 0 || unreadStudentComments.length > 0 || pendingGrading.length > 0))) && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={handleReadAll}
+                    disabled={isMarking}
+                    className={`text-xs transition-colors duration-200 ${
+                      isMarking 
+                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300' 
+                        : 'text-muted-foreground hover:bg-gray-200 hover:text-gray-800 dark:hover:bg-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {translate('markAllAsRead')}
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            
+            <ScrollArea className="flex-1 h-full">
+              <div className="max-h-[60vh] overflow-y-auto px-1">
+                <CardContent className="p-0 space-y-0">
+                  {/* Admin: Password Reset Requests */}
               {user?.role === 'admin' && (
                 <div className="divide-y divide-border">
                   {passwordRequests.length === 0 ? (
@@ -722,7 +763,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {translate('duePrefix')} {formatDate(task.dueDate)}
                                   </p>
                                   <Link 
-                                    href={`/dashboard/tareas?taskId=${task.id}`}
+                                    href={`/dashboard/tareas?taskId=${task.id}&highlight=true`}
                                     className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
                                   >
                                     Ver Evaluación
@@ -778,7 +819,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {translate('duePrefix')} {formatDate(task.dueDate)}
                                   </p>
                                   <Link 
-                                    href={`/dashboard/tareas?taskId=${task.id}`}
+                                    href={`/dashboard/tareas?taskId=${task.id}&highlight=true`}
                                     className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
                                   >
                                     {translate('viewTask')}
@@ -832,7 +873,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 {comment.task?.title}
                               </p>
                               <Link 
-                                href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}`} 
+                                href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}&highlight=true`} 
                                 className="inline-block mt-1 text-xs text-primary hover:underline"
                               >
                                 {translate('viewComment')}
@@ -905,7 +946,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {notification.course} • {notification.subject}
                                   </p>
                                   <Link 
-                                    href={`/dashboard/tareas?taskId=${notification.taskId}`}
+                                    href={`/dashboard/tareas?taskId=${notification.taskId}&highlight=true`}
                                     className="inline-block mt-2 text-xs text-primary hover:underline"
                                   >
                                     {translate('viewTask')}
@@ -962,8 +1003,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {translate('evaluation') || 'Evaluación'}
                                   </p>
                                   <Link 
-                                    href={`/dashboard/tareas?taskId=${notif.taskId}`}
+                                    href={`/dashboard/tareas?taskId=${notif.taskId}&highlight=true`}
                                     className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                                    onClick={() => {
+                                      if (user) {
+                                        // Marcar la notificación como leída cuando se hace clic
+                                        TaskNotificationManager.markAsReadByUser(notif.id, user.username);
+                                      }
+                                    }}
                                   >
                                     {translate('reviewEvaluation') || 'Revisar Evaluación'}
                                   </Link>
@@ -1011,8 +1058,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {formatDate(notif.timestamp)}
                                   </p>
                                   <Link 
-                                    href={`/dashboard/tareas?taskId=${notif.taskId}`}
+                                    href={`/dashboard/tareas?taskId=${notif.taskId}&highlight=true`}
                                     className="inline-block mt-2 text-xs text-purple-500 dark:text-purple-400 hover:underline"
+                                    onClick={() => {
+                                      if (user) {
+                                        // Marcar la notificación como leída cuando se hace clic
+                                        TaskNotificationManager.markAsReadByUser(notif.id, user.username);
+                                      }
+                                    }}
                                   >
                                     {translate('viewResults') || 'Ver Resultados'}
                                   </Link>
@@ -1055,8 +1108,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {translate('task') || 'Tarea'}
                                   </p>
                                   <Link 
-                                    href={`/dashboard/tareas?taskId=${notif.taskId}`}
+                                    href={`/dashboard/tareas?taskId=${notif.taskId}&highlight=true`}
                                     className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
+                                    onClick={() => {
+                                      if (user) {
+                                        // Marcar la notificación como leída cuando se hace clic
+                                        TaskNotificationManager.markAsReadByUser(notif.id, user.username);
+                                      }
+                                    }}
                                   >
                                     {translate('viewTask') || 'Ver Tarea'}
                                   </Link>
@@ -1099,7 +1158,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {formatDate(submission.timestamp)}
                                   </p>
                                   <Link 
-                                    href={`/dashboard/tareas?taskId=${submission.taskId}`}
+                                    href={`/dashboard/tareas?taskId=${submission.taskId}&highlight=true`}
                                     className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
                                   >
                                     {translate('reviewTask') || 'Revisar Tarea'}
@@ -1114,23 +1173,23 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {/* Sección de comentarios no leídos de estudiantes */}
                       {unreadStudentComments.length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-muted/30 border-l-4 border-gray-300 dark:border-gray-500">
-                            <h3 className="text-sm font-medium text-foreground">
-                              {translate('unreadStudentComments')}
+                          <div className="px-4 py-2 bg-gray-100 dark:bg-gray-900/20 border-l-4 border-blue-400 dark:border-blue-500">
+                            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                              {translate('unreadStudentComments') || 'Comentarios No Leídos'} ({unreadStudentComments.length})
                             </h3>
                           </div>
                           {unreadStudentComments.map(comment => (
                             <div key={comment.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
-                                <div className="bg-blue-100 p-2 rounded-full">
-                                  <MessageSquare className="h-4 w-4 text-blue-600" />
+                                <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
+                                  <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <p className="font-medium text-sm">
                                       {comment.studentName}
                                     </p>
-                                    <Badge variant="outline" className="text-xs flex flex-col items-center justify-center text-center leading-tight">
+                                    <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300 flex flex-col items-center justify-center text-center leading-tight">
                                       {splitTextForBadge(comment.task?.subject || translate('task')).map((line, index) => (
                                         <div key={index}>{line}</div>
                                       ))}
@@ -1140,16 +1199,22 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {comment.comment}
                                   </p>
                                   <p className="text-xs font-medium mt-1">
-                                    {translate('onTask')}: {comment.task?.title && comment.task?.course ? `${comment.task.title} (${comment.task.course})` : comment.task?.title || 'Tarea'}
+                                    {translate('task') || 'Tarea'}: {comment.task?.title && comment.task?.course ? `${comment.task.title} (${comment.task.course})` : comment.task?.title || 'Tarea'}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(comment.timestamp)}
                                   </p>
                                   <Link 
-                                    href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}`}
-                                    className="inline-block mt-2 text-xs text-primary hover:underline"
+                                    href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}&highlight=true`}
+                                    className="inline-block mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                    onClick={() => {
+                                      if (user) {
+                                        // Marcar el comentario como leído cuando se hace clic
+                                        TaskNotificationManager.markCommentsAsReadForTask(comment.taskId, user.username);
+                                      }
+                                    }}
                                   >
-                                    {translate('viewComment')}
+                                    {translate('viewComment') || 'Ver Comentario'}
                                   </Link>
                                 </div>
                               </div>
@@ -1161,11 +1226,12 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                   )}
                 </div>
               )}
-            </CardContent>
-            </div>
-          </ScrollArea>
-        </Card>
-      </PopoverContent>
-    </Popover>
+                </CardContent>
+              </div>
+            </ScrollArea>
+          </Card>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }

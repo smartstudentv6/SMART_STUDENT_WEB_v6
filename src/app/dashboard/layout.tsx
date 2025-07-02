@@ -22,7 +22,7 @@ const navItems = [
   { href: '/dashboard/mapa-mental', labelKey: 'navMindMap', icon: Network },
   { href: '/dashboard/cuestionario', labelKey: 'navQuiz', icon: FileQuestion },
   { href: '/dashboard/evaluacion', labelKey: 'navEvaluation', icon: ClipboardList },
-  { href: '/dashboard/tareas', labelKey: 'navTasks', icon: ClipboardCheck },
+  { href: '/dashboard/tareas', labelKey: 'navTasks', icon: ClipboardList },
   { href: '/dashboard/perfil', labelKey: 'navProfile', icon: UserCircle2 },
   { href: '/dashboard/ayuda', labelKey: 'navHelp', icon: HelpCircle },
 ];

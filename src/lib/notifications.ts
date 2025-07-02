@@ -411,10 +411,19 @@ export class TaskNotificationManager {
   static getUnreadCountForUser(username: string, userRole: 'student' | 'teacher'): number {
     const unreadNotifications = this.getUnreadNotificationsForUser(username, userRole);
     
-    // Para profesores, excluir notificaciones de tipo 'task_submission' 
-    // ya que estas se cuentan por separado en pendingTaskSubmissionsCount
+    // Para profesores, contar todas las notificaciones incluyendo pending_grading y task_completed
     if (userRole === 'teacher') {
-      return unreadNotifications.filter(n => n.type !== 'task_submission').length;
+      // Asegurar que se incluyen las notificaciones de tipo pending_grading y task_completed
+      const notificationCount = unreadNotifications.filter(n => 
+        n.type === 'pending_grading' || 
+        n.type === 'task_completed' || 
+        n.type === 'teacher_comment' ||
+        (n.type === 'new_task' && n.fromUsername === username) // Notificaciones de tareas creadas por este profesor
+      ).length;
+      
+      console.log(`[TaskNotificationManager] Teacher ${username} has ${notificationCount} notifications (including ${unreadNotifications.filter(n => n.type === 'pending_grading').length} pending_grading and ${unreadNotifications.filter(n => n.type === 'task_completed').length} task_completed)`);
+      
+      return notificationCount;
     }
     
     // Para estudiantes, excluir notificaciones de comentarios (teacher_comment)
@@ -524,7 +533,10 @@ export class TaskNotificationManager {
       if (
         notification.taskId === taskId &&
         notification.targetUsernames.includes(studentUsername) &&
-        !notification.readBy.includes(studentUsername)
+        !notification.readBy.includes(studentUsername) &&
+        // 🔥 MEJORA: Solo marcar como leídos los comentarios y notificaciones de tipo 'teacher_comment'
+        // No marcar como leídas las notificaciones de tipo 'new_task' (para mantener las tareas/evaluaciones pendientes)
+        (notification.type === 'teacher_comment')
       ) {
         updated = true;
         return {
@@ -538,7 +550,49 @@ export class TaskNotificationManager {
     
     if (updated) {
       this.saveNotifications(updatedNotifications);
-      console.log(`[TaskNotificationManager] Marked all notifications for task ${taskId} as read for student ${studentUsername}`);
+      console.log(`[TaskNotificationManager] Marked all comment notifications for task ${taskId} as read for student ${studentUsername}`);
+      
+      // 🔥 MEJORA: También marcar comentarios no leídos para esta tarea como leídos
+      this.markCommentsAsReadForTask(taskId, studentUsername);
+    }
+  }
+
+  // 🔥 NUEVA FUNCIÓN: Marcar comentarios de una tarea como leídos
+  static markCommentsAsReadForTask(taskId: string, username: string): void {
+    try {
+      const storedComments = localStorage.getItem('smart-student-task-comments');
+      if (!storedComments) return;
+      
+      const comments = JSON.parse(storedComments);
+      let updated = false;
+      
+      // Marcar solo comentarios de la tarea específica como leídos
+      const updatedComments = comments.map(comment => {
+        if (
+          comment.taskId === taskId && 
+          !comment.isSubmission &&  // No marcar entregas, solo comentarios
+          comment.studentUsername !== username && // No marcar comentarios propios
+          (!comment.readBy?.includes(username))
+        ) {
+          updated = true;
+          return {
+            ...comment,
+            isNew: false,
+            readBy: [...(comment.readBy || []), username]
+          };
+        }
+        return comment;
+      });
+      
+      if (updated) {
+        localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
+        console.log(`[TaskNotificationManager] Marked comments for task ${taskId} as read for ${username}`);
+        
+        // Disparar evento para actualizar la UI
+        document.dispatchEvent(new Event('commentsUpdated'));
+      }
+    } catch (error) {
+      console.error('Error marking task comments as read:', error);
     }
   }
 
