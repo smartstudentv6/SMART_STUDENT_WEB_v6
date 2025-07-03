@@ -449,6 +449,7 @@
     "totalTasks": "Total",
     "pendingTasks": "Tareas Pendientes",
     "submittedTasks": "Entregadas",
+    "submittedTask": "Tarea entregada",
     "reviewedTasks": "Revisadas",
     "viewTask": "Ver Tarea",
     "finalSubmissionMade": "Tarea entregada correctamente",

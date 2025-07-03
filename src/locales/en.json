@@ -442,6 +442,7 @@
     "totalTasks": "Total",
     "pendingTasks": "Pending Tasks",
     "submittedTasks": "Submitted",
+    "submittedTask": "Submitted task",
     "reviewedTasks": "Reviewed",
     "viewTask": "View Task",
     "finalSubmissionMade": "Assignment submitted successfully",
