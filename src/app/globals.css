@@ -1,3 +1,9 @@
+@import '../styles/custom-select.css';
+@import '../styles/date-formats.css';
+@import '../styles/tables.css';
+@import '../styles/badge-styles.css';
+@import '../styles/button-styles.css';
+@import '../styles/card-styles.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

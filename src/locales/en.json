@@ -397,6 +397,7 @@
     "taskCreatedDesc": "Task {{title}} assigned successfully.",
     "taskUpdated": "Task updated successfully",
     "taskUpdatedDesc": "Task {{title}} updated successfully.",
+    "updateEvaluation": "Update Evaluation",
     "taskDeleted": "Task deleted successfully",
     "taskDeletedDesc": "Task {{title}} deleted successfully.",
     "taskDeleteConfirm": "Are you sure you want to delete the task {{title}}? This action cannot be undone.",

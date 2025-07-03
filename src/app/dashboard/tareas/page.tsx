@@ -279,6 +279,23 @@ export default function TareasPage() {
   };
 
   // Filter tasks based on user role
+  // Genera la fecha mínima en formato ISO para el input datetime-local
+  const getMinDateTimeString = () => {
+    const now = new Date();
+    return now.toISOString().slice(0, 16); // Formato YYYY-MM-DDTHH:MM requerido para datetime-local
+  };
+  
+  // Utilidad para añadir el atributo min a los inputs de fecha
+  useEffect(() => {
+    // Aplicar el atributo min a todos los inputs de tipo datetime-local
+    const dateInputs = document.querySelectorAll('input[type="datetime-local"]');
+    const minDate = getMinDateTimeString();
+    
+    dateInputs.forEach(input => {
+      input.setAttribute('min', minDate);
+    });
+  }, [showCreateDialog, showEditDialog]); // Se ejecuta cuando se abre un diálogo
+
   const getFilteredTasks = () => {
     if (user?.role === 'teacher') {
       // Teachers see tasks they created
@@ -359,6 +376,18 @@ export default function TareasPage() {
       toast({
         title: translate('error'),
         description: translate('completeAllFields'),
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    // Validar que la fecha límite sea en el futuro
+    const dueDate = new Date(formData.dueDate);
+    const now = new Date();
+    if (dueDate <= now) {
+      toast({
+        title: translate('error'),
+        description: translate('dueDateMustBeFuture'),
         variant: 'destructive'
       });
       return;
@@ -508,6 +537,18 @@ export default function TareasPage() {
       });
       return;
     }
+    
+    // Validar que la fecha límite sea en el futuro
+    const dueDate = new Date(formData.dueDate);
+    const now = new Date();
+    if (dueDate <= now) {
+      toast({
+        title: translate('error'),
+        description: translate('dueDateMustBeFuture'),
+        variant: 'destructive'
+      });
+      return;
+    }
 
     const updatedTask: Task = {
       ...selectedTask,
@@ -621,13 +662,14 @@ export default function TareasPage() {
   
   // Formato de fecha en una sola línea para tablas compactas
   const formatDateOneLine = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).replace(',', ' ');
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(date);
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    return `${day} ${month} ${year}, ${hours}:${minutes}`;
   };
 
   // File handling functions
@@ -776,7 +818,7 @@ export default function TareasPage() {
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('list')}
-                  className={`px-3 py-1 ${viewMode === 'list' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}`}
+                  className={`px-3 py-1 ${viewMode === 'list' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-100 hover:text-orange-700'}`}
                 >
                   {translate('listView')}
                 </Button>
@@ -784,7 +826,7 @@ export default function TareasPage() {
                   variant={viewMode === 'course' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('course')}
-                  className={`px-3 py-1 ${viewMode === 'course' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}`}
+                  className={`px-3 py-1 ${viewMode === 'course' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'hover:bg-orange-100 hover:text-orange-700'}`}
                 >
                   {translate('courseView')}
                 </Button>
@@ -792,19 +834,32 @@ export default function TareasPage() {
 
               {/* Course Filter */}
               <Select value={selectedCourseFilter} onValueChange={setSelectedCourseFilter}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-48 select-orange-hover-trigger">
                   <SelectValue placeholder={translate('filterByCourse')} />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{translate('allCourses')}</SelectItem>
+                <SelectContent className="select-orange-hover">
+                  <SelectItem value="all" className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{translate('allCourses')}</SelectItem>
                   {getAvailableCourses().map(course => (
-                    <SelectItem key={course} value={course}>{course}</SelectItem>
+                    <SelectItem key={course} value={course} className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{course}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               <Button 
-                onClick={() => setShowCreateDialog(true)}
+                onClick={() => {
+                  // Establecer fecha de vencimiento por defecto a 7 días en el futuro
+                  const defaultDueDate = new Date();
+                  defaultDueDate.setDate(defaultDueDate.getDate() + 7);
+                  const defaultDueDateString = defaultDueDate.toISOString().slice(0, 16);
+                  
+                  // Inicializar el formulario con la fecha por defecto
+                  setFormData(prevData => ({
+                    ...prevData,
+                    dueDate: defaultDueDateString
+                  }));
+                  
+                  setShowCreateDialog(true);
+                }}
                 className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -832,7 +887,7 @@ export default function TareasPage() {
             Object.entries(getTasksByCourse()).map(([course, courseTasks]) => {
               const stats = getCourseStats()[course];
               return (
-                <Card key={course} className="border-l-4 border-l-indigo-500">
+                <Card key={course} className="card-orange-shadow border-l-4 border-l-indigo-500">
                   <CardHeader>
                     <div className="flex justify-between items-center">
                       <div>
@@ -877,7 +932,7 @@ export default function TareasPage() {
                             <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-2">
                               <span className="flex items-center">
                                 <Calendar className="w-3 h-3 mr-1" />
-                                {translate('duePrefix')} {formatDate(task.dueDate)}
+                                {translate('duePrefix')} {formatDateOneLine(task.dueDate)}
                               </span>
                               <span className="flex items-center">
                                 <MessageSquare className="w-3 h-3 mr-1" />
@@ -887,30 +942,31 @@ export default function TareasPage() {
                           </div>
                           <div className="flex items-center space-x-1">
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => {
                                 setSelectedTask(task);
                                 setShowTaskDialog(true);
                               }}
                               title={translate('viewTask')}
+                              className="action-button"
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => handleEditTask(task)}
-                              className="text-blue-600 hover:text-blue-700"
+                              className="action-button"
                               title={translate('editTask')}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => handleDeleteTask(task)}
-                              className="text-red-600 hover:text-red-700"
+                              className="action-button action-button-delete"
                               title={translate('deleteTask')}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -941,7 +997,7 @@ export default function TareasPage() {
               </Card>
             ) : (
               filteredTasks.map(task => (
-                <Card key={task.id} className="hover:shadow-md transition-shadow">
+                <Card key={task.id} className="card-orange-shadow hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -962,30 +1018,31 @@ export default function TareasPage() {
                       </div>
                       <div className="flex items-center space-x-1">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => {
                             setSelectedTask(task);
                             setShowTaskDialog(true);
                           }}
+                          className="action-button"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
                         {user?.role === 'teacher' && task.assignedBy === user.username && (
                           <>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => handleEditTask(task)}
-                              className="text-blue-600 hover:text-blue-700"
+                              className="action-button"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => handleDeleteTask(task)}
-                              className="text-red-600 hover:text-red-700"
+                              className="action-button action-button-delete"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -1002,7 +1059,7 @@ export default function TareasPage() {
                       <div className="flex items-center space-x-4">
                         <span className="flex items-center">
                           <Calendar className="w-3 h-3 mr-1" />
-                          {translate('duePrefix')} {formatDate(task.dueDate)}
+                          {translate('duePrefix')} {formatDateOneLine(task.dueDate)}
                         </span>
                         <span className="flex items-center">
                           {task.assignedTo === 'course' ? (
@@ -1068,10 +1125,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="course" className="text-right">{translate('taskCourse')} *</Label>
               <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue placeholder={translate('selectCourse')} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="select-orange-hover">
                   {getAvailableCourses().map(course => (
                     <SelectItem key={course} value={course}>{course}</SelectItem>
                   ))}
@@ -1082,10 +1139,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="subject" className="text-right">{translate('taskSubject')}</Label>
               <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue placeholder={translate('selectSubject')} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="select-orange-hover">
                   {getAvailableSubjects().map(subject => (
                     <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                   ))}
@@ -1096,10 +1153,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">{translate('assignTo')}</Label>
               <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value, assignedStudents: [] }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="select-orange-hover">
                   <SelectItem value="course">{translate('assignToCourse')}</SelectItem>
                   <SelectItem value="student">{translate('assignToStudents')}</SelectItem>
                 </SelectContent>
@@ -1160,10 +1217,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">{translate('priority')}</Label>
               <Select value={formData.priority} onValueChange={(value: 'low' | 'medium' | 'high') => setFormData(prev => ({ ...prev, priority: value }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="select-orange-hover">
                   <SelectItem value="low">{translate('priorityLow')}</SelectItem>
                   <SelectItem value="medium">{translate('priorityMedium')}</SelectItem>
                   <SelectItem value="high">{translate('priorityHigh')}</SelectItem>
@@ -1172,14 +1229,14 @@ export default function TareasPage() {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Tipo</Label>
+              <Label className="text-right">{translate('taskType')}</Label>
               <Select value={formData.taskType} onValueChange={(value: 'tarea' | 'evaluacion') => setFormData(prev => ({ ...prev, taskType: value }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tarea">Tarea</SelectItem>
-                  <SelectItem value="evaluacion">Evaluación</SelectItem>
+                <SelectContent className="select-orange-hover">
+                  <SelectItem value="tarea">{translate('taskTypeAssignment')}</SelectItem>
+                  <SelectItem value="evaluacion">{translate('taskTypeEvaluation')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1285,9 +1342,11 @@ export default function TareasPage() {
             </Button>
             <Button 
               onClick={handleCreateTask}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className={`${formData.taskType === 'evaluacion' 
+                ? 'bg-purple-600 hover:bg-purple-700' 
+                : 'bg-orange-500 hover:bg-orange-600'} text-white`}
             >
-              {formData.taskType === 'evaluacion' ? 'Crear Evaluación' : translate('createTask')}
+              {formData.taskType === 'evaluacion' ? translate('createEvaluation') : translate('createTask')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1350,8 +1409,8 @@ export default function TareasPage() {
               )}
               
               <div className="flex space-x-4 text-sm">
-                <span>
-                  <strong>{translate('taskDueDateLabel')}</strong> {formatDate(selectedTask.dueDate)}
+                <span className="whitespace-nowrap font-medium">
+                  <strong>{translate('taskDueDateLabel')}</strong> <span className="single-line-date text-base">{formatDateOneLine(selectedTask.dueDate)}</span>
                 </span>
                 <span>
                   <strong>{translate('taskStatusLabel')}</strong> 
@@ -1391,7 +1450,154 @@ export default function TareasPage() {
               
               <Separator />
               
-              <div>
+              {/* Detalle por estudiante - Solo visible para profesor - REPOSICIONADO AL PRINCIPIO */}
+              {user?.role === 'teacher' && (
+                <div>
+                  <h4 className="font-medium mb-4">{translate('studentDetailPanel')}</h4>
+
+                  {/* Tabla para tareas normales */}
+                  {selectedTask?.taskType !== 'evaluacion' && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="centered-header py-2 px-3 font-medium">{translate('studentNameColumn')}</th>
+                              <th className="centered-header py-2 px-3 font-medium">{translate('studentStatusColumn')}</th>
+                              <th className="centered-header py-2 px-3 font-medium">{translate('studentGradeColumn')}</th>
+                              <th className="centered-header py-2 px-3 font-medium min-w-[150px]">{translate('submissionDateColumn')}</th>
+                              <th className="centered-header py-2 px-3 font-medium">{translate('studentActionsColumn')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {getAssignedStudentsForTask(selectedTask).length > 0 ? (
+                              getAssignedStudentsForTask(selectedTask).map((student, index) => {
+                                const submission = getStudentSubmission(selectedTask.id, student.username);
+                                const hasSubmission = submission !== undefined;
+                                
+                                return (
+                                  <tr key={student.username} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                                    <td className="py-2 px-3">{student.displayName}</td>
+                                    <td className="py-2 px-3">
+                                      <Badge className={hasSubmission ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}>
+                                        {hasSubmission ? translate('statusSubmitted') : translate('statusPending')}
+                                      </Badge>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      {hasSubmission && submission.grade ? 
+                                        <span className="font-medium">{submission.grade}%</span> :
+                                        <span className="text-muted-foreground italic">{translate('noSubmissionYet')}</span>
+                                      }
+                                    </td>
+                                    <td className="py-2 px-3 date-cell">
+                                      <span className="single-line-date font-medium">
+                                        {hasSubmission ? formatDateOneLine(submission.timestamp) : '-'}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <div className="flex space-x-2">
+                                        {hasSubmission && !submission.grade && (
+                                          <Button 
+                                            size="sm" 
+                                            className="h-7 bg-orange-500 hover:bg-orange-600 text-white"
+                                            onClick={() => {
+                                              // Implementar lógica para calificar
+                                            }}
+                                          >
+                                            {translate('gradeStudent')}
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            ) : (
+                              <tr>
+                                <td colSpan={5} className="py-4 text-center text-muted-foreground">
+                                  {translate('noStudentsInTask')}
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tabla para evaluaciones */}
+                  {selectedTask?.taskType === 'evaluacion' && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="centered-header py-2 px-3 font-medium">{translate('studentNameColumn')}</th>
+                              <th className="centered-header py-2 px-3 font-medium">{translate('evaluationStatusColumn')}</th>
+                              <th className="centered-header py-2 px-3 font-medium">{translate('evaluationGradeColumn')}</th>
+                              <th className="centered-header py-2 px-3 font-medium min-w-[150px]">{translate('evaluationDateColumn')}</th>
+                              <th className="centered-header py-2 px-3 font-medium">{translate('evaluationActionsColumn')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {getAssignedStudentsForTask(selectedTask).length > 0 ? (
+                              getAssignedStudentsForTask(selectedTask).map((student, index) => {
+                                const evaluationResult = getStudentEvaluationResult(selectedTask.id, student.username);
+                                const hasCompleted = evaluationResult !== undefined;
+                                
+                                return (
+                                  <tr key={student.username} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                                    <td className="py-2 px-3">{student.displayName}</td>
+                                    <td className="py-2 px-3">
+                                      <Badge className={hasCompleted ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'}>
+                                        {hasCompleted ? translate('statusCompleted') : translate('statusPending')}
+                                      </Badge>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      {hasCompleted ? 
+                                        <span className="font-medium">{evaluationResult.score}/{evaluationResult.totalQuestions} ({evaluationResult.completionPercentage.toFixed(1)}%)</span> :
+                                        <span className="text-muted-foreground italic">{translate('noSubmissionYet')}</span>
+                                      }
+                                    </td>
+                                    <td className="py-2 px-3 date-cell">
+                                      <span className="single-line-date font-medium">
+                                        {hasCompleted ? formatDateOneLine(evaluationResult.completedAt) : '-'}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      {hasCompleted && (
+                                        <Button 
+                                          size="sm" 
+                                          className="h-7 bg-purple-500 hover:bg-purple-600 text-white"
+                                          onClick={() => {
+                                            // Implementar lógica para ver detalles
+                                          }}
+                                        >
+                                          {translate('viewEvaluationDetail')}
+                                        </Button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            ) : (
+                              <tr>
+                                <td colSpan={5} className="py-4 text-center text-muted-foreground">
+                                  {translate('noStudentsInTask')}
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Panel de comentarios - REPOSICIONADO */}
+              <div className="mt-6">
+                <Separator className="mb-4" />
                 <h4 className="font-medium mb-3">{translate('commentsAndSubmissions')}</h4>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {getTaskComments(selectedTask.id).map(comment => (
@@ -1472,150 +1678,9 @@ export default function TareasPage() {
                   )}
                 </div>
               </div>
-              
-              {/* Detalle por estudiante - Solo visible para profesor */}
-              {user?.role === 'teacher' && (
-                <div className="mt-6">
-                  <Separator className="mb-4" />
-                  <h4 className="font-medium mb-4">{translate('studentDetailPanel')}</h4>
 
-                  {/* Tabla para tareas normales */}
-                  {selectedTask?.taskType !== 'evaluacion' && (
-                    <div className="border rounded-lg overflow-hidden">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-muted">
-                            <tr>
-                              <th className="text-left py-2 px-3 font-medium">{translate('studentNameColumn')}</th>
-                              <th className="text-left py-2 px-3 font-medium">{translate('studentStatusColumn')}</th>
-                              <th className="text-left py-2 px-3 font-medium">{translate('studentGradeColumn')}</th>
-                              <th className="text-left py-2 px-3 font-medium">{translate('submissionDateColumn')}</th>
-                              <th className="text-left py-2 px-3 font-medium">{translate('studentActionsColumn')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {getAssignedStudentsForTask(selectedTask).length > 0 ? (
-                              getAssignedStudentsForTask(selectedTask).map((student, index) => {
-                                const submission = getStudentSubmission(selectedTask.id, student.username);
-                                const hasSubmission = submission !== undefined;
-                                
-                                return (
-                                  <tr key={student.username} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                                    <td className="py-2 px-3">{student.displayName}</td>
-                                    <td className="py-2 px-3">
-                                      <Badge className={hasSubmission ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}>
-                                        {hasSubmission ? translate('statusSubmitted') : translate('statusPending')}
-                                      </Badge>
-                                    </td>
-                                    <td className="py-2 px-3">
-                                      {hasSubmission && submission.grade ? 
-                                        <span className="font-medium">{submission.grade}%</span> :
-                                        <span className="text-muted-foreground italic">{translate('noSubmissionYet')}</span>
-                                      }
-                                    </td>
-                                    <td className="py-2 px-3">
-                                      {hasSubmission ? formatDateOneLine(submission.timestamp) : '-'}
-                                    </td>
-                                    <td className="py-2 px-3">
-                                      <div className="flex space-x-2">
-                                        {hasSubmission && !submission.grade && (
-                                          <Button 
-                                            size="sm" 
-                                            className="h-7 bg-orange-500 hover:bg-orange-600 text-white"
-                                            onClick={() => {
-                                              // Implementar lógica para calificar
-                                            }}
-                                          >
-                                            {translate('gradeStudent')}
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            ) : (
-                              <tr>
-                                <td colSpan={5} className="py-4 text-center text-muted-foreground">
-                                  {translate('noStudentsInTask')}
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tabla para evaluaciones */}
-                  {selectedTask?.taskType === 'evaluacion' && (
-                    <div className="border rounded-lg overflow-hidden">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-muted">
-                            <tr>
-                              <th className="text-left py-2 px-3 font-medium">{translate('studentNameColumn')}</th>
-                              <th className="text-left py-2 px-3 font-medium">{translate('evaluationStatusColumn')}</th>
-                              <th className="text-left py-2 px-3 font-medium">{translate('evaluationGradeColumn')}</th>
-                              <th className="text-left py-2 px-3 font-medium">{translate('evaluationDateColumn')}</th>
-                              <th className="text-left py-2 px-3 font-medium">{translate('evaluationActionsColumn')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {getAssignedStudentsForTask(selectedTask).length > 0 ? (
-                              getAssignedStudentsForTask(selectedTask).map((student, index) => {
-                                const evaluationResult = getStudentEvaluationResult(selectedTask.id, student.username);
-                                const hasCompleted = evaluationResult !== undefined;
-                                
-                                return (
-                                  <tr key={student.username} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                                    <td className="py-2 px-3">{student.displayName}</td>
-                                    <td className="py-2 px-3">
-                                      <Badge className={hasCompleted ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'}>
-                                        {hasCompleted ? translate('statusCompleted') : translate('statusPending')}
-                                      </Badge>
-                                    </td>
-                                    <td className="py-2 px-3">
-                                      {hasCompleted ? 
-                                        <span className="font-medium">{evaluationResult.score}/{evaluationResult.totalQuestions} ({evaluationResult.completionPercentage.toFixed(1)}%)</span> :
-                                        <span className="text-muted-foreground italic">{translate('noSubmissionYet')}</span>
-                                      }
-                                    </td>
-                                    <td className="py-2 px-3">
-                                      {hasCompleted ? formatDateOneLine(evaluationResult.completedAt) : '-'}
-                                    </td>
-                                    <td className="py-2 px-3">
-                                      {hasCompleted && (
-                                        <Button 
-                                          size="sm" 
-                                          className="h-7 bg-purple-500 hover:bg-purple-600 text-white"
-                                          onClick={() => {
-                                            // Implementar lógica para ver detalles
-                                          }}
-                                        >
-                                          {translate('viewEvaluationDetail')}
-                                        </Button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            ) : (
-                              <tr>
-                                <td colSpan={5} className="py-4 text-center text-muted-foreground">
-                                  {translate('noStudentsInTask')}
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-3">
+              {/* Sección para agregar comentarios - REPOSICIONADO AL FINAL */}
+              <div className="space-y-3 mt-6">
                 <Separator />
                 <div>
                   <Label htmlFor="newComment">
@@ -1766,10 +1831,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="course" className="text-right">{translate('taskCourse')} *</Label>
               <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue placeholder={translate('selectCourse')} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="select-orange-hover">
                   {getAvailableCourses().map(course => (
                     <SelectItem key={course} value={course}>{course}</SelectItem>
                   ))}
@@ -1780,10 +1845,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="subject" className="text-right">{translate('taskSubject')}</Label>
               <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue placeholder={translate('selectSubject')} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="select-orange-hover">
                   {getAvailableSubjects().map(subject => (
                     <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                   ))}
@@ -1794,10 +1859,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">{translate('assignTo')}</Label>
               <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="select-orange-hover">
                   <SelectItem value="course">{translate('assignToCourse')}</SelectItem>
                   <SelectItem value="student">{translate('assignToStudents')}</SelectItem>
                 </SelectContent>
@@ -1858,10 +1923,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">{translate('priority')}</Label>
               <Select value={formData.priority} onValueChange={(value: 'low' | 'medium' | 'high') => setFormData(prev => ({ ...prev, priority: value }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="select-orange-hover">
                   <SelectItem value="low">{translate('priorityLow')}</SelectItem>
                   <SelectItem value="medium">{translate('priorityMedium')}</SelectItem>
                   <SelectItem value="high">{translate('priorityHigh')}</SelectItem>
@@ -1870,14 +1935,14 @@ export default function TareasPage() {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Tipo</Label>
+              <Label className="text-right">{translate('taskType')}</Label>
               <Select value={formData.taskType} onValueChange={(value: 'tarea' | 'evaluacion') => setFormData(prev => ({ ...prev, taskType: value }))}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tarea">Tarea</SelectItem>
-                  <SelectItem value="evaluacion">Evaluación</SelectItem>
+                <SelectContent className="select-orange-hover">
+                  <SelectItem value="tarea">{translate('taskTypeAssignment')}</SelectItem>
+                  <SelectItem value="evaluacion">{translate('taskTypeEvaluation')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1931,9 +1996,11 @@ export default function TareasPage() {
             </Button>
             <Button 
               onClick={handleUpdateTask}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className={`${formData.taskType === 'evaluacion' 
+                ? 'bg-purple-600 hover:bg-purple-700' 
+                : 'bg-orange-500 hover:bg-orange-600'} text-white`}
             >
-              {translate('updateTask')}
+              {formData.taskType === 'evaluacion' ? translate('updateEvaluation') || translate('updateTask') : translate('updateTask')}
             </Button>
           </DialogFooter>
         </DialogContent>
