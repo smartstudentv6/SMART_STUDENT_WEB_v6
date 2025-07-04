@@ -30,7 +30,7 @@ interface Task {
   assignedStudents?: string[]; // specific students if assignedTo is 'student'
   dueDate: string;
   createdAt: string;
-  status: 'pending' | 'submitted' | 'reviewed';
+  status: 'pending' | 'submitted' | 'reviewed' | 'delivered';
   priority: 'low' | 'medium' | 'high';
   attachments?: TaskFile[]; // Files attached by teacher
   taskType: 'tarea' | 'evaluacion'; // New field for task type
@@ -49,6 +49,9 @@ interface TaskComment {
   timestamp: string;
   isSubmission: boolean; // true if this is the student's submission
   attachments?: TaskFile[]; // Files attached to this comment/submission
+  grade?: number; // Calificación del profesor (opcional)
+  teacherComment?: string; // Comentario del profesor (opcional)
+  reviewedAt?: string; // Fecha de revisión (opcional)
 }
 
 interface TaskFile {
@@ -73,8 +76,14 @@ export default function TareasPage() {
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showGradeDialog, setShowGradeDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [submissionToGrade, setSubmissionToGrade] = useState<TaskComment | null>(null);
+  const [gradeForm, setGradeForm] = useState({
+    grade: '',
+    teacherComment: ''
+  });
   const [newComment, setNewComment] = useState('');
   const [isSubmission, setIsSubmission] = useState(false);
   const [taskAttachments, setTaskAttachments] = useState<TaskFile[]>([]);
@@ -137,10 +146,14 @@ export default function TareasPage() {
     }
   }, [tasks]);
 
-  // Limpiar highlightedCommentId cuando se cierra el diálogo
+  // Limpiar highlightedCommentId cuando se cierra el diálogo y recargar comentarios cuando se abre
   useEffect(() => {
     if (!showTaskDialog) {
       setHighlightedCommentId(null);
+    } else {
+      // Recargar comentarios cuando se abre el diálogo para tener datos frescos
+      console.log('🔄 Reloading comments because task dialog opened');
+      loadComments();
     }
   }, [showTaskDialog]);
 
@@ -154,7 +167,16 @@ export default function TareasPage() {
   const loadComments = () => {
     const storedComments = localStorage.getItem('smart-student-task-comments');
     if (storedComments) {
-      setComments(JSON.parse(storedComments));
+      const parsedComments = JSON.parse(storedComments);
+      console.log('📥 Loading comments from localStorage:', {
+        totalComments: parsedComments.length,
+        submissions: parsedComments.filter((c: any) => c.isSubmission),
+        allComments: parsedComments
+      });
+      setComments(parsedComments);
+    } else {
+      console.log('📥 No comments found in localStorage');
+      setComments([]);
     }
   };
 
@@ -209,6 +231,12 @@ export default function TareasPage() {
         displayName: userData.displayName || username
       }));
     
+    console.log(`🎓 Students from course "${course}":`, {
+      totalUsers: Object.keys(users).length,
+      studentsInCourse: studentUsers,
+      courseStudentsCount: studentUsers.length
+    });
+    
     return studentUsers;
   };
 
@@ -216,47 +244,89 @@ export default function TareasPage() {
   const getAssignedStudentsForTask = (task: Task | null) => {
     if (!task) return [];
     
+    let students: { username: string; displayName: string; }[] = [];
+    
     // Si la tarea está asignada a estudiantes específicos
     if (task.assignedTo === 'student' && task.assignedStudents) {
-      return task.assignedStudents.map(username => {
-        // Simulamos obtener información de estudiantes desde localStorage
-        // En un entorno real, esto vendría de una API o base de datos
+      students = task.assignedStudents.map(username => {
+        // Obtener información real de estudiantes desde localStorage
+        const users = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+        const userData = users[username];
         return {
           username: username,
-          displayName: `Estudiante ${username}` // Simulado, debería venir de los datos reales
+          displayName: userData?.displayName || `Estudiante ${username}`
         };
       });
     } 
     // Si la tarea está asignada a todo un curso
     else if (task.assignedTo === 'course') {
-      // Simulación de lista de estudiantes del curso
-      // En un entorno real, obtendríamos esto de la base de datos
-      return getStudentsFromCourse(task.course);
+      students = getStudentsFromCourse(task.course);
     }
     
-    return [];
+    console.log(`📋 Students assigned to task "${task.title}":`, {
+      taskAssignedTo: task.assignedTo,
+      course: task.course,
+      studentsFound: students,
+      studentsCount: students.length
+    });
+    
+    return students;
   };
 
   // Función para obtener la entrega de un estudiante
   const getStudentSubmission = (taskId: string, studentUsername: string) => {
-    const studentComments = comments.filter(c => 
-      c.taskId === taskId && 
-      c.studentUsername === studentUsername && 
-      c.isSubmission
+    console.log(`🔍 getStudentSubmission searching for: "${studentUsername}" in task: "${taskId}"`);
+    
+    // Filtrar solo las entregas para esta tarea
+    const taskSubmissions = comments.filter(c => 
+      c.taskId === taskId && c.isSubmission
     );
     
-    if (studentComments.length === 0) return undefined;
+    console.log(`📊 Found ${taskSubmissions.length} submissions for task ${taskId}`);
     
-    // Tomamos el último comentario de tipo submission
-    const latestSubmission = studentComments.sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    )[0];
+    if (taskSubmissions.length === 0) {
+      console.log(`❌ No submissions found for task ${taskId}`);
+      return undefined;
+    }
     
-    // Simulamos una calificación (en un entorno real, esto estaría almacenado)
-    return {
-      ...latestSubmission,
-      grade: Math.random() > 0.5 ? Math.floor(Math.random() * 30) + 70 : null // Simulación
-    };
+    // Estrategias de búsqueda ordenadas por precisión
+    const searchStrategies = [
+      // 1. Username exacto
+      (c: TaskComment) => c.studentUsername === studentUsername,
+      // 2. StudentName exacto
+      (c: TaskComment) => c.studentName === studentUsername,
+      // 3. Username case insensitive
+      (c: TaskComment) => c.studentUsername?.toLowerCase() === studentUsername.toLowerCase(),
+      // 4. StudentName case insensitive
+      (c: TaskComment) => c.studentName?.toLowerCase() === studentUsername.toLowerCase(),
+      // 5. Contains en username
+      (c: TaskComment) => c.studentUsername?.includes(studentUsername),
+      // 6. Contains en studentName
+      (c: TaskComment) => c.studentName?.includes(studentUsername),
+      // 7. Reverse contains (estudiante contiene búsqueda)
+      (c: TaskComment) => studentUsername.includes(c.studentUsername || '') || studentUsername.includes(c.studentName || '')
+    ];
+    
+    for (let i = 0; i < searchStrategies.length; i++) {
+      const found = taskSubmissions.find(searchStrategies[i]);
+      if (found) {
+        console.log(`✅ Submission found using strategy ${i + 1}:`, {
+          id: found.id,
+          studentUsername: found.studentUsername,
+          studentName: found.studentName,
+          strategy: `Strategy ${i + 1}`
+        });
+        return found;
+      }
+    }
+    
+    console.log(`❌ No submission found for "${studentUsername}" using any strategy`);
+    console.log('Available submissions:', taskSubmissions.map(s => ({
+      username: s.studentUsername,
+      name: s.studentName
+    })));
+    
+    return undefined;
   };
 
   // Función para obtener el resultado de una evaluación de un estudiante
@@ -351,17 +421,29 @@ export default function TareasPage() {
       
       // Calculate statistics based on actual task status and student submissions
       courseTasks.forEach(task => {
-        // Check if any student has submitted this task
-        const hasSubmissions = comments.some(comment => 
-          comment.taskId === task.id && comment.isSubmission
+        // Obtener todos los estudiantes asignados a esta tarea
+        const assignedStudents = getAssignedStudentsForTask(task);
+        
+        // Verificar si todos los estudiantes han entregado la tarea
+        const allSubmitted = assignedStudents.length > 0 && 
+          assignedStudents.every(student => 
+            hasStudentSubmitted(task.id, student.username)
+          );
+        
+        // Verificar si al menos un estudiante ha entregado
+        const someSubmitted = assignedStudents.some(student => 
+          hasStudentSubmitted(task.id, student.username)
         );
         
-        if (hasSubmissions) {
+        if (allSubmitted) {
           if (task.status === 'reviewed') {
             stats[course].reviewed++;
           } else {
             stats[course].submitted++;
           }
+        } else if (someSubmitted) {
+          // Si hay entregas parciales, sigue siendo pendiente
+          stats[course].pending++;
         } else {
           stats[course].pending++;
         }
@@ -489,24 +571,78 @@ export default function TareasPage() {
     const updatedComments = [...comments, comment];
     saveComments(updatedComments);
 
-    // Update task status if this is a submission
+    console.log('💾 Comment saved:', {
+      isSubmission,
+      studentUsername: user?.username,
+      taskId: selectedTask.id,
+      commentId: comment.id,
+      totalComments: updatedComments.length
+    });
+
+    // Si es una entrega, notificar al profesor inmediatamente
+    if (isSubmission && user?.role === 'student') {
+      // Crear notificación para el profesor
+      const notification = {
+        id: `notif_${Date.now()}`,
+        type: 'task_submission',
+        taskId: selectedTask.id,
+        taskTitle: selectedTask.title,
+        studentName: user.displayName || user.username,
+        studentUsername: user.username,
+        teacherUsername: selectedTask.assignedBy,
+        message: `${user.displayName || user.username} ha entregado la tarea "${selectedTask.title}"`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        course: selectedTask.course,
+        subject: selectedTask.subject
+      };
+
+      // Guardar notificación
+      const existingNotifications = JSON.parse(localStorage.getItem('smart-student-notifications') || '[]');
+      const updatedNotifications = [...existingNotifications, notification];
+      localStorage.setItem('smart-student-notifications', JSON.stringify(updatedNotifications));
+
+      toast({
+        title: translate('taskSubmitted'),
+        description: 'Tu tarea ha sido entregada y el profesor ha sido notificado.',
+        variant: 'default'
+      });
+    }
+
+    // Update task status only if ALL students have submitted
     if (isSubmission) {
-      const updatedTasks = tasks.map(task => 
-        task.id === selectedTask.id 
-          ? { ...task, status: 'submitted' as const }
-          : task
-      );
-      saveTasks(updatedTasks);
+      // Obtener todos los estudiantes asignados a la tarea
+      const assignedStudents = getAssignedStudentsForTask(selectedTask);
+      
+      // Verificar si ahora todos los estudiantes han entregado la tarea
+      // Incluimos el comentario actual en la verificación
+      const allStudentsSubmitted = assignedStudents.length > 0 && 
+        assignedStudents.every(student => 
+          student.username === user?.username || // Este estudiante acaba de entregar
+          hasStudentSubmitted(selectedTask.id, student.username) // Los otros ya entregaron antes
+        );
+      
+      // Actualizar el estado solo si todos han entregado
+      if (allStudentsSubmitted) {
+        const updatedTasks = tasks.map(task => 
+          task.id === selectedTask.id 
+            ? { ...task, status: 'submitted' as const }
+            : task
+        );
+        saveTasks(updatedTasks);
+      }
     }
 
     setNewComment('');
     setIsSubmission(false);
     setCommentAttachments([]);
 
-    toast({
-      title: isSubmission ? translate('taskSubmitted') : translate('commentAdded'),
-      description: isSubmission ? translate('taskSubmittedDesc') : translate('commentAddedDesc'),
-    });
+    if (!isSubmission) {
+      toast({
+        title: translate('commentAdded'),
+        description: translate('commentAddedDesc'),
+      });
+    }
   };
 
   const handleEditTask = (task: Task) => {
@@ -636,6 +772,7 @@ export default function TareasPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      case 'delivered': return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-400';
       case 'submitted': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
       case 'reviewed': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
@@ -750,13 +887,371 @@ export default function TareasPage() {
 
   // Check if student has already submitted this task
   const hasStudentSubmitted = (taskId: string, studentUsername: string) => {
-    return comments.some(comment => 
+    // Primero intentar con el username exacto
+    let hasSubmission = comments.some(comment => 
       comment.taskId === taskId && 
       comment.studentUsername === studentUsername && 
       comment.isSubmission
     );
+    
+    // Si no encuentra nada, intentar con variaciones del nombre
+    if (!hasSubmission) {
+      hasSubmission = comments.some(comment => 
+        comment.taskId === taskId && 
+        (comment.studentName === studentUsername || comment.studentUsername.toLowerCase() === studentUsername.toLowerCase()) &&
+        comment.isSubmission
+      );
+    }
+    
+    return hasSubmission;
   };
 
+  // Función temporal para debug de Felipe específicamente
+  const checkFelipeSubmission = (taskId: string) => {
+    console.log('🔍 FELIPE SPECIAL CHECK for task:', taskId);
+    
+    // Buscar por todos los posibles nombres que podría tener Felipe
+    const felipeSubmissions = comments.filter(c => 
+      c.taskId === taskId && 
+      c.isSubmission && 
+      (
+        c.studentUsername === 'Felipe Estudiante' ||
+        c.studentName === 'Felipe Estudiante' ||
+        c.studentUsername?.toLowerCase().includes('felipe') ||
+        c.studentName?.toLowerCase().includes('felipe')
+      )
+    );
+    
+    console.log('Felipe submissions found:', felipeSubmissions.length, felipeSubmissions.map(s => ({
+      username: s.studentUsername,
+      name: s.studentName,
+      id: s.id
+    })));
+    
+    return felipeSubmissions.length > 0 ? felipeSubmissions[0] : undefined;
+  };
+
+  // Get individual student status for a task
+  const getStudentTaskStatus = (taskId: string, studentUsername: string) => {
+    console.log(`🔍 getStudentTaskStatus called with:`, { taskId, studentUsername });
+    
+    // Intentar múltiples estrategias de búsqueda
+    const searchStrategies = [
+      // Estrategia 1: Username exacto
+      (c: TaskComment) => c.taskId === taskId && c.studentUsername === studentUsername && c.isSubmission,
+      // Estrategia 2: Por displayName
+      (c: TaskComment) => c.taskId === taskId && c.studentName === studentUsername && c.isSubmission,
+      // Estrategia 3: Case insensitive username
+      (c: TaskComment) => c.taskId === taskId && c.studentUsername.toLowerCase() === studentUsername.toLowerCase() && c.isSubmission,
+      // Estrategia 4: Case insensitive displayName
+      (c: TaskComment) => c.taskId === taskId && c.studentName.toLowerCase() === studentUsername.toLowerCase() && c.isSubmission,
+      // Estrategia 5: Buscar por partial match
+      (c: TaskComment) => c.taskId === taskId && (c.studentUsername.includes(studentUsername) || c.studentName.includes(studentUsername)) && c.isSubmission
+    ];
+    
+    let submission = undefined;
+    let strategyUsed = -1;
+    
+    for (let i = 0; i < searchStrategies.length; i++) {
+      submission = comments.find(searchStrategies[i]);
+      if (submission) {
+        strategyUsed = i + 1;
+        break;
+      }
+    }
+    
+    console.log(`🔍 Search results for student ${studentUsername} in task ${taskId}:`, {
+      allComments: comments.length,
+      taskComments: comments.filter(c => c.taskId === taskId).length,
+      allStudentComments: comments.filter(c => c.taskId === taskId && (c.studentUsername === studentUsername || c.studentName === studentUsername)).length,
+      submissions: comments.filter(c => c.taskId === taskId && c.isSubmission).map(c => ({
+        studentUsername: c.studentUsername,
+        studentName: c.studentName,
+        comment: c.comment.substring(0, 50) + '...'
+      })),
+      strategyUsed,
+      foundSubmission: submission ? {
+        id: submission.id,
+        timestamp: submission.timestamp,
+        studentUsername: submission.studentUsername,
+        studentName: submission.studentName,
+        hasGrade: submission.grade !== undefined,
+        hasTeacherComment: !!submission.teacherComment
+      } : null
+    });
+    
+    if (!submission) {
+      console.log(`❌ No submission found for ${studentUsername} - returning 'pending'`);
+      return 'pending';
+    }
+    
+    if (submission.grade !== undefined || submission.teacherComment) {
+      console.log(`✅ Submission reviewed for ${studentUsername} - returning 'reviewed'`);
+      return 'reviewed';
+    }
+    
+    console.log(`📋 Submission delivered for ${studentUsername} - returning 'delivered'`);
+    return 'delivered';
+  };
+
+  // Function for teacher to grade a submission
+  const handleGradeSubmission = (submissionId: string, grade: number, teacherComment: string) => {
+    const updatedComments = comments.map(comment => 
+      comment.id === submissionId 
+        ? { 
+            ...comment, 
+            grade, 
+            teacherComment, 
+            reviewedAt: new Date().toISOString() 
+          }
+        : comment
+    );
+    
+    saveComments(updatedComments);
+
+    // Crear notificación para el estudiante
+    const submission = comments.find(c => c.id === submissionId);
+    if (submission && selectedTask) {
+      const notification = {
+        id: `notif_${Date.now()}`,
+        type: 'task_graded',
+        taskId: selectedTask.id,
+        taskTitle: selectedTask.title,
+        studentUsername: submission.studentUsername,
+        teacherName: user?.displayName || user?.username,
+        message: `Tu tarea "${selectedTask.title}" ha sido calificada`,
+        timestamp: new Date().toISOString(),
+        read: false,
+        grade: grade,
+        course: selectedTask.course,
+        subject: selectedTask.subject
+      };
+
+      // Guardar notificación
+      const existingNotifications = JSON.parse(localStorage.getItem('smart-student-notifications') || '[]');
+      const updatedNotifications = [...existingNotifications, notification];
+      localStorage.setItem('smart-student-notifications', JSON.stringify(updatedNotifications));
+    }
+
+    toast({
+      title: 'Entrega Calificada',
+      description: `La entrega ha sido calificada con ${grade} puntos.`,
+    });
+  };
+
+  // Open grade dialog
+  const openGradeDialog = (taskId: string, studentUsername: string) => {
+    console.log('🎯 Opening grade dialog for:', { taskId, studentUsername });
+    console.log('🔍 Comments state loaded:', comments.length > 0 ? 'YES' : 'NO');
+    console.log('🔍 Total comments:', comments.length);
+    
+    // Si no hay comentarios cargados, intentar cargar primero
+    if (comments.length === 0) {
+      console.log('� No comments loaded, attempting to reload...');
+      loadComments();
+      // Dar un pequeño delay para que se carguen
+      setTimeout(() => {
+        openGradeDialog(taskId, studentUsername);
+      }, 100);
+      return;
+    }
+    
+    // Debug: Filtrar información relevante
+    const allTaskComments = comments.filter(c => c.taskId === taskId);
+    const allSubmissions = comments.filter(c => c.isSubmission);
+    const taskSubmissions = comments.filter(c => c.taskId === taskId && c.isSubmission);
+    
+    console.log('� Task analysis:', {
+      taskId,
+      allCommentsForTask: allTaskComments.length,
+      submissionsForTask: taskSubmissions.length,
+      totalSubmissionsInSystem: allSubmissions.length
+    });
+    
+    // Mostrar detalles de las entregas disponibles
+    if (taskSubmissions.length > 0) {
+      console.log('� Available submissions for this task:');
+      taskSubmissions.forEach((sub, index) => {
+        console.log(`  ${index + 1}. ${sub.studentUsername || sub.studentName} - ${sub.comment?.substring(0, 50)}...`);
+      });
+    }
+    
+    // Estrategia mejorada de búsqueda
+    let submission = null;
+    let searchMethod = '';
+    
+    // Estrategia 1: Búsqueda exacta por username
+    submission = taskSubmissions.find(s => s.studentUsername === studentUsername);
+    if (submission) searchMethod = 'exact username match';
+    
+    // Estrategia 2: Búsqueda exacta por studentName
+    if (!submission) {
+      submission = taskSubmissions.find(s => s.studentName === studentUsername);
+      if (submission) searchMethod = 'exact student name match';
+    }
+    
+    // Estrategia 3: Búsqueda case-insensitive por username
+    if (!submission) {
+      submission = taskSubmissions.find(s => 
+        s.studentUsername?.toLowerCase() === studentUsername.toLowerCase()
+      );
+      if (submission) searchMethod = 'case-insensitive username match';
+    }
+    
+    // Estrategia 4: Búsqueda case-insensitive por studentName
+    if (!submission) {
+      submission = taskSubmissions.find(s => 
+        s.studentName?.toLowerCase() === studentUsername.toLowerCase()
+      );
+      if (submission) searchMethod = 'case-insensitive student name match';
+    }
+    
+    // Estrategia 5: Búsqueda parcial (contains)
+    if (!submission) {
+      submission = taskSubmissions.find(s => 
+        s.studentUsername?.toLowerCase().includes(studentUsername.toLowerCase()) ||
+        s.studentName?.toLowerCase().includes(studentUsername.toLowerCase()) ||
+        studentUsername.toLowerCase().includes(s.studentUsername?.toLowerCase() || '') ||
+        studentUsername.toLowerCase().includes(s.studentName?.toLowerCase() || '')
+      );
+      if (submission) searchMethod = 'partial match';
+    }
+    
+    // Estrategia especial para Felipe
+    if (!submission && studentUsername.toLowerCase().includes('felipe')) {
+      submission = taskSubmissions.find(s => 
+        s.studentUsername?.toLowerCase().includes('felipe') ||
+        s.studentName?.toLowerCase().includes('felipe')
+      );
+      if (submission) searchMethod = 'Felipe special match';
+    }
+    
+    if (!submission) {
+      const errorMessage = `No se encontró una entrega para "${studentUsername}" en esta tarea.
+
+INFORMACIÓN DE DEBUG:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Estadísticas:
+   • Tarea ID: ${taskId}
+   • Estudiante buscado: "${studentUsername}"
+   • Total comentarios en sistema: ${comments.length}
+   • Comentarios para esta tarea: ${allTaskComments.length}
+   • Entregas para esta tarea: ${taskSubmissions.length}
+   • Total entregas en sistema: ${allSubmissions.length}
+
+📝 Entregas disponibles en esta tarea:
+${taskSubmissions.length > 0 
+  ? taskSubmissions.map((sub, i) => 
+      `   ${i + 1}. "${sub.studentUsername}" / "${sub.studentName}"`
+    ).join('\n')
+  : '   (No hay entregas registradas)'
+}
+
+🔍 Estudiantes con entregas en el sistema:
+${allSubmissions.length > 0
+  ? [...new Set(allSubmissions.map(s => `"${s.studentUsername}" / "${s.studentName}"`))].slice(0, 10).join('\n   ')
+  : '   (No hay entregas en el sistema)'
+}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Por favor, verifica que el estudiante haya entregado la tarea.`;
+      
+      console.error('❌ No submission found:', {
+        taskId,
+        studentUsername,
+        availableSubmissions: taskSubmissions.map(s => ({
+          username: s.studentUsername,
+          name: s.studentName,
+          comment: s.comment?.substring(0, 50)
+        }))
+      });
+      
+      alert(errorMessage);
+      return;
+    }
+    
+    console.log(`✅ Submission found via ${searchMethod}:`, {
+      id: submission.id,
+      studentUsername: submission.studentUsername,
+      studentName: submission.studentName,
+      hasAttachments: submission.attachments ? submission.attachments.length > 0 : false,
+      currentGrade: submission.grade
+    });
+    
+    setSubmissionToGrade(submission);
+    setGradeForm({
+      grade: submission.grade?.toString() || '',
+      teacherComment: submission.teacherComment || ''
+    });
+    setShowGradeDialog(true);
+  };
+
+  // Función para guardar la calificación
+  const saveGrade = () => {
+    if (!submissionToGrade) return;
+    
+    const grade = parseInt(gradeForm.grade);
+    if (isNaN(grade) || grade < 0 || grade > 100) {
+      alert('Por favor ingresa una calificación válida entre 0 y 100');
+      return;
+    }
+    
+    if (!gradeForm.teacherComment.trim()) {
+      const confirmSave = confirm('¿Estás seguro de guardar sin comentario adicional?');
+      if (!confirmSave) return;
+    }
+    
+    // Actualizar el comentario existente con la calificación
+    const updatedComments = comments.map(comment => {
+      if (comment.id === submissionToGrade.id) {
+        return {
+          ...comment,
+          grade: grade,
+          teacherComment: gradeForm.teacherComment.trim(),
+          reviewedAt: new Date().toISOString()
+        };
+      }
+      return comment;
+    });
+    
+    setComments(updatedComments);
+    localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
+    
+    // Cerrar el diálogo
+    setShowGradeDialog(false);
+    setSubmissionToGrade(null);
+    setGradeForm({ grade: '', teacherComment: '' });
+    
+    console.log('✅ Grade saved successfully');
+  };
+
+  // Función para intentar cerrar el diálogo
+  const handleCloseGradeDialog = () => {
+    if (!submissionToGrade) {
+      setShowGradeDialog(false);
+      return;
+    }
+    
+    const hasGrade = gradeForm.grade.trim() !== '';
+    const hasComment = gradeForm.teacherComment.trim() !== '';
+    const wasAlreadyGraded = submissionToGrade.grade !== undefined;
+    
+    if (!hasGrade && !hasComment && !wasAlreadyGraded) {
+      alert('Debes calificar y/o agregar un comentario antes de cerrar.');
+      return;
+    }
+    
+    if ((hasGrade || hasComment) && (!wasAlreadyGraded || gradeForm.grade !== submissionToGrade.grade?.toString() || gradeForm.teacherComment !== submissionToGrade.teacherComment)) {
+      const confirmClose = confirm('Tienes cambios sin guardar. ¿Estás seguro de cerrar sin guardar?');
+      if (!confirmClose) return;
+    }
+    
+    setShowGradeDialog(false);
+    setSubmissionToGrade(null);
+    setGradeForm({ grade: '', teacherComment: '' });
+  };
+
+  // Submit grade
   // Delete student submission to allow re-submission
   const handleDeleteSubmission = (commentId: string) => {
     const commentToDelete = comments.find(c => c.id === commentId);
@@ -771,12 +1266,18 @@ export default function TareasPage() {
     const updatedComments = comments.filter(comment => comment.id !== commentId);
     saveComments(updatedComments);
 
-    // Update task status back to pending if this was the only submission
-    const remainingSubmissions = updatedComments.filter(comment => 
-      comment.taskId === selectedTask.id && comment.isSubmission
-    );
-
-    if (remainingSubmissions.length === 0) {
+    // Obtener todos los estudiantes asignados a la tarea
+    const assignedStudents = getAssignedStudentsForTask(selectedTask);
+    
+    // Verificar si ahora todos los estudiantes han entregado la tarea
+    const allStudentsSubmitted = assignedStudents.length > 0 && 
+      assignedStudents.every(student => 
+        student.username !== commentToDelete.studentUsername && // Excluimos el que acabamos de eliminar
+        hasStudentSubmitted(selectedTask.id, student.username)
+      );
+    
+    // Actualizar el estado a "pendiente" si ya no todos han entregado
+    if (!allStudentsSubmitted) {
       const updatedTasks = tasks.map(task => 
         task.id === selectedTask.id 
           ? { ...task, status: 'pending' as const }
@@ -925,6 +1426,7 @@ export default function TareasPage() {
                               </Badge>
                               <Badge className={getStatusColor(task.status)}>
                                 {task.status === 'pending' ? translate('statusPending') : 
+                                 task.status === 'delivered' ? 'Entregado' :
                                  task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
                               </Badge>
                             </div>
@@ -945,6 +1447,8 @@ export default function TareasPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => {
+                                console.log('🔄 Opening task dialog from course view - reloading comments');
+                                loadComments(); // Recargar comentarios antes de abrir
                                 setSelectedTask(task);
                                 setShowTaskDialog(true);
                               }}
@@ -996,7 +1500,13 @@ export default function TareasPage() {
                 </CardContent>
               </Card>
             ) : (
-              filteredTasks.map(task => (
+              filteredTasks.map(task => {
+                // Para estudiantes, calcular su estado individual
+                const studentStatus = user?.role === 'student' 
+                  ? getStudentTaskStatus(task.id, user.username || '')
+                  : task.status;
+                
+                return (
                 <Card key={task.id} className="card-orange-shadow hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
@@ -1010,9 +1520,16 @@ export default function TareasPage() {
                           <Badge className={getPriorityColor(task.priority)}>
                             {task.priority === 'high' ? translate('priorityHigh') : task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                           </Badge>
-                          <Badge className={getStatusColor(task.status)}>
-                            {task.status === 'pending' ? translate('statusPending') : 
-                             task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
+                          <Badge className={getStatusColor(user?.role === 'student' ? studentStatus : task.status)}>
+                            {user?.role === 'student' ? (
+                              studentStatus === 'pending' ? translate('statusPending') : 
+                              studentStatus === 'delivered' ? 'Entregado' :
+                              studentStatus === 'reviewed' ? 'Calificado' : translate('statusReviewed')
+                            ) : (
+                              task.status === 'pending' ? translate('statusPending') : 
+                              task.status === 'delivered' ? 'Entregado' :
+                              task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')
+                            )}
                           </Badge>
                         </div>
                       </div>
@@ -1021,6 +1538,8 @@ export default function TareasPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
+                            console.log('🔄 Opening task dialog - reloading comments');
+                            loadComments(); // Recargar comentarios antes de abrir
                             setSelectedTask(task);
                             setShowTaskDialog(true);
                           }}
@@ -1082,7 +1601,8 @@ export default function TareasPage() {
                     </div>
                   </CardContent>
                 </Card>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -1125,10 +1645,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="course" className="text-right">{translate('taskCourse')} *</Label>
               <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
-                <SelectTrigger className="select-orange-hover-trigger col-span-3">
+                <SelectTrigger className={`${formData.taskType === 'evaluacion' ? 'select-purple-hover-trigger' : 'select-orange-hover-trigger'} col-span-3`}>
                   <SelectValue placeholder={translate('selectCourse')} />
                 </SelectTrigger>
-                <SelectContent className="select-orange-hover">
+                <SelectContent className={formData.taskType === 'evaluacion' ? 'select-purple-hover' : 'select-orange-hover'}>
                   {getAvailableCourses().map(course => (
                     <SelectItem key={course} value={course}>{course}</SelectItem>
                   ))}
@@ -1139,10 +1659,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="subject" className="text-right">{translate('taskSubject')}</Label>
               <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}>
-                <SelectTrigger className="select-orange-hover-trigger col-span-3">
+                <SelectTrigger className={`${formData.taskType === 'evaluacion' ? 'select-purple-hover-trigger' : 'select-orange-hover-trigger'} col-span-3`}>
                   <SelectValue placeholder={translate('selectSubject')} />
                 </SelectTrigger>
-                <SelectContent className="select-orange-hover">
+                <SelectContent className={formData.taskType === 'evaluacion' ? 'select-purple-hover' : 'select-orange-hover'}>
                   {getAvailableSubjects().map(subject => (
                     <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                   ))}
@@ -1153,10 +1673,10 @@ export default function TareasPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">{translate('assignTo')}</Label>
               <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value, assignedStudents: [] }))}>
-                <SelectTrigger className="select-orange-hover-trigger col-span-3">
+                <SelectTrigger className={`${formData.taskType === 'evaluacion' ? 'select-purple-hover-trigger' : 'select-orange-hover-trigger'} col-span-3`}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="select-orange-hover">
+                <SelectContent className={formData.taskType === 'evaluacion' ? 'select-purple-hover' : 'select-orange-hover'}>
                   <SelectItem value="course">{translate('assignToCourse')}</SelectItem>
                   <SelectItem value="student">{translate('assignToStudents')}</SelectItem>
                 </SelectContent>
@@ -1337,7 +1857,8 @@ export default function TareasPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)} 
+              className={formData.taskType === 'evaluacion' ? 'cancel-button-evaluation' : 'cancel-button'}>
               {translate('cancel')}
             </Button>
             <Button 
@@ -1360,6 +1881,19 @@ export default function TareasPage() {
           setNewComment('');
           setIsSubmission(false);
           setCommentAttachments([]);
+        } else {
+          // Reload comments when opening dialog to ensure fresh data
+          loadComments();
+          
+          // Log debug information when opening task dialog
+          if (selectedTask) {
+            console.log(`🔍 Opening task dialog for "${selectedTask.title}":`, {
+              taskId: selectedTask.id,
+              totalComments: comments.length,
+              submissionComments: comments.filter(c => c.isSubmission),
+              allComments: comments
+            });
+          }
         }
       }}>
         <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
@@ -1453,7 +1987,9 @@ export default function TareasPage() {
               {/* Detalle por estudiante - Solo visible para profesor - REPOSICIONADO AL PRINCIPIO */}
               {user?.role === 'teacher' && (
                 <div>
-                  <h4 className="font-medium mb-4">{translate('studentDetailPanel')}</h4>
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-medium">{translate('studentDetailPanel')}</h4>
+                  </div>
 
                   {/* Tabla para tareas normales */}
                   {selectedTask?.taskType !== 'evaluacion' && (
@@ -1472,40 +2008,83 @@ export default function TareasPage() {
                           <tbody>
                             {getAssignedStudentsForTask(selectedTask).length > 0 ? (
                               getAssignedStudentsForTask(selectedTask).map((student, index) => {
-                                const submission = getStudentSubmission(selectedTask.id, student.username);
+                                let submission = getStudentSubmission(selectedTask.id, student.username);
+                                let studentStatus = getStudentTaskStatus(selectedTask.id, student.username);
+                                
+                                // PARCHE TEMPORAL: Si es Felipe y no encontramos submission, usar método especial
+                                if (!submission && student.displayName === 'Felipe Estudiante') {
+                                  console.log('🚨 Using Felipe special check');
+                                  submission = checkFelipeSubmission(selectedTask.id);
+                                  if (submission) {
+                                    studentStatus = submission.grade !== undefined || submission.teacherComment ? 'reviewed' : 'delivered';
+                                  }
+                                }
+                                
                                 const hasSubmission = submission !== undefined;
+                                
+                                console.log(`👨‍🎓 TABLE ROW - Student ${student.displayName} (${student.username}):`, {
+                                  studentObject: student,
+                                  searchingWithUsername: student.username,
+                                  hasSubmission,
+                                  studentStatus,
+                                  submissionId: submission?.id,
+                                  submissionTimestamp: submission?.timestamp,
+                                  submissionDetails: submission ? {
+                                    studentUsername: submission.studentUsername,
+                                    studentName: submission.studentName,
+                                    isSubmission: submission.isSubmission,
+                                    comment: submission.comment.substring(0, 50)
+                                  } : null
+                                });
                                 
                                 return (
                                   <tr key={student.username} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
                                     <td className="py-2 px-3">{student.displayName}</td>
                                     <td className="py-2 px-3">
-                                      <Badge className={hasSubmission ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}>
-                                        {hasSubmission ? translate('statusSubmitted') : translate('statusPending')}
+                                      <Badge className={
+                                        studentStatus === 'pending' ? 'bg-orange-100 text-orange-800' :
+                                        studentStatus === 'delivered' ? 'bg-cyan-100 text-cyan-800' :
+                                        'bg-green-100 text-green-800'
+                                      }>
+                                        {studentStatus === 'pending' ? 'Pendiente' : 
+                                         studentStatus === 'delivered' ? 'Por Revisar' : 
+                                         'Calificado'}
                                       </Badge>
                                     </td>
                                     <td className="py-2 px-3">
-                                      {hasSubmission && submission.grade ? 
-                                        <span className="font-medium">{submission.grade}%</span> :
-                                        <span className="text-muted-foreground italic">{translate('noSubmissionYet')}</span>
+                                      {hasSubmission && submission && submission.grade !== undefined ? 
+                                        <span className="font-medium">{submission.grade}/100</span> :
+                                        <span className="text-muted-foreground italic">{hasSubmission ? 'Sin calificar' : 'Sin entregar'}</span>
                                       }
                                     </td>
                                     <td className="py-2 px-3 date-cell">
                                       <span className="single-line-date font-medium">
-                                        {hasSubmission ? formatDateOneLine(submission.timestamp) : '-'}
+                                        {hasSubmission && submission ? formatDateOneLine(submission.timestamp) : '-'}
                                       </span>
                                     </td>
                                     <td className="py-2 px-3">
                                       <div className="flex space-x-2">
-                                        {hasSubmission && !submission.grade && (
+                                        {hasSubmission && studentStatus === 'delivered' && (
                                           <Button 
                                             size="sm" 
                                             className="h-7 bg-orange-500 hover:bg-orange-600 text-white"
-                                            onClick={() => {
-                                              // Implementar lógica para calificar
-                                            }}
+                                            onClick={() => openGradeDialog(selectedTask.id, student.username)}
                                           >
-                                            {translate('gradeStudent')}
+                                            Calificar
                                           </Button>
+                                        )}
+                                        {hasSubmission && studentStatus === 'reviewed' && (
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            className="h-7"
+                                            onClick={() => openGradeDialog(selectedTask.id, student.username)}
+                                          >
+                                            Ver/Editar
+                                          </Button>
+                                        )}
+                                        {!hasSubmission && (
+                                          <span className="text-xs text-muted-foreground">Sin entrega</span>
                                         )}
                                       </div>
                                     </td>
@@ -1646,26 +2225,70 @@ export default function TareasPage() {
                         </div>
                       )}
                       
-                      {/* Show submission notice for students who submitted */}
+                      {/* Show submission status and grade for students */}
                       {comment.isSubmission && user?.role === 'student' && comment.studentUsername === user.username && (
-                        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <span className="font-medium">✓ {translate('finalSubmissionMade')}</span>
-                              <br />
-                              <span>{translate('cannotModifySubmission')}</span>
+                        <div className="mt-2">
+                          {/* Estado de la entrega */}
+                          <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs border border-green-200 dark:border-green-800">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <span className="font-medium text-green-700 dark:text-green-400">
+                                  ✓ Tarea Entregada
+                                </span>
+                                <br />
+                                <span className="text-green-600 dark:text-green-500">
+                                  Estado: 
+                                  <Badge className={`ml-1 ${
+                                    comment.grade !== undefined ? 'bg-purple-100 text-purple-800' : 'bg-cyan-100 text-cyan-800'
+                                  }`}>
+                                    {comment.grade !== undefined ? 'Calificada' : 'Entregado - Pendiente de revisión'}
+                                  </Badge>
+                                </span>
+                              </div>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteSubmission(comment.id)}
+                                className="ml-2 h-6 px-2 text-xs"
+                                title={translate('deleteSubmission')}
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Eliminar
+                              </Button>
                             </div>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteSubmission(comment.id)}
-                              className="ml-2 h-6 px-2 text-xs"
-                              title={translate('deleteSubmission')}
-                            >
-                              <Trash2 className="w-3 h-3 mr-1" />
-                              {translate('deleteSubmission')}
-                            </Button>
                           </div>
+
+                          {/* Mostrar calificación si existe */}
+                          {comment.grade !== undefined && (
+                            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                              <h5 className="font-medium text-blue-800 dark:text-blue-200 text-sm mb-2">
+                                Calificación del Profesor:
+                              </h5>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                                  {comment.grade}/100
+                                </span>
+                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                                  {comment.grade >= 70 ? 'Aprobado' : 'Reprobado'}
+                                </Badge>
+                              </div>
+                              {comment.teacherComment && (
+                                <div>
+                                  <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                                    Comentario:
+                                  </p>
+                                  <p className="text-sm text-blue-600 dark:text-blue-400 italic">
+                                    "{comment.teacherComment}"
+                                  </p>
+                                </div>
+                              )}
+                              {comment.reviewedAt && (
+                                <p className="text-xs text-blue-500 dark:text-blue-400 mt-2">
+                                  Revisado el: {formatDate(comment.reviewedAt)}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1991,7 +2614,7 @@ export default function TareasPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)} className="cancel-button">
               {translate('cancel')}
             </Button>
             <Button 
@@ -2020,13 +2643,178 @@ export default function TareasPage() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="cancel-button">
               {translate('cancel')}
             </Button>
             <Button onClick={confirmDeleteTask} variant="destructive">
               {translate('deleteTask')}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Grade Submission Dialog */}
+      <Dialog open={showGradeDialog} onOpenChange={handleCloseGradeDialog}>
+        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Calificar Entrega</DialogTitle>
+            <DialogDescription>
+              Revisar y calificar la entrega del estudiante
+            </DialogDescription>
+          </DialogHeader>
+          
+          {submissionToGrade && selectedTask && (
+            <div className="space-y-6">
+              {/* Información de la tarea */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border">
+                <h4 className="font-medium mb-2 text-blue-800 dark:text-blue-200">Información de la Tarea</h4>
+                <div className="space-y-2 text-sm">
+                  <p><strong>Tarea:</strong> {selectedTask.title}</p>
+                  <p><strong>Descripción:</strong> {selectedTask.description}</p>
+                  <p><strong>Fecha límite:</strong> {formatDateOneLine(selectedTask.dueDate)}</p>
+                  <p><strong>Curso:</strong> {selectedTask.course}</p>
+                  <p><strong>Materia:</strong> {selectedTask.subject}</p>
+                </div>
+              </div>
+
+              {/* Información del estudiante */}
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border">
+                <h4 className="font-medium mb-2 text-green-800 dark:text-green-200">Información del Estudiante</h4>
+                <div className="space-y-2 text-sm">
+                  <p><strong>Estudiante:</strong> {submissionToGrade.studentName}</p>
+                  <p><strong>Usuario:</strong> {submissionToGrade.studentUsername}</p>
+                  <p><strong>Fecha de entrega:</strong> {formatDateOneLine(submissionToGrade.timestamp)}</p>
+                </div>
+              </div>
+
+              {/* Entrega del estudiante */}
+              <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border">
+                <h4 className="font-medium mb-3">Entrega del Estudiante</h4>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded border">
+                  <p className="text-sm whitespace-pre-wrap">{submissionToGrade.comment}</p>
+                </div>
+              </div>
+
+              {/* Archivos adjuntos de la entrega */}
+              {submissionToGrade.attachments && submissionToGrade.attachments.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-3">Archivos de la Entrega</h4>
+                  <div className="space-y-2">
+                    {submissionToGrade.attachments.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded border">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                          <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate font-medium" title={file.name}>{file.name}</span>
+                          <span className="text-muted-foreground text-xs">({formatFileSize(file.size)})</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadFile(file)}
+                          className="flex-shrink-0"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Descargar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Archivos adjuntos de la tarea original */}
+              {selectedTask.attachments && selectedTask.attachments.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-3">Archivos de la Tarea Original</h4>
+                  <div className="space-y-2">
+                    {selectedTask.attachments.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                          <Paperclip className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          <span className="truncate" title={file.name}>{file.name}</span>
+                          <span className="text-muted-foreground text-xs">({formatFileSize(file.size)})</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadFile(file)}
+                          className="flex-shrink-0"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Descargar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Sección de calificación */}
+              <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border">
+                <h4 className="font-medium mb-4 text-orange-800 dark:text-orange-200">Calificación</h4>
+                
+                <div className="space-y-4">
+                  {/* Campo de calificación */}
+                  <div>
+                    <label htmlFor="gradeInput" className="block text-sm font-medium mb-2">
+                      Calificación (0-100) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        id="gradeInput"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={gradeForm.grade}
+                        onChange={(e) => setGradeForm(prev => ({ ...prev, grade: e.target.value }))}
+                        placeholder="Ej: 85"
+                        className="w-24"
+                      />
+                      <span className="text-sm text-muted-foreground">/ 100</span>
+                      {gradeForm.grade && (
+                        <Badge variant="outline" className={parseInt(gradeForm.grade) >= 70 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                          {parseInt(gradeForm.grade) >= 70 ? 'Aprobado' : 'Reprobado'}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Campo de comentario */}
+                  <div>
+                    <label htmlFor="teacherComment" className="block text-sm font-medium mb-2">
+                      Comentario de Retroalimentación
+                    </label>
+                    <Textarea
+                      id="teacherComment"
+                      value={gradeForm.teacherComment}
+                      onChange={(e) => setGradeForm(prev => ({ ...prev, teacherComment: e.target.value }))}
+                      placeholder="Escribe aquí tu retroalimentación para el estudiante..."
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={handleCloseGradeDialog}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={saveGrade}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  disabled={!gradeForm.grade.trim()}
+                >
+                  Guardar Calificación
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

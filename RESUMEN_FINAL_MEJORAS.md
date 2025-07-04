@@ -20,6 +20,7 @@
 - Se mejoró el espaciado ajustando el padding izquierdo de los elementos
 - Se aplicaron clases directas a los items de Select para reforzar el estilo
 - Se aseguró consistencia visual en toda la interfaz de usuario
+- Se eliminó el efecto de contorno coloreado en las listas desplegables al seleccionarlas o hacer focus
 
 ### 4. Centrado de encabezados en tablas de estudiantes
 - Se implementó una clase CSS personalizada `centered-header` para centrar los títulos de las columnas
@@ -52,6 +53,7 @@
 - `/src/app/globals.css`
 - `/src/styles/date-formats.css`
 - `/src/styles/custom-select.css`
+- `/src/styles/select-no-outline.css` 
 - `/src/styles/tables.css`
 - `/src/styles/badge-styles.css` 
 - `/src/styles/button-styles.css`

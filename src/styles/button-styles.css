@@ -23,3 +23,42 @@
   border: 2px solid #ef4444 !important; /* contorno rojo en hover */
   color: #ef4444 !important; /* texto rojo en hover */
 }
+
+/* Estilos para el botón cancelar */
+.cancel-button {
+  background-color: #ffffff !important; /* fondo blanco */
+  border: 1px solid #d1d5db !important; /* border gris claro por defecto */
+  color: #6b7280 !important; /* texto gris */
+}
+
+.cancel-button:hover {
+  background-color: #fed7aa !important; /* fondo naranja claro en hover */
+  border: 1px solid #f97316 !important; /* border naranja en hover */
+  color: #f97316 !important; /* texto naranja en hover */
+}
+
+/* Estilos para el botón cancelar en evaluaciones */
+.cancel-button-evaluation {
+  background-color: #ffffff !important; /* fondo blanco */
+  border: 1px solid #d1d5db !important; /* border gris claro por defecto */
+  color: #6b7280 !important; /* texto gris */
+}
+
+.cancel-button-evaluation:hover {
+  background-color: #e9d5ff !important; /* fondo morado claro en hover */
+  border: 1px solid #a855f7 !important; /* border morado en hover */
+  color: #a855f7 !important; /* texto morado en hover */
+}
+
+/* Estilo para el botón cancelar */
+.cancel-button {
+  background-color: #ffffff !important; /* fondo blanco */
+  border: 1px solid #d1d5db !important; /* border gris claro por defecto */
+  color: #6b7280 !important; /* texto gris */
+}
+
+.cancel-button:hover {
+  background-color: #fed7aa !important; /* fondo naranja claro en hover (orange-200) */
+  border: 1px solid #f97316 !important; /* contorno naranja en hover */
+  color: #ea580c !important; /* texto naranja oscuro en hover */
+}

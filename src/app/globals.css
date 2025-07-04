@@ -4,6 +4,7 @@
 @import '../styles/badge-styles.css';
 @import '../styles/button-styles.css';
 @import '../styles/card-styles.css';
+@import '../styles/select-no-outline.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

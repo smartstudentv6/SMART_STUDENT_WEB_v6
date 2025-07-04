@@ -40,6 +40,41 @@
   --ring-color: rgb(254, 215, 170) !important; /* orange-200 */
 }
 
+/* Estilos para evaluaciones (morado) */
+.select-purple-hover [data-radix-select-item],
+.select-purple-hover [role="option"],
+.select-purple-hover li {
+  transition: background-color 0.2s, color 0.2s;
+  background-color: transparent;
+}
+
+.select-purple-hover [data-radix-select-item]:hover,
+.select-purple-hover [role="option"]:hover,
+.select-purple-hover li:hover {
+  background-color: rgb(233, 213, 255) !important; /* purple-100 */
+  color: rgb(107, 33, 168) !important; /* purple-700 */
+  z-index: 10;
+  position: relative;
+}
+
+.select-purple-hover [data-radix-select-item][data-state="checked"],
+.select-purple-hover [role="option"][aria-selected="true"],
+.select-purple-hover li[aria-selected="true"] {
+  background-color: rgb(168, 85, 247) !important; /* purple-500 */
+  color: white !important;
+}
+
+.select-purple-hover-trigger:hover {
+  border-color: rgb(168, 85, 247) !important; /* purple-500 */
+}
+
+.select-purple-hover-trigger:focus-visible,
+.select-purple-hover-trigger:focus {
+  outline-color: rgb(168, 85, 247) !important; /* purple-500 */
+  border-color: rgb(168, 85, 247) !important; /* purple-500 */
+  --ring-color: rgb(233, 213, 255) !important; /* purple-200 */
+}
+
 /* Estilo específico para cada opción individual en listas desplegables */
 .select-content-item, 
 [data-radix-menu-content] div[role="menuitem"], 
