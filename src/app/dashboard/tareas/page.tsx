@@ -3129,12 +3129,15 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                   </div>
                   <div>
                     <p><strong>Fecha límite:</strong> {formatDateOneLine(selectedTask.dueDate)}</p>
-                    <p><strong>Prioridad:</strong> 
-                      <Badge className={`ml-1 ${getPriorityColor(selectedTask.priority)}`}>
-                        {selectedTask.priority === 'high' ? 'Alta' : 
-                         selectedTask.priority === 'medium' ? 'Media' : 'Baja'}
-                      </Badge>
-                    </p>
+                    <div className="flex items-center">
+                      <strong>Prioridad:</strong>
+                      <span className="ml-2">
+                        <Badge className={`ml-1 ${getPriorityColor(selectedTask.priority)}`}>
+                          {selectedTask.priority === 'high' ? 'Alta' : 
+                           selectedTask.priority === 'medium' ? 'Media' : 'Baja'}
+                        </Badge>
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="mt-3">
