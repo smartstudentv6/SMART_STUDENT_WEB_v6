@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload, Star, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Task {
@@ -70,6 +70,14 @@ export default function TareasPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // Agregar estilos inline para centrado de encabezados (additive approach)
+  const tableHeaderStyle = {
+    textAlign: 'center' as const,
+    fontWeight: '600' as const,
+    paddingLeft: '1rem',
+    paddingRight: '1rem'
+  };
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -92,6 +100,43 @@ export default function TareasPage() {
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'course'>('list');
 
+  // En las tablas existentes, aplicar el estilo directamente a los th
+  // Esto se aplicará automáticamente cuando el componente se renderice
+  const applyHeaderCentering = () => {
+    const headers = document.querySelectorAll('thead th');
+    headers.forEach(header => {
+      (header as HTMLElement).style.textAlign = 'center';
+      (header as HTMLElement).style.fontWeight = '600';
+      (header as HTMLElement).style.paddingLeft = '1rem';
+      (header as HTMLElement).style.paddingRight = '1rem';
+    });
+  };
+
+  // Agregar useEffect para aplicar estilos automáticamente
+  useEffect(() => {
+    applyHeaderCentering();
+  }, [showTaskDialog, selectedTask]);
+
+  // Estados para el diálogo de revisión mejorado
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [currentReview, setCurrentReview] = useState<{
+    studentUsername: string;
+    studentDisplayName: string;
+    taskId: string;
+    submission?: TaskComment;
+    grade: number;
+    feedback: string;
+    isGraded: boolean;
+  }>({
+    studentUsername: '',
+    studentDisplayName: '',
+    taskId: '',
+    submission: undefined,
+    grade: 0,
+    feedback: '',
+    isGraded: false
+  });
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -112,6 +157,17 @@ export default function TareasPage() {
   useEffect(() => {
     loadTasks();
     loadComments();
+    // Forzar refresco de tareas para asegurar que el panel de estudiantes se actualice con las entregas
+    loadTasks && loadTasks();
+    // Si hay un selectedTask, forzar su recarga desde localStorage para obtener la versión más reciente
+    if (selectedTask) {
+      const storedTasks = localStorage.getItem('smart-student-tasks');
+      if (storedTasks) {
+        const tasksArr = JSON.parse(storedTasks);
+        const updated = tasksArr.find((t: any) => t.id === selectedTask.id);
+        if (updated) setSelectedTask(updated);
+      }
+    }
   }, []);
   
   // Maneja la navegación desde notificaciones (separado para ejecutarse después de cargar las tareas)
@@ -243,9 +299,9 @@ export default function TareasPage() {
   // Función para obtener los estudiantes asignados a una tarea
   const getAssignedStudentsForTask = (task: Task | null) => {
     if (!task) return [];
-    
+
     let students: { username: string; displayName: string; }[] = [];
-    
+
     // Si la tarea está asignada a estudiantes específicos
     if (task.assignedTo === 'student' && task.assignedStudents) {
       students = task.assignedStudents.map(username => {
@@ -257,19 +313,45 @@ export default function TareasPage() {
           displayName: userData?.displayName || `Estudiante ${username}`
         };
       });
-    } 
+    }
     // Si la tarea está asignada a todo un curso
     else if (task.assignedTo === 'course') {
       students = getStudentsFromCourse(task.course);
     }
-    
+
+    // ADITIVO: Incluir estudiantes que hayan entregado aunque no estén en la lista original,
+    // pero SOLO si pertenecen al curso y el profesor es el asignado
+    const entregasDeEstaTarea = comments.filter(c => c.taskId === task.id && c.isSubmission);
+    entregasDeEstaTarea.forEach(entrega => {
+      // Validar que el estudiante realmente pertenece al curso asignado y que el profesor es el correcto
+      const users = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+      const userData = users[entrega.studentUsername];
+      const perteneceAlCurso = userData && userData.activeCourses && userData.activeCourses.includes(task.course);
+      const profesorAsignado = task.assignedBy === undefined || (userData && userData.teacher === task.assignedBy);
+      if (
+        perteneceAlCurso &&
+        profesorAsignado &&
+        !students.some(s => s.username === entrega.studentUsername)
+      ) {
+        students.push({
+          username: entrega.studentUsername,
+          displayName: entrega.studentName || entrega.studentUsername
+        });
+      }
+    });
+
+    // Eliminar duplicados por username (por si acaso)
+    students = students.filter((student, index, self) =>
+      index === self.findIndex(s => s.username === student.username)
+    );
+
     console.log(`📋 Students assigned to task "${task.title}":`, {
       taskAssignedTo: task.assignedTo,
       course: task.course,
       studentsFound: students,
       studentsCount: students.length
     });
-    
+
     return students;
   };
 
@@ -300,23 +382,69 @@ export default function TareasPage() {
       // 4. StudentName case insensitive
       (c: TaskComment) => c.studentName?.toLowerCase() === studentUsername.toLowerCase(),
       // 5. Contains en username
-      (c: TaskComment) => c.studentUsername?.includes(studentUsername),
+      (c: TaskComment) => c.studentUsername?.toLowerCase().includes(studentUsername.toLowerCase()),
       // 6. Contains en studentName
-      (c: TaskComment) => c.studentName?.includes(studentUsername),
+      (c: TaskComment) => c.studentName?.toLowerCase().includes(studentUsername.toLowerCase()),
       // 7. Reverse contains (estudiante contiene búsqueda)
-      (c: TaskComment) => studentUsername.includes(c.studentUsername || '') || studentUsername.includes(c.studentName || '')
+      (c: TaskComment) => studentUsername.toLowerCase().includes((c.studentUsername || '').toLowerCase()) || studentUsername.toLowerCase().includes((c.studentName || '').toLowerCase()),
+      // 8. Primera palabra del nombre coincide (para casos como "Felipe Estudiante")
+      (c: TaskComment) => {
+        const firstWord = studentUsername.split(' ')[0].toLowerCase();
+        return c.studentName?.toLowerCase().startsWith(firstWord) || c.studentUsername?.toLowerCase().startsWith(firstWord);
+      },
+      // 9. Si es la única entrega para esta tarea, asumimos que es la correcta
+      (c: TaskComment) => {
+        const submissions = comments.filter(sub => sub.taskId === taskId && sub.isSubmission);
+        return submissions.length === 1;
+      },
+      // 10. Búsqueda por aproximación - cualquier coincidencia parcial en cualquier dirección
+      (c: TaskComment) => {
+        // Convertir a minúsculas y quitar espacios
+        const searchNormalized = studentUsername.toLowerCase().replace(/\s+/g, '');
+        const nameNormalized = (c.studentName || '').toLowerCase().replace(/\s+/g, '');
+        const userNormalized = (c.studentUsername || '').toLowerCase().replace(/\s+/g, '');
+        return nameNormalized.includes(searchNormalized) || 
+               searchNormalized.includes(nameNormalized) ||
+               userNormalized.includes(searchNormalized) ||
+               searchNormalized.includes(userNormalized);
+      }
     ];
     
     for (let i = 0; i < searchStrategies.length; i++) {
-      const found = taskSubmissions.find(searchStrategies[i]);
-      if (found) {
-        console.log(`✅ Submission found using strategy ${i + 1}:`, {
-          id: found.id,
-          studentUsername: found.studentUsername,
-          studentName: found.studentName,
-          strategy: `Strategy ${i + 1}`
-        });
-        return found;
+      const found = taskSubmissions.find(searchStrategies[i]);    if (found) {
+      console.log(`✅ Submission found using strategy ${i + 1}:`, {
+        id: found.id,
+        studentUsername: found.studentUsername,
+        studentName: found.studentName,
+        strategy: `Strategy ${i + 1}`
+      });
+      
+      // Devolver la entrega con campos de revisión incluidos (sin reviewed, solo reviewedAt)
+      return {
+        ...found,
+        grade: found.grade || undefined,
+        teacherComment: found.teacherComment || '',
+        reviewedAt: found.reviewedAt || (found.grade !== undefined ? new Date().toISOString() : undefined)
+      };
+    }
+    }
+
+    // Si no se encontró, debug especial para "Felipe"
+    if (studentUsername.toLowerCase().includes('felipe')) {
+      const felipeSubmission = comments.find(c =>
+        c.taskId === taskId &&
+        c.isSubmission &&
+        ((c.studentName && c.studentName.toLowerCase().includes('felipe')) ||
+         (c.studentUsername && c.studentUsername.toLowerCase().includes('felipe')))
+      );
+      if (felipeSubmission) {
+        console.log('✅ Entrega encontrada por búsqueda especial para Felipe:', felipeSubmission);
+        return {
+          ...felipeSubmission,
+          grade: felipeSubmission.grade || undefined,
+          teacherComment: felipeSubmission.teacherComment || '',
+          reviewedAt: felipeSubmission.reviewedAt || (felipeSubmission.grade !== undefined ? new Date().toISOString() : undefined)
+        };
       }
     }
     
@@ -570,6 +698,8 @@ export default function TareasPage() {
 
     const updatedComments = [...comments, comment];
     saveComments(updatedComments);
+    // Forzar recarga de comentarios desde localStorage para refrescar panel
+    loadComments();
 
     console.log('💾 Comment saved:', {
       isSubmission,
@@ -1006,8 +1136,9 @@ export default function TareasPage() {
           }
         : comment
     );
-    
     saveComments(updatedComments);
+    // Forzar recarga de comentarios desde localStorage para refrescar panel
+    loadComments();
 
     // Crear notificación para el estudiante
     const submission = comments.find(c => c.id === submissionId);
@@ -1257,8 +1388,18 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
     const commentToDelete = comments.find(c => c.id === commentId);
     if (!commentToDelete || !selectedTask) return;
 
+    // Verificar si la tarea ya está calificada
+    if (commentToDelete.grade !== undefined || commentToDelete.reviewedAt) {
+      toast({
+        title: 'No se puede eliminar',
+        description: 'Esta tarea ya ha sido calificada por el profesor y no se puede eliminar.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     // Show confirmation dialog
-    if (!window.confirm(translate('confirmDeleteSubmission'))) {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar tu entrega? Esta acción no se puede deshacer.')) {
       return;
     }
 
@@ -1287,12 +1428,123 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
     }
 
     toast({
-      title: translate('submissionDeleted'),
-      description: translate('submissionDeletedDesc'),
+      title: 'Entrega eliminada',
+      description: 'Tu entrega ha sido eliminada exitosamente.',
     });
   };
 
   const filteredTasks = getFilteredTasks();
+
+  // Función para abrir el diálogo de revisión mejorado
+  const handleReviewSubmission = (studentUsername: string, taskId: string, tryDisplayName?: boolean) => {
+    let submission = getStudentSubmission(taskId, studentUsername);
+    // Si no se encuentra, intentar con el displayName
+    if (!submission && tryDisplayName) {
+      const student = getAssignedStudentsForTask(selectedTask).find(s => s.username === studentUsername);
+      if (student && student.displayName) {
+        submission = getStudentSubmission(taskId, student.displayName);
+      }
+    }
+    if (!submission) {
+      toast({
+        title: 'Error',
+        description: 'No se encontró una entrega para este estudiante.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    const student = getAssignedStudentsForTask(selectedTask).find(s => s.username === studentUsername);
+    setCurrentReview({
+      studentUsername,
+      studentDisplayName: student?.displayName || studentUsername,
+      taskId,
+      submission,
+      grade: submission.grade || 0,
+      feedback: submission.teacherComment || '',
+      isGraded: submission.grade !== undefined
+    });
+    setShowReviewDialog(true);
+  };
+
+  // Función para guardar la revisión y calificación
+  const saveReviewAndGrade = () => {
+    if (!currentReview.submission || !selectedTask) return;
+    
+    if (currentReview.grade < 0 || currentReview.grade > 100) {
+      toast({
+        title: 'Error',
+        description: 'La calificación debe estar entre 0 y 100.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    // Actualizar el comentario con la calificación y feedback
+    const updatedComments = comments.map(comment => {
+      if (comment.id === currentReview.submission!.id) {
+        return {
+          ...comment,
+          grade: currentReview.grade,
+          teacherComment: currentReview.feedback,
+          reviewedAt: new Date().toISOString(),
+          reviewed: true
+        };
+      }
+      return comment;
+    });
+    
+    saveComments(updatedComments);
+    
+    // Verificar si todas las entregas están revisadas
+    const allSubmissionsReviewed = getAssignedStudentsForTask(selectedTask).every(student => {
+      const studentSubmission = getStudentSubmission(selectedTask.id, student.username);
+      return !!studentSubmission?.reviewedAt || student.username === currentReview.studentUsername;
+    });
+    
+    if (allSubmissionsReviewed) {
+      const updatedTasks = tasks.map(task => 
+        task.id === selectedTask.id 
+          ? { ...task, status: 'reviewed' as const }
+          : task
+      );
+      saveTasks(updatedTasks);
+    }
+
+    // Crear notificación para el estudiante
+    const notification = {
+      id: `notif_${Date.now()}`,
+      type: 'task_graded',
+      taskId: selectedTask.id,
+      taskTitle: selectedTask.title,
+      studentUsername: currentReview.studentUsername,
+      teacherName: user?.displayName || user?.username,
+      message: `Tu tarea "${selectedTask.title}" ha sido calificada con ${currentReview.grade}/100`,
+      timestamp: new Date().toISOString(),
+      read: false,
+      grade: currentReview.grade,
+      course: selectedTask.course,
+      subject: selectedTask.subject
+    };
+
+    const existingNotifications = JSON.parse(localStorage.getItem('smart-student-notifications') || '[]');
+    const updatedNotifications = [...existingNotifications, notification];
+    localStorage.setItem('smart-student-notifications', JSON.stringify(updatedNotifications));
+    
+    toast({
+      title: 'Tarea Calificada',
+      description: `La tarea ha sido calificada con ${currentReview.grade}/100.`,
+    });
+    
+    setShowReviewDialog(false);
+  };
+
+  // Función auxiliar para obtener el nombre del estudiante por username
+  const getStudentNameByUsername = (username: string) => {
+    const student = getStudentsFromCourse(selectedTask?.course || '').find(
+      s => s.username === username
+    );
+    return student?.displayName || username;
+  };
 
   return (
     <div className="space-y-6">
@@ -1520,17 +1772,44 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                           <Badge className={getPriorityColor(task.priority)}>
                             {task.priority === 'high' ? translate('priorityHigh') : task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                           </Badge>
-                          <Badge className={getStatusColor(user?.role === 'student' ? studentStatus : task.status)}>
-                            {user?.role === 'student' ? (
-                              studentStatus === 'pending' ? translate('statusPending') : 
-                              studentStatus === 'delivered' ? 'Entregado' :
-                              studentStatus === 'reviewed' ? 'Calificado' : translate('statusReviewed')
-                            ) : (
-                              task.status === 'pending' ? translate('statusPending') : 
-                              task.status === 'delivered' ? 'Entregado' :
-                              task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')
-                            )}
-                          </Badge>
+                          {/* Badge de estado y badge de porcentaje en burbujas separadas para estudiante */}
+                          {user?.role === 'student' ? (() => {
+                            // Buscar la entrega del estudiante
+                            const mySubmission = comments.find(c => c.taskId === task.id && c.studentUsername === user.username && c.isSubmission);
+                            if (!mySubmission) {
+                              // Pendiente: igual que en la vista detalle
+                              return (
+                                <Badge className={getStatusColor('pending')}>
+                                  {translate('statusPending')}
+                                </Badge>
+                              );
+                            } else if (mySubmission && (mySubmission.grade === undefined || mySubmission.grade === null)) {
+                              // En Revisión: amarillo (forzado)
+                              return (
+                                <Badge className="bg-yellow-100 text-yellow-800 font-bold">
+                                  En Revisión
+                                </Badge>
+                              );
+                            } else if (mySubmission && typeof mySubmission.grade === 'number') {
+                              // Finalizado: igual que en la vista detalle (usamos submitted/verde)
+                              return (
+                                <>
+                                  <Badge className={getStatusColor('submitted') + ' font-bold mr-1'}>
+                                    Finalizado
+                                  </Badge>
+                                  <Badge className={mySubmission.grade >= 70 ? 'bg-green-100 text-green-700 font-bold ml-2' : 'bg-red-100 text-red-700 font-bold ml-2'}>
+                                    {mySubmission.grade}%
+                                  </Badge>
+                                </>
+                              );
+                            }
+                          })() : (
+                            <Badge className={getStatusColor(task.status)}>
+                              {task.status === 'pending' ? translate('statusPending') : 
+                                task.status === 'delivered' ? 'Entregado' :
+                                task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-1">
@@ -1942,16 +2221,44 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                 </div>
               )}
               
+              {/* Estado y badge de porcentaje para el estudiante, lógica unificada con la lista */}
               <div className="flex space-x-4 text-sm">
                 <span className="whitespace-nowrap font-medium">
                   <strong>{translate('taskDueDateLabel')}</strong> <span className="single-line-date text-base">{formatDateOneLine(selectedTask.dueDate)}</span>
                 </span>
                 <span>
-                  <strong>{translate('taskStatusLabel')}</strong> 
-                  <Badge className={`ml-1 ${getStatusColor(selectedTask.status)}`}>
-                    {selectedTask.status === 'pending' ? translate('statusPending') : 
-                     selectedTask.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
-                  </Badge>
+                  <strong>{translate('taskStatusLabel')}</strong>
+                  {user?.role === 'student' ? (() => {
+                    // Lógica UNIFICADA: buscar la entrega igual que en la lista
+                    const mySubmission = comments.find(c => c.taskId === selectedTask.id && c.studentUsername === user.username && c.isSubmission);
+                    if (!mySubmission) {
+                      // Pendiente
+                      return (
+                        <Badge className={getStatusColor('pending') + ' ml-1'}>
+                          {translate('statusPending')}
+                        </Badge>
+                      );
+                    } else if (mySubmission && (mySubmission.grade === undefined || mySubmission.grade === null)) {
+                      // En Revisión: amarillo (forzado)
+                      return (
+                        <Badge className="bg-yellow-100 text-yellow-800 font-bold ml-1">
+                          En Revisión
+                        </Badge>
+                      );
+                    } else if (mySubmission && typeof mySubmission.grade === 'number') {
+                      // Finalizado
+                      return (
+                        <Badge className={getStatusColor('submitted') + ' font-bold ml-1'}>
+                          Finalizado
+                        </Badge>
+                      );
+                    }
+                  })() : (
+                    <Badge className={`ml-1 ${getStatusColor(selectedTask.status)}`}>
+                      {selectedTask.status === 'pending' ? translate('statusPending') : 
+                        selectedTask.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
+                    </Badge>
+                  )}
                 </span>
               </div>
 
@@ -2068,19 +2375,18 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                                           <Button 
                                             size="sm" 
                                             className="h-7 bg-orange-500 hover:bg-orange-600 text-white"
-                                            onClick={() => openGradeDialog(selectedTask.id, student.username)}
+                                            onClick={() => handleReviewSubmission(student.username, selectedTask.id, true)}
                                           >
-                                            Calificar
+                                            Revisar
                                           </Button>
                                         )}
                                         {hasSubmission && studentStatus === 'reviewed' && (
                                           <Button 
                                             size="sm" 
-                                            variant="outline"
-                                            className="h-7"
-                                            onClick={() => openGradeDialog(selectedTask.id, student.username)}
+                                            className="h-7 bg-red-500 hover:bg-red-600 text-white"
+                                            onClick={() => handleReviewSubmission(student.username, selectedTask.id, true)}
                                           >
-                                            Ver/Editar
+                                            Editar
                                           </Button>
                                         )}
                                         {!hasSubmission && (
@@ -2177,122 +2483,96 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
               {/* Panel de comentarios - REPOSICIONADO */}
               <div className="mt-6">
                 <Separator className="mb-4" />
-                <h4 className="font-medium mb-3">{translate('commentsAndSubmissions')}</h4>
+                <h4 className="font-medium mb-3">Comentarios</h4>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {getTaskComments(selectedTask.id).map(comment => (
-                    <div 
-                      key={comment.id} 
-                      id={`comment-${comment.id}`}
-                      className={`bg-muted p-3 rounded-lg transition-all duration-300 ${
-                        highlightedCommentId === comment.id 
-                          ? 'border-2 border-blue-500 shadow-md bg-blue-50 dark:bg-blue-900/20' 
-                          : ''
-                      }`}
-                    >
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-medium text-sm">{comment.studentName}</span>
-                        <div className="flex items-center space-x-2">
-                          {comment.isSubmission && (
-                            <Badge variant="secondary" className="text-xs">{translate('submission')}</Badge>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(comment.timestamp)}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-sm">{comment.comment}</p>
-                      
-                      {/* Comment Attachments */}
-                      {comment.attachments && comment.attachments.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {comment.attachments.map((file) => (
-                            <div key={file.id} className="flex items-center justify-between p-2 bg-background rounded text-xs">
-                              <div className="flex items-center space-x-2 min-w-0 flex-1">
-                                <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                                <span className="truncate" title={file.name}>{file.name}</span>
-                                <span className="text-muted-foreground">({formatFileSize(file.size)})</span>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => downloadFile(file)}
-                                className="flex-shrink-0 h-6 w-6 p-0"
-                              >
-                                <Download className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* Show submission status and grade for students */}
-                      {comment.isSubmission && user?.role === 'student' && comment.studentUsername === user.username && (
-                        <div className="mt-2">
-                          {/* Estado de la entrega */}
-                          <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs border border-green-200 dark:border-green-800">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <span className="font-medium text-green-700 dark:text-green-400">
-                                  ✓ Tarea Entregada
-                                </span>
-                                <br />
-                                <span className="text-green-600 dark:text-green-500">
-                                  Estado: 
-                                  <Badge className={`ml-1 ${
-                                    comment.grade !== undefined ? 'bg-purple-100 text-purple-800' : 'bg-cyan-100 text-cyan-800'
-                                  }`}>
-                                    {comment.grade !== undefined ? 'Calificada' : 'Entregado - Pendiente de revisión'}
-                                  </Badge>
-                                </span>
-                              </div>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleDeleteSubmission(comment.id)}
-                                className="ml-2 h-6 px-2 text-xs"
-                                title={translate('deleteSubmission')}
-                              >
-                                <Trash2 className="w-3 h-3 mr-1" />
-                                Eliminar
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Mostrar calificación si existe */}
-                          {comment.grade !== undefined && (
-                            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                              <h5 className="font-medium text-blue-800 dark:text-blue-200 text-sm mb-2">
-                                Calificación del Profesor:
-                              </h5>
-                              <div className="flex items-center space-x-2 mb-2">
-                                <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                                  {comment.grade}/100
-                                </span>
-                                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                                  {comment.grade >= 70 ? 'Aprobado' : 'Reprobado'}
+                  {getTaskComments(selectedTask.id)
+                    .filter(comment => {
+                      // PROFESOR: solo comentarios (no entregas)
+                      if (user?.role === 'teacher') return !comment.isSubmission;
+                      // ESTUDIANTE: solo su entrega y todos los comentarios
+                      if (user?.role === 'student') {
+                        if (comment.isSubmission) {
+                          return comment.studentUsername === user.username;
+                        }
+                        return true;
+                      }
+                      // Otros roles: solo comentarios
+                      return !comment.isSubmission;
+                    })
+                    .map(comment => (
+                      <div
+                        key={comment.id}
+                        id={`comment-${comment.id}`}
+                        className={`bg-muted p-4 rounded-lg transition-all duration-300 ${
+                          highlightedCommentId === comment.id
+                            ? 'border-2 border-blue-500 shadow-md bg-blue-50 dark:bg-blue-900/20'
+                            : ''
+                        }`}
+                      >
+                        {/* NUEVA ORGANIZACIÓN PARA ENTREGA DE ESTUDIANTE */}
+                        {comment.isSubmission ? (
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                            {/* Bloque principal: Nombre, estado Entregado, fecha/hora, porcentaje */}
+                            <div className="flex flex-col md:flex-row md:items-center gap-2 flex-1">
+                              {/* Nombre primero */}
+                              <span className="font-semibold text-base text-gray-900 dark:text-gray-100">{comment.studentName}</span>
+                              {/* Estado Entregado */}
+                              <Badge className="bg-blue-100 text-blue-800 font-bold px-2 py-1 text-xs ml-4 md:ml-6">Entregado</Badge>
+                              {/* Fecha */}
+                              <span className="text-xs text-muted-foreground ml-2 md:ml-4">{formatDateOneLine(comment.timestamp, true)}</span>
+                              {/* Porcentaje */}
+                              {((user?.role === 'teacher') || (user?.role === 'student' && comment.studentUsername === user.username)) && typeof comment.grade === 'number' && (
+                                <Badge className={comment.grade >= 70 ? 'bg-green-100 text-green-700 font-bold px-2 py-1 text-xs ml-2 md:ml-4' : 'bg-red-100 text-red-700 font-bold px-2 py-1 text-xs ml-2 md:ml-4'}>
+                                  {comment.grade}%
                                 </Badge>
-                              </div>
-                              {comment.teacherComment && (
-                                <div>
-                                  <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                                    Comentario:
-                                  </p>
-                                  <p className="text-sm text-blue-600 dark:text-blue-400 italic">
-                                    "{comment.teacherComment}"
-                                  </p>
-                                </div>
+                              )}
+                            </div>
+                            {/* Botón eliminar o badge calificado alineado derecha */}
+                            <div className="flex items-center gap-2 md:ml-auto">
+                              {user?.role === 'student' && comment.studentUsername === user.username && !comment.grade && !comment.reviewedAt && (
+                                <Button variant="destructive" size="sm" onClick={() => handleDeleteSubmission(comment.id)}>
+                                  <Trash2 className="w-4 h-4 mr-1" /> Eliminar
+                                </Button>
                               )}
                               {comment.reviewedAt && (
-                                <p className="text-xs text-blue-500 dark:text-blue-400 mt-2">
-                                  Revisado el: {formatDate(comment.reviewedAt)}
-                                </p>
+                                <Badge className="bg-red-100 text-red-700 font-bold px-2 py-1 text-xs flex items-center">
+                                  <Lock className="w-3 h-3 mr-1" /> Calificado
+                                </Badge>
                               )}
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                          </div>
+                        ) : (
+                          // Comentario normal
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                            <span className="font-semibold text-base text-gray-900 dark:text-gray-100">{comment.studentName || comment.authorName}</span>
+                            <span className="text-xs text-muted-foreground md:ml-3">{formatDateOneLine(comment.timestamp, true)}</span>
+                          </div>
+                        )}
+
+                        {/* Comentario */}
+                        <p className="text-sm mb-1 mt-2 whitespace-pre-line">{comment.comment}</p>
+
+                        {/* Adjuntos */}
+                        {comment.attachments && comment.attachments.length > 0 && (
+                          <div className="mt-1 space-y-1">
+                            {comment.attachments.map((file) => (
+                              <div key={file.id} className="flex items-center gap-2 text-xs">
+                                <Paperclip className="w-3 h-3 text-muted-foreground" />
+                                <span className="truncate" title={file.name}>{file.name}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => downloadFile(file)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Download className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   
                   {getTaskComments(selectedTask.id).length === 0 && (
                     <p className="text-center text-sm text-muted-foreground py-4">
@@ -2815,6 +3095,243 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de Revisión Mejorado */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <span>Revisar Entrega - {currentReview.studentDisplayName}</span>
+              <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                {currentReview.isGraded ? 'Calificada' : 'Por Calificar'}
+              </Badge>
+            </DialogTitle>
+            <DialogDescription>
+              {selectedTask?.title}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {currentReview.submission && selectedTask && (
+            <div className="space-y-6">
+              {/* Información de la Tarea */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200">
+                <h4 className="font-medium mb-3 text-blue-800 dark:text-blue-200 flex items-center">
+                  <ClipboardList className="w-5 h-5 mr-2" />
+                  Información de la Tarea
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p><strong>Título:</strong> {selectedTask.title}</p>
+                    <p><strong>Curso:</strong> {selectedTask.course}</p>
+                    <p><strong>Materia:</strong> {selectedTask.subject}</p>
+                  </div>
+                  <div>
+                    <p><strong>Fecha límite:</strong> {formatDateOneLine(selectedTask.dueDate)}</p>
+                    <p><strong>Prioridad:</strong> 
+                      <Badge className={`ml-1 ${getPriorityColor(selectedTask.priority)}`}>
+                        {selectedTask.priority === 'high' ? 'Alta' : 
+                         selectedTask.priority === 'medium' ? 'Media' : 'Baja'}
+                      </Badge>
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <p><strong>Descripción:</strong></p>
+                  <p className="text-muted-foreground mt-1">{selectedTask.description}</p>
+                </div>
+              </div>
+
+              {/* Información del Estudiante */}
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200">
+                <h4 className="font-medium mb-3 text-green-800 dark:text-green-200 flex items-center">
+                  <User className="w-5 h-5 mr-2" />
+                  Información del Estudiante
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p><strong>Nombre:</strong> {currentReview.studentDisplayName}</p>
+                    <p><strong>Usuario:</strong> {currentReview.studentUsername}</p>
+                  </div>
+                  <div>
+                    <p><strong>Fecha de entrega:</strong> {formatDateOneLine(currentReview.submission.timestamp)}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <strong>Estado:</strong>
+                      {/* Estado de la entrega del estudiante, igual que en la lista */}
+                      {(() => {
+                        if (!currentReview.submission) {
+                          // No hay entrega: Pendiente
+                          return (
+                            <Badge className={getStatusColor('pending')}>
+                              {translate('statusPending')}
+                            </Badge>
+                          );
+                        } else if (currentReview.submission && (currentReview.submission.grade === undefined || currentReview.submission.grade === null)) {
+                          // Entregada pero sin nota: En Revisión (amarillo)
+                          return (
+                            <Badge className="bg-yellow-100 text-yellow-800 font-bold">
+                              En Revisión
+                            </Badge>
+                          );
+                        } else if (currentReview.submission && typeof currentReview.submission.grade === 'number') {
+                          // Finalizado: verde + badge porcentaje
+                          return (
+                            <>
+                              <Badge className={getStatusColor('submitted') + ' font-bold mr-1'}>
+                                Finalizado
+                              </Badge>
+                              <Badge className={currentReview.submission.grade >= 70 ? 'bg-green-100 text-green-700 font-bold ml-2' : 'bg-red-100 text-red-700 font-bold ml-2'}>
+                                {currentReview.submission.grade}%
+                              </Badge>
+                            </>
+                          );
+                        }
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contenido de la Entrega */}
+              <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border">
+                <h4 className="font-medium mb-3 flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2" />
+                  Contenido de la Entrega
+                </h4>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded border min-h-[100px]">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {currentReview.submission.comment || 'Sin contenido de texto'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Archivos Adjuntos de la Entrega */}
+              {currentReview.submission.attachments && currentReview.submission.attachments.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-3 flex items-center">
+                    <Paperclip className="w-5 h-5 mr-2" />
+                    Archivos de la Entrega ({currentReview.submission.attachments.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {currentReview.submission.attachments.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded border">
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium" title={file.name}>{file.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(file.size)} • Subido: {formatDate(file.uploadedAt)}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadFile(file)}
+                          className="flex-shrink-0"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Descargar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sección de Calificación */}
+              <div className="bg-orange-50 dark:bg-orange-900/20 p-6 rounded-lg border border-orange-200">
+                <h4 className="font-medium mb-4 text-orange-800 dark:text-orange-200 flex items-center">
+                  <Star className="w-5 h-5 mr-2" />
+                  Calificación y Retroalimentación
+                </h4>
+                
+                <div className="space-y-4">
+                  {/* Campo de calificación */}
+                  <div>
+                    <label htmlFor="gradeInputNew" className="block text-sm font-medium mb-2">
+                      Calificación (0-100) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center space-x-3">
+                      <Input
+                        id="gradeInputNew"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={currentReview.grade || ''}
+                        onChange={(e) => setCurrentReview(prev => ({ 
+                          ...prev, 
+                          grade: parseInt(e.target.value) || 0 
+                        }))}
+                        placeholder="0"
+                        className="w-24"
+                      />
+                      <span className="text-sm text-muted-foreground">/ 100</span>
+                      {currentReview.grade > 0 && (
+                        <Badge variant="outline" className={
+                          currentReview.grade >= 70 
+                            ? 'bg-green-100 text-green-800 border-green-300' 
+                            : 'bg-red-100 text-red-800 border-red-300'
+                        }>
+                          {currentReview.grade >= 70 ? 'Aprobado' : 'Reprobado'}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Campo de retroalimentación */}
+                  <div>
+                    <label htmlFor="feedbackInputNew" className="block text-sm font-medium mb-2">
+                      Retroalimentación para el Estudiante
+                    </label>
+                    <Textarea
+                      id="feedbackInputNew"
+                      value={currentReview.feedback}
+                      onChange={(e) => setCurrentReview(prev => ({ 
+                        ...prev, 
+                        feedback: e.target.value 
+                      }))}
+                      placeholder="Escribe aquí tu retroalimentación para el estudiante..."
+                      rows={4}
+                      className="resize-none"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Este comentario será visible para el estudiante junto con su calificación.
+                    </p>
+                  </div>
+
+                  {/* Calificación previa (si existe) */}
+                  {currentReview.isGraded && currentReview.submission.reviewedAt && (
+                    <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200">
+                      <p className="text-sm text-purple-700 dark:text-purple-300">
+                        <strong>Calificación anterior:</strong> {currentReview.submission.grade}/100
+                      </p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                        Revisado el: {formatDate(currentReview.submission.reviewedAt)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="pt-6 border-t">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowReviewDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={saveReviewAndGrade}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={!currentReview.grade || currentReview.grade < 0 || currentReview.grade > 100}
+            >
+              {currentReview.isGraded ? 'Actualizar Calificación' : 'Guardar Calificación'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
