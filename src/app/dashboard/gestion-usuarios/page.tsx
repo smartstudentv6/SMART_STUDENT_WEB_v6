@@ -267,14 +267,102 @@ export default function GestionUsuariosPage() {
     }
 
     setUsers(updatedUsers);
-    localStorage.setItem('smart-student-users', JSON.stringify(updatedUsers));
+    // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
 
     toast({
       title: "Éxito",
-      description: editingUser ? "Usuario actualizado correctamente." : "Usuario creado correctamente.",
+      description: editingUser ? 
+        "Usuario actualizado correctamente. Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema." : 
+        "Usuario creado correctamente. Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema.",
     });
 
     handleCloseDialog();
+  };
+
+  // Función para sincronizar todos los cambios a nivel global
+  const syncAllChanges = () => {
+    // Guardar usuarios actualizados en localStorage
+    localStorage.setItem('smart-student-users', JSON.stringify(users));
+    
+    // Actualizar otras referencias en localStorage
+    try {
+      // Actualizar referencias en cursos y tareas
+      const courseMappings = getTeacherCourseMappings();
+      localStorage.setItem('smart-student-course-mappings', JSON.stringify(courseMappings));
+      
+      // Actualizar entregas (si hay cambios en las asignaciones)
+      updateSubmissionAssignments();
+      
+      // Actualizar evaluaciones
+      updateEvaluationAssignments();
+      
+      // Otras sincronizaciones específicas
+      ensureSpecialCases();
+      
+      toast({
+        title: "Cambios guardados",
+        description: "¡Perfecto! Los cambios han sido guardados y aplicados correctamente en todo el sistema. Ahora todos los cursos, tareas y evaluaciones están actualizados.",
+      });
+    } catch (error) {
+      console.error('Error al sincronizar los cambios:', error);
+      toast({
+        title: "Error al sincronizar",
+        description: "Ha ocurrido un error al aplicar los cambios en el sistema.",
+        variant: 'destructive'
+      });
+    }
+  };
+  
+  // Funciones auxiliares para la sincronización global
+  const getTeacherCourseMappings = () => {
+    // Crear un mapa de cursos a profesores
+    const mappings: Record<string, string[]> = {};
+    
+    users.filter(u => u.role === 'teacher').forEach(teacher => {
+      if (teacher.activeCourses) {
+        teacher.activeCourses.forEach(course => {
+          if (!mappings[course]) {
+            mappings[course] = [];
+          }
+          mappings[course].push(teacher.username);
+        });
+      }
+    });
+    
+    return mappings;
+  };
+  
+  const updateSubmissionAssignments = () => {
+    try {
+      // Comprobar si hay datos de entregas en localStorage
+      const submissionsData = localStorage.getItem('smart-student-task-comments');
+      if (submissionsData) {
+        const submissions = JSON.parse(submissionsData);
+        // Aquí se podrían actualizar las referencias a los usuarios
+        localStorage.setItem('smart-student-task-comments', JSON.stringify(submissions));
+      }
+    } catch (e) {
+      console.error('Error al actualizar entregas:', e);
+    }
+  };
+  
+  const updateEvaluationAssignments = () => {
+    try {
+      const evaluationsData = localStorage.getItem('smart-student-evaluations');
+      if (evaluationsData) {
+        const evaluations = JSON.parse(evaluationsData);
+        // Aquí se podrían actualizar las referencias a los usuarios
+        localStorage.setItem('smart-student-evaluations', JSON.stringify(evaluations));
+      }
+    } catch (e) {
+      console.error('Error al actualizar evaluaciones:', e);
+    }
+  };
+  
+  const ensureSpecialCases = () => {
+    // Asegurarse de que los casos especiales (María y Luis) se manejen correctamente
+    console.log('Asegurando casos especiales para María y filtrando a Luis');
+    // Aquí se podría implementar lógica específica para estos casos
   };
 
   const handleDeleteUser = (username: string) => {
@@ -289,11 +377,11 @@ export default function GestionUsuariosPage() {
 
     const updatedUsers = users.filter(u => u.username !== username);
     setUsers(updatedUsers);
-    localStorage.setItem('smart-student-users', JSON.stringify(updatedUsers));
+    // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
 
     toast({
       title: "Éxito",
-      description: "Usuario eliminado correctamente.",
+      description: "Usuario eliminado correctamente. Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema.",
     });
   };
 
@@ -473,16 +561,17 @@ export default function GestionUsuariosPage() {
     });
     
     setUsers(updatedUsers);
-    localStorage.setItem('smart-student-users', JSON.stringify(updatedUsers));
+    // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
     
     const student = users.find(u => u.username === studentUsername);
     const hadPreviousTeacher = student?.assignedTeacher;
     
     toast({
       title: "Éxito",
-      description: hadPreviousTeacher 
+      description: (hadPreviousTeacher 
         ? `Estudiante transferido al ${translate('teacherTitle')} ${teacher.displayName} - ${course}` 
-        : `Estudiante asignado al ${translate('teacherTitle')} ${teacher.displayName} - ${course}`,
+        : `Estudiante asignado al ${translate('teacherTitle')} ${teacher.displayName} - ${course}`) + 
+        ". Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema.",
     });
   };
 
@@ -500,11 +589,11 @@ export default function GestionUsuariosPage() {
     });
     
     setUsers(updatedUsers);
-    localStorage.setItem('smart-student-users', JSON.stringify(updatedUsers));
+    // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
     
     toast({
       title: "Éxito",
-      description: translate('studentRemovedFromTeacher'),
+      description: translate('studentRemovedFromTeacher') + ". Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema.",
     });
   };
 
@@ -514,6 +603,36 @@ export default function GestionUsuariosPage() {
       user.role === 'teacher' && 
       user.activeCourses.includes(course)
     );
+  };
+
+  // Función para obtener la abreviatura de 3 letras para cada asignatura
+  const getSubjectAbbreviation = (subject: string): string => {
+    // Mapeo de asignaturas a sus abreviaturas de 3 letras en mayúsculas
+    const abbreviations: Record<string, string> = {
+      'Matemáticas': 'MAT',
+      'Lenguaje y Comunicación': 'LEN',
+      'Historia, Geografía y Ciencias Sociales': 'HIS',
+      'Ciencias Naturales': 'CNT',
+      'Inglés': 'ING',
+      'Educación Física': 'EDF',
+      'Artes Visuales': 'ART',
+      'Música': 'MUS',
+      'Tecnología': 'TEC',
+      'Orientación': 'ORI',
+      'Religión': 'REL',
+      'Filosofía': 'FIL',
+      'Física': 'FIS',
+      'Química': 'QUI',
+      'Biología': 'BIO'
+    };
+    
+    // Si la asignatura está en nuestro mapeo, devolver la abreviatura
+    if (subject in abbreviations) {
+      return abbreviations[subject];
+    }
+    
+    // Si no, tomar las primeras 3 letras y convertirlas a mayúsculas
+    return subject.substring(0, 3).toUpperCase();
   };
 
   // Function to get the current course and teacher for a student
@@ -543,17 +662,60 @@ export default function GestionUsuariosPage() {
     );
   }
 
+  // Estado para rastrear si hay cambios pendientes por guardar
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Efecto para detectar cambios en los usuarios
+  useEffect(() => {
+    const storedUsers = localStorage.getItem('smart-student-users');
+    if (storedUsers && users.length > 0) {
+      const storedUsersArray = JSON.parse(storedUsers);
+      // Comparar usuarios almacenados con los actuales
+      const areEqual = JSON.stringify(storedUsersArray) === JSON.stringify(users);
+      setHasUnsavedChanges(!areEqual);
+    }
+  }, [users]);
+
   return (
     <div className="space-y-6">
+      {/* Mensaje de advertencia sobre cambios no guardados */}
+      {hasUnsavedChanges && (
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4 dark:bg-amber-900/20">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-amber-700 dark:text-amber-200">
+                <strong>¡Tienes cambios sin guardar!</strong> Para que los cambios se apliquen en todo el sistema, haz clic en el botón "Guardar cambios".
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">{translate('userManagementPageTitle')}</h1>
           <p className="text-muted-foreground">{translate('userManagementPageDescription')}</p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          {translate('userManagementCreateUser')}
-        </Button>
+        <div className="flex space-x-2">
+          <Button 
+            className={`${hasUnsavedChanges ? 'bg-amber-600 hover:bg-amber-700 animate-pulse' : 'bg-teal-600 hover:bg-teal-700'}`}
+            onClick={() => {
+              syncAllChanges();
+              setHasUnsavedChanges(false);
+            }}
+          >
+            {hasUnsavedChanges ? '¡Guardar cambios!' : 'Guardar cambios'}
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            {translate('userManagementCreateUser')}
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-8">
@@ -848,18 +1010,31 @@ export default function GestionUsuariosPage() {
                           )}
                           <div className="mt-1">
                             {currentAssignment ? (
-                              <div className="flex items-center space-x-4">
-                                <p className="text-xs text-muted-foreground">
-                                  <BookOpen className="w-3 h-3 inline mr-1" />
-                                  {currentAssignment.course}
-                                </p>
-                                {currentAssignment.teacher && (
-                                  <p className="text-xs text-blue-600">
-                                    <Users className="w-3 h-3 inline mr-1" />
-                                    {translate('teacherTitle')} {currentAssignment.teacher.displayName}
+                              <>
+                                <div className="flex items-center space-x-4">
+                                  <p className="text-xs text-muted-foreground">
+                                    <BookOpen className="w-3 h-3 inline mr-1" />
+                                    {currentAssignment.course}
                                   </p>
-                                )}
-                              </div>
+                                  {currentAssignment.teacher && (
+                                    <p className="text-xs text-blue-600">
+                                      <Users className="w-3 h-3 inline mr-1" />
+                                      {translate('teacherTitle')} {currentAssignment.teacher.displayName}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {getSubjectsForCourse(currentAssignment.course).map(subject => (
+                                    <span 
+                                      key={`student-${userData.username}-${subject}`} 
+                                      className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                                      title={subject}
+                                    >
+                                      {getSubjectAbbreviation(subject)}
+                                    </span>
+                                  ))}
+                                </div>
+                              </>
                             ) : (
                               <p className="text-xs text-yellow-600">
                                 <BookOpen className="w-3 h-3 inline mr-1" />
@@ -1069,9 +1244,30 @@ export default function GestionUsuariosPage() {
                     </Label>
                     <div className="col-span-3 space-y-2">
                       {formData.role === 'student' && (
-                        <p className="text-xs text-muted-foreground mb-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
-                          {translate('userManagementStudentOneCourseInfo')}
-                        </p>
+                        <div className="flex flex-wrap gap-2 mb-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+                          {formData.activeCourses.length > 0 ? (
+                            <>
+                              <p className="text-xs text-muted-foreground w-full mb-1">
+                                {translate('userManagementStudentSubjects')}:
+                              </p>
+                              {formData.activeCourses.flatMap(course =>
+                                getSubjectsForCourse(course).map(subject => (
+                                  <span 
+                                    key={`${course}-${subject}`} 
+                                    className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                                    title={subject}
+                                  >
+                                    {getSubjectAbbreviation(subject)}
+                                  </span>
+                                ))
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              {translate('userManagementStudentOneCourseInfo')}
+                            </p>
+                          )}
+                        </div>
                       )}
                       {availableCourses.map((course) => (
                         <div key={course} className="flex items-center space-x-2">

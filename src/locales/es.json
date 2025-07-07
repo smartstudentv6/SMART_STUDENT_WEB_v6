@@ -367,6 +367,8 @@
     "userManagementCreateUser": "Crear Usuario",
     "userManagementStudentsCount": "estudiantes asignados",
     "userManagementAssignedStudents": "estudiantes asignados",
+    "userManagementStudentOneCourseInfo": "Los estudiantes solo pueden estar asignados a un curso. Selecciona un curso para ver las asignaturas disponibles.",
+    "userManagementStudentSubjects": "Asignaturas del curso",
     "teacherTitle": "Profesor",
     "teacherLabel": "Profesor *",
     "transferStudentFrom": "Transferir estudiante desde otro profesor:",
