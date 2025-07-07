@@ -667,6 +667,17 @@ export default function TareasPage() {
       formData.taskType === 'evaluacion' ? 'evaluation' : 'assignment'
     );
 
+    // Crear notificaciones para los estudiantes sobre la nueva tarea
+    TaskNotificationManager.createNewTaskNotifications(
+      taskId,
+      formData.title,
+      formData.course,
+      formData.subject,
+      user?.username || '',
+      user?.displayName || '',
+      formData.taskType === 'evaluacion' ? 'evaluation' : 'assignment'
+    );
+
     toast({
       title: translate('taskCreated'),
       description: translate('taskCreatedDesc', { title: formData.title }),
@@ -1770,7 +1781,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                               </Badge>
                               <Badge className={getStatusColor(task.status)}>
                                 {task.status === 'pending' ? translate('statusPending') : 
-                                 task.status === 'delivered' ? 'En Revisión' :
+                                 task.status === 'delivered' ? translate('underReview') :
                                  task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
                               </Badge>
                             </div>
@@ -1879,7 +1890,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                               // En Revisión: amarillo (forzado)
                               return (
                                 <Badge className="bg-yellow-100 text-yellow-800 font-bold">
-                                  En Revisión
+                                  {translate('underReview')}
                                 </Badge>
                               );
                             } else if (mySubmission && typeof mySubmission.grade === 'number') {
@@ -1898,7 +1909,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                           })() : (
                             <Badge className={getStatusColor(task.status)}>
                               {task.status === 'pending' ? translate('statusPending') : 
-                                task.status === 'delivered' ? 'En Revisión' :
+                                task.status === 'delivered' ? translate('underReview') :
                                 task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
                             </Badge>
                           )}
@@ -2362,7 +2373,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                       // En Revisión: amarillo (forzado)
                       return (
                         <Badge className="bg-yellow-100 text-yellow-800 font-bold ml-1">
-                          En Revisión
+                          {translate('In Review')}
                         </Badge>
                       );
                     } else if (mySubmission && typeof mySubmission.grade === 'number') {
@@ -2505,7 +2516,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                                         'bg-green-100 text-green-800'
                                       }>
                                         {(studentStatus === 'pending' && !student.displayName.toLowerCase().includes('maria')) ? 'Pendiente' : 
-                                         studentStatus === 'delivered' || student.displayName.toLowerCase().includes('maria') ? 'En Revisión' : 
+                                         studentStatus === 'delivered' || student.displayName.toLowerCase().includes('maria') ? translate('underReview') : 
                                          'Calificado'}
                                       </Badge>
                                     </td>
@@ -2630,7 +2641,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
               {/* Panel de comentarios - REPOSICIONADO */}
               <div className="mt-6">
                 <Separator className="mb-4" />
-                <h4 className="font-medium mb-3">Comentarios</h4>
+                <h4 className="font-medium mb-3">{translate('comments')}</h4>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {getTaskComments(selectedTask.id)
                     .filter(comment => {
@@ -2664,7 +2675,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                               {/* Nombre primero */}
                               <span className="font-semibold text-base text-gray-900 dark:text-gray-100">{comment.studentName}</span>
                               {/* Estado Entregado */}
-                              <Badge className="bg-blue-100 text-blue-800 font-bold px-2 py-1 text-xs ml-4 md:ml-6">Entregado</Badge>
+                              <Badge className="bg-blue-100 text-blue-800 font-bold px-2 py-1 text-xs ml-4 md:ml-6">{translate('Delivered')}</Badge>
                               {/* Fecha */}
                               <span className="text-xs text-muted-foreground ml-2 md:ml-4">{formatDateOneLine(comment.timestamp)}</span>
                               {/* Porcentaje */}
@@ -2678,7 +2689,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                             <div className="flex items-center gap-2 md:ml-auto">
                               {user?.role === 'student' && comment.studentUsername === user.username && !comment.grade && !comment.reviewedAt && (
                                 <Button variant="destructive" size="sm" onClick={() => handleDeleteSubmission(comment.id)}>
-                                  <Trash2 className="w-4 h-4 mr-1" /> Eliminar
+                                  <Trash2 className="w-4 h-4 mr-1" /> {translate('Delete')}
                                 </Button>
                               )}
                               {comment.reviewedAt && (
@@ -3302,7 +3313,9 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                     <p><strong>Nombre:</strong> {currentReview.studentDisplayName}</p>
                     <p><strong>Usuario:</strong> {currentReview.studentUsername}</p>
                   </div>
-                  <div>
+                  <div>Under Review
+
+
                     <p><strong>Fecha de entrega:</strong> {formatDateOneLine(currentReview.submission.timestamp)}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <strong>Estado:</strong>
@@ -3319,7 +3332,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                           // Entregada pero sin nota: En Revisión (amarillo)
                           return (
                             <Badge className="bg-yellow-100 text-yellow-800 font-bold">
-                              En Revisión
+                              {translate('In Review')}
                             </Badge>
                           );
                         } else if (currentReview.submission && typeof currentReview.submission.grade === 'number') {

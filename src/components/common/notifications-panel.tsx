@@ -721,7 +721,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                 </div>
               )}
               
-              {/* Student: Unread Comments */}
+              {/* Student: Notifications in correct order */}
               {user?.role === 'student' && (
                 <div>
                   {unreadComments.length === 0 && pendingTasks.length === 0 && taskNotifications.length === 0 ? (
@@ -730,18 +730,22 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
-                      {/* Evaluaciones Pendientes section - FIRST POSITION */}
-                      {pendingTasks.filter(task => task.taskType === 'evaluation').length > 0 && (
+                      {/* 1. EVALUACIONES PENDIENTES - FIRST POSITION */}
+                      {(pendingTasks.filter(task => task.taskType === 'evaluation').length > 0 || 
+                        taskNotifications.filter(n => n.type === 'new_task' && n.taskType === 'evaluation').length > 0) && (
                         <>
                           <div className="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400 dark:border-purple-500">
                             <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200">
-                              {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} ({pendingTasks.filter(task => task.taskType === 'evaluation').length})
+                              {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} 
+                              ({pendingTasks.filter(task => task.taskType === 'evaluation').length + 
+                                taskNotifications.filter(n => n.type === 'new_task' && n.taskType === 'evaluation').length})
                             </h3>
                           </div>
                           
+                          {/* Existing pending evaluations */}
                           {pendingTasks
                             .filter(task => task.taskType === 'evaluation')
-                            .slice(0, 3)
+                            .slice(0, 2)
                             .map(task => (
                             <div key={task.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
@@ -772,32 +776,61 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                               </div>
                             </div>
                           ))}
-                          
-                          {pendingTasks.filter(task => task.taskType === 'evaluation').length > 3 && (
-                            <div className="px-4 py-3 text-center">
-                              <Link 
-                                href="/dashboard/tareas" 
-                                className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
-                              >
-                                {translate('viewAllTasks', { count: String(pendingTasks.filter(task => task.taskType === 'evaluation').length) })}
-                              </Link>
+
+                          {/* New evaluation notifications */}
+                          {taskNotifications
+                            .filter(n => n.type === 'new_task' && n.taskType === 'evaluation')
+                            .slice(0, 3 - pendingTasks.filter(task => task.taskType === 'evaluation').length)
+                            .map(notification => (
+                            <div key={notification.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
+                                  <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notification.taskTitle}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDate(notification.timestamp)}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    Nueva evaluación asignada por {notification.teacherName || notification.fromDisplayName}
+                                  </p>
+                                  <p className="text-xs font-medium mt-1">
+                                    {notification.course} • {notification.subject}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${notification.taskId}&highlight=true`}
+                                    className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                                  >
+                                    Ver Evaluación
+                                  </Link>
+                                </div>
+                              </div>
                             </div>
-                          )}
+                          ))}
                         </>
                       )}
 
-                      {/* Tareas Pendientes section - SECOND POSITION */}
-                      {pendingTasks.filter(task => task.taskType === 'assignment').length > 0 && (
+                      {/* 2. TAREAS PENDIENTES - SECOND POSITION */}
+                      {(pendingTasks.filter(task => task.taskType === 'assignment' || !task.taskType).length > 0 || 
+                        taskNotifications.filter(n => n.type === 'new_task' && (n.taskType === 'assignment' || !n.taskType)).length > 0) && (
                         <>
                           <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
                             <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                              {translate('pendingTasks') || 'Tareas Pendientes'} ({pendingTasks.filter(task => task.taskType === 'assignment').length})
+                              {translate('pendingTasks') || 'Tareas Pendientes'} 
+                              ({pendingTasks.filter(task => task.taskType === 'assignment' || !task.taskType).length + 
+                                taskNotifications.filter(n => n.type === 'new_task' && (n.taskType === 'assignment' || !n.taskType)).length})
                             </h3>
                           </div>
                           
+                          {/* Existing pending tasks */}
                           {pendingTasks
-                            .filter(task => task.taskType === 'assignment')
-                            .slice(0, 3)
+                            .filter(task => task.taskType === 'assignment' || !task.taskType)
+                            .slice(0, 2)
                             .map(task => (
                             <div key={task.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
@@ -828,86 +861,120 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                               </div>
                             </div>
                           ))}
+
+                          {/* New task notifications */}
+                          {taskNotifications
+                            .filter(n => n.type === 'new_task' && (n.taskType === 'assignment' || !n.taskType))
+                            .slice(0, 3 - pendingTasks.filter(task => task.taskType === 'assignment' || !task.taskType).length)
+                            .map(notification => (
+                            <div key={notification.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
+                                  <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notification.taskTitle}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDate(notification.timestamp)}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    Nueva tarea asignada por {notification.teacherName || notification.fromDisplayName}
+                                  </p>
+                                  <p className="text-xs font-medium mt-1">
+                                    {notification.course} • {notification.subject}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${notification.taskId}&highlight=true`}
+                                    className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
+                                  >
+                                    {translate('viewTask')}
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* 3. COMENTARIOS NO LEÍDOS - THIRD POSITION */}
+                      {unreadComments.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 dark:border-blue-500">
+                            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                              {translate('unreadComments') || 'Comentarios No Leídos'} ({unreadComments.length})
+                            </h3>
+                          </div>
                           
-                          {pendingTasks.filter(task => task.taskType === 'assignment').length > 3 && (
+                          {unreadComments.slice(0, 3).map(comment => (
+                            <div key={comment.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
+                                  <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {comment.studentName}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDate(comment.timestamp)}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                    {comment.comment}
+                                  </p>
+                                  <p className="text-xs font-medium mt-1">
+                                    {comment.task?.title}
+                                  </p>
+                                  <Link 
+                                    href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}&highlight=true`} 
+                                    className="inline-block mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                  >
+                                    {translate('viewComment')}
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          {unreadComments.length > 3 && (
                             <div className="px-4 py-3 text-center">
                               <Link 
                                 href="/dashboard/tareas" 
-                                className="text-xs text-orange-600 dark:text-orange-400 hover:underline"
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                               >
-                                {translate('viewAllTasks', { count: String(pendingTasks.filter(task => task.taskType === 'assignment').length) })}
+                                Ver todos los comentarios ({unreadComments.length})
                               </Link>
                             </div>
                           )}
                         </>
                       )}
 
-                      {/* Unread comments section - MOVED TO SECOND POSITION */}
-                      {unreadComments.length > 0 && (
-                        <div className="px-4 py-2 bg-muted/30 border-l-4 border-gray-300 dark:border-gray-500">
-                          <h3 className="text-sm font-medium text-foreground">
-                            {translate('unreadStudentComments')} ({unreadComments.length})
-                          </h3>
-                        </div>
-                      )}
-                      
-                      {unreadComments.map(comment => (
-                        <div key={comment.id} className="p-4 hover:bg-muted/50">
-                          <div className="flex items-start gap-2">
-                            <div className="bg-blue-100 p-2 rounded-full">
-                              <MessageSquare className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <p className="font-medium text-sm">
-                                  {comment.studentName}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatDate(comment.timestamp)}
-                                </p>
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                {comment.comment}
-                              </p>
-                              <p className="text-xs font-medium mt-1">
-                                {comment.task?.title}
-                              </p>
-                              <Link 
-                                href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}&highlight=true`} 
-                                className="inline-block mt-1 text-xs text-primary hover:underline"
-                              >
-                                {translate('viewComment')}
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {/* Task notifications section (including grades) - Only show when no pending tasks */}
-                      {taskNotifications.length > 0 && pendingTasks.length === 0 && (
+                      {/* Grade and other notifications (except new_task) */}
+                      {taskNotifications.filter(n => n.type !== 'new_task').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-muted/30">
-                            <h3 className="text-sm font-medium text-foreground">
-                              {translate('notifications')}
+                          <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 dark:border-green-500">
+                            <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                              Calificaciones y Comentarios ({taskNotifications.filter(n => n.type !== 'new_task').length})
                             </h3>
                           </div>
                           
-                          {taskNotifications.map(notification => (
+                          {taskNotifications.filter(n => n.type !== 'new_task').map(notification => (
                             <div key={notification.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className={`p-2 rounded-full ${
                                   notification.type === 'grade_received' 
-                                    ? 'bg-green-100' 
-                                    : notification.type === 'teacher_comment'
-                                    ? 'bg-blue-100'
-                                    : 'bg-orange-100'
+                                    ? 'bg-green-100 dark:bg-green-800' 
+                                    : 'bg-blue-100 dark:bg-blue-800'
                                 }`}>
                                   {notification.type === 'grade_received' ? (
-                                    <ClipboardCheck className="h-4 w-4 text-green-600" />
-                                  ) : notification.type === 'teacher_comment' ? (
-                                    <MessageSquare className="h-4 w-4 text-blue-600" />
+                                    <ClipboardCheck className="h-4 w-4 text-green-600 dark:text-green-300" />
                                   ) : (
-                                    <ClipboardCheck className="h-4 w-4 text-orange-600" />
+                                    <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                                   )}
                                 </div>
                                 <div className="flex-1">
@@ -915,11 +982,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     <p className="font-medium text-sm">
                                       {notification.type === 'grade_received'
                                         ? translate('reviewGrade')
-                                        : notification.type === 'teacher_comment'
-                                        ? translate('newTeacherComment')
-                                        : notification.type === 'new_task'
-                                        ? translate('newTaskNotification')
-                                        : translate('newComment')
+                                        : translate('newTeacherComment')
                                       }
                                     </p>
                                     <p className="text-xs text-muted-foreground">
@@ -928,18 +991,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1">
                                     {notification.type === 'grade_received' && notification.grade
-                                      ? translate('gradeReceivedDesc', { 
-                                          grade: notification.grade.toString(), 
-                                          taskTitle: notification.taskTitle 
-                                        })
-                                      : notification.type === 'teacher_comment'
-                                      ? `${translate('commentOnTask')}: ${notification.taskTitle}`
-                                      : notification.type === 'new_task'
-                                      ? translate('newTaskNotificationDesc', { 
-                                          teacherName: notification.teacherName || 'Profesor',
-                                          title: notification.taskTitle 
-                                        })
-                                      : `${translate('newTaskAssigned')}: ${notification.taskTitle}`
+                                      ? `Calificación recibida: ${notification.grade}% en ${notification.taskTitle}`
+                                      : `Comentario del profesor en: ${notification.taskTitle}`
                                     }
                                   </p>
                                   <p className="text-xs font-medium mt-1">
@@ -949,7 +1002,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     href={`/dashboard/tareas?taskId=${notification.taskId}&highlight=true`}
                                     className="inline-block mt-2 text-xs text-primary hover:underline"
                                   >
-                                    {translate('viewTask')}
+                                    Ver {notification.type === 'grade_received' ? 'Calificación' : 'Comentario'}
                                   </Link>
                                 </div>
                               </div>
@@ -961,7 +1014,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                   )}
                 </div>
               )}
-
+              
+              
               {/* Teacher: Submissions to review */}
               {user?.role === 'teacher' && (
                 <div>

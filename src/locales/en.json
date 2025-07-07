@@ -535,6 +535,11 @@
     "noSubmissionsToReview": "All caught up! Enjoy a moment of peace while your students prepare new submissions ✨",
     "notifications": "Notifications",
     "noNotifications": "You have no pending notifications",
+    "unreadComments": "Unread Comments",
+    "newTaskNotification": "New Task Assigned",
+    "newTaskNotificationDesc": "{{teacherName}} has assigned you a new task: {{title}}",
+    "newTaskAssigned": "New task assigned",
+    "commentOnTask": "Comment on task",
     "task": "Task",
     "markAllAsRead": "Mark all as read",
     "studentDetailTitle": "Student Detail",
@@ -555,7 +560,11 @@
     "viewEvaluationDetail": "View detail",
     "studentListTitle": "Student List",
     "noStudentsInTask": "No students assigned to this task",
-    "assignedStudentsTitle": "Assigned Students"
+    "assignedStudentsTitle": "Assigned Students",
+    "comments": "Comments",
+    "underReview": "In Review",
+    "submitted": "Delivered",
+    "delete": "Delete"
 }
 
 

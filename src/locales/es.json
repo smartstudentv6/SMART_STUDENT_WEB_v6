@@ -465,7 +465,6 @@
     "statusInProgress": "En Curso",
     "statusFinished": "Finalizada",
     "submissionDone": "Entregada",
-    "submitted": "Entregada",
     "submissionPending": "Pendiente",
     "dueDateMustBeFuture": "La fecha de entrega debe ser en el futuro",
     "markAsSubmission": "Marcar como entrega final",
@@ -535,6 +534,11 @@
     "noSubmissionsToReview": "¡Todo al día! Disfruta de un momento de paz mientras tus estudiantes preparan nuevas entregas ✨",
     "notifications": "Notificaciones",
     "noNotifications": "No tienes notificaciones pendientes",
+    "unreadComments": "Comentarios No Leídos",
+    "newTaskNotification": "Nueva Tarea Asignada",
+    "newTaskNotificationDesc": "{{teacherName}} te ha asignado una nueva tarea: {{title}}",
+    "newTaskAssigned": "Nueva tarea asignada",
+    "commentOnTask": "Comentario en tarea",
     "task": "Tarea",
     "markAllAsRead": "Marcar todo como leído",
     "studentDetailTitle": "Detalle del Estudiante",
@@ -555,5 +559,9 @@
     "viewEvaluationDetail": "Ver detalle",
     "studentListTitle": "Lista de Estudiantes",
     "noStudentsInTask": "No hay estudiantes asignados a esta tarea",
-    "assignedStudentsTitle": "Estudiantes Asignados"
+    "assignedStudentsTitle": "Estudiantes Asignados",
+    "comments": "Comentarios",
+    "underReview": "En Revisión",
+    "submitted": "Entregado",
+    "delete": "Eliminar"
 }

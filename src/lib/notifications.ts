@@ -8,6 +8,7 @@ export interface TaskNotification {
   targetUsernames: string[]; // usuarios específicos que deben recibir la notificación
   fromUsername: string;
   fromDisplayName: string;
+  teacherName?: string; // Nombre del profesor para mostrar en las notificaciones
   course: string;
   subject: string;
   timestamp: string;
@@ -68,6 +69,7 @@ export class TaskNotificationManager {
       targetUsernames: studentsInCourse.map(student => student.username),
       fromUsername: teacherUsername,
       fromDisplayName: teacherDisplayName,
+      teacherName: teacherDisplayName,
       course,
       subject,
       timestamp: new Date().toISOString(),
@@ -82,6 +84,9 @@ export class TaskNotificationManager {
     
     this.saveNotifications(notifications);
     console.log('Notifications saved to localStorage');
+    
+    // Disparar evento para actualizar la UI
+    window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
   }
 
   // Crear notificación pendiente para el profesor cuando crea una tarea/evaluación
