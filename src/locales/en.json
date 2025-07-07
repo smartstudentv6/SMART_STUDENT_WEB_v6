@@ -534,6 +534,7 @@
     "refreshData": "Refresh",
     "noSubmissionsToReview": "All caught up! Enjoy a moment of peace while your students prepare new submissions ✨",
     "notifications": "Notifications",
+    "noNotifications": "You have no pending notifications",
     "task": "Task",
     "markAllAsRead": "Mark all as read",
     "studentDetailTitle": "Student Detail",

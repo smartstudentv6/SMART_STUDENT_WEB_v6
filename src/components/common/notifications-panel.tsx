@@ -846,7 +846,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {unreadComments.length > 0 && (
                         <div className="px-4 py-2 bg-muted/30 border-l-4 border-gray-300 dark:border-gray-500">
                           <h3 className="text-sm font-medium text-foreground">
-                            {translate('unreadComments')} ({unreadComments.length})
+                            {translate('unreadStudentComments')} ({unreadComments.length})
                           </h3>
                         </div>
                       )}

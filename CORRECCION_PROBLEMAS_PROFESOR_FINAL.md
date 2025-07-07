@@ -1,3 +1,58 @@
+# ➕ MEJORA ADITIVA: Estados de Entregas en el Módulo Profesor
+
+## 🚦 Estado de Entregas y Revisión
+
+**Funcionalidad:** Ahora el profesor puede ver el estado de entrega de cada tarea según los estudiantes:
+
+- Si un estudiante entregó su tarea y no está calificada, el estado es **"Entregado [fecha y hora]"** y aparece el botón **Revisar**.
+- Si no hay entrega, el estado es **"Pendiente"**.
+- Si está calificada, el estado es **"Calificado"**.
+
+**Vista ejemplo para el profesor:**
+
+| Estudiante         | Estado                        | Acción    |
+|--------------------|-------------------------------|-----------|
+| María García       | Entregado 05/07/2025 10:15    | Revisar   |
+| Carlos López       | Calificado 04/07/2025 09:00   | Ver Nota  |
+| Ana Martínez       | Pendiente                     | -         |
+
+
+**Lógica aditiva sugerida:**
+
+```typescript
+// Para cada tarea y estudiante:
+if (entregaExiste && !calificada) {
+  // Estado para el panel del estudiante:
+  estadoEstudiante = 'En Revisión';
+  // Estado para el panel del profesor:
+  estadoProfesor = `Entregado ${fechaHoraEntrega}`;
+  mostrarBoton = 'Revisar';
+} else if (entregaExiste && calificada) {
+  estadoEstudiante = 'Calificado';
+  estadoProfesor = `Calificado ${fechaHoraCalificacion}`;
+  mostrarBoton = 'Ver Nota';
+} else {
+  estadoEstudiante = 'Pendiente';
+  estadoProfesor = 'Pendiente';
+  mostrarBoton = null;
+}
+```
+
+**Notas:**
+- El estado del estudiante pasa de "Pendiente" a "En Revisión" cuando entrega la tarea pero aún no está calificada.
+- El estado del profesor muestra "Entregado [fecha y hora]" y el botón "Revisar" en ese caso.
+
+**Dónde mostrar:**
+- En la vista de tareas del profesor, debajo de cada tarea, tabla/lista de estudiantes con su estado y acción.
+- El botón **Revisar** abre el detalle de la entrega para calificar.
+
+**Dónde mostrar:**
+- En la vista de tareas del profesor, debajo de cada tarea, tabla/lista de estudiantes con su estado y acción.
+- El botón **Revisar** abre el detalle de la entrega para calificar.
+
+**Solo programación aditiva:**
+- No se modifica lógica previa, solo se añade la visualización y control de estados.
+
 # 🔧 CORRECCIÓN FINAL: Problemas de Notificaciones y Resultados del Profesor
 
 ## 📋 Problemas Identificados

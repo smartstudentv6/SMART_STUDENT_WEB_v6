@@ -314,56 +314,12 @@ export class TaskNotificationManager {
     }
   }
 
-  // Marcar notificación de nueva tarea como leída cuando el estudiante entrega
-  static markNewTaskNotificationAsReadOnSubmission(taskId: string, studentUsername: string): void {
-    const notifications = this.getNotifications();
-    const newTaskNotification = notifications.find(n => 
-      n.type === 'new_task' && 
-      n.taskId === taskId && 
-      n.targetUsernames.includes(studentUsername)
-    );
-    
-    if (newTaskNotification) {
-      this.markAsReadByUser(newTaskNotification.id, studentUsername);
-    }
-  }
+  // Ya no se marca automáticamente como leída la notificación de nueva tarea al entregar.
+  // La notificación solo desaparecerá cuando la tarea esté en estado finalizada para el estudiante.
 
-  // Eliminar completamente las notificaciones de evaluaciones cuando el estudiante las completa
-  static removeEvaluationNotificationOnCompletion(taskId: string, studentUsername: string): void {
-    console.log('=== DEBUG removeEvaluationNotificationOnCompletion ===');
-    console.log('TaskId:', taskId, 'Student:', studentUsername);
-    
-    const notifications = this.getNotifications();
-    const initialCount = notifications.length;
-    
-    // Buscar y eliminar notificaciones de nueva tarea para esta evaluación específica del estudiante
-    const filteredNotifications = notifications.filter(notification => {
-      // Mantener la notificación si NO es una nueva tarea para este estudiante y esta evaluación
-      if (notification.type === 'new_task' && 
-          notification.taskId === taskId && 
-          notification.targetUsernames.includes(studentUsername)) {
-        
-        // Si la notificación tiene otros destinatarios, solo remover este estudiante
-        if (notification.targetUsernames.length > 1) {
-          notification.targetUsernames = notification.targetUsernames.filter(username => username !== studentUsername);
-          notification.readBy = notification.readBy.filter(username => username !== studentUsername);
-          return true; // Mantener la notificación pero modificada
-        } else {
-          // Si este estudiante es el único destinatario, eliminar completamente la notificación
-          return false; // Eliminar la notificación
-        }
-      }
-      return true; // Mantener todas las demás notificaciones
-    });
-    
-    const removedCount = initialCount - filteredNotifications.length;
-    console.log(`Processed ${removedCount} evaluation notifications for student completion`);
-    
-    if (removedCount > 0 || filteredNotifications.some(n => n.type === 'new_task' && n.taskId === taskId)) {
-      this.saveNotifications(filteredNotifications);
-      console.log('Evaluation notifications updated after student completion');
-    }
-  }
+
+  // Ya no se eliminan automáticamente las notificaciones de evaluación al completar.
+  // Permanecen hasta que la tarea/evaluación esté finalizada para el estudiante.
 
   // Verificar si un estudiante completó una evaluación específica
   static isEvaluationCompletedByStudent(taskId: string, studentUsername: string): boolean {
@@ -587,6 +543,34 @@ export class TaskNotificationManager {
       if (updated) {
         localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
         console.log(`[TaskNotificationManager] Marked comments for task ${taskId} as read for ${username}`);
+        
+        // Ahora también marcamos las notificaciones relacionadas como leídas
+        const notifications = this.getNotifications();
+        let notificationsUpdated = false;
+        
+        const updatedNotifications = notifications.map(notification => {
+          // Si la notificación es de comentario (comment_added) para la tarea específica
+          // y está dirigida al usuario actual, marcarla como leída
+          if (
+            notification.taskId === taskId && 
+            notification.type === 'teacher_comment' &&
+            notification.targetUsernames.includes(username) &&
+            !notification.readBy.includes(username)
+          ) {
+            notificationsUpdated = true;
+            return {
+              ...notification,
+              readBy: [...notification.readBy, username],
+              read: notification.targetUsernames.length === 1 ? true : notification.read
+            };
+          }
+          return notification;
+        });
+        
+        if (notificationsUpdated) {
+          this.saveNotifications(updatedNotifications);
+          console.log(`[TaskNotificationManager] Marked all comment notifications for task ${taskId} as read by ${username}`);
+        }
         
         // Disparar evento para actualizar la UI
         document.dispatchEvent(new Event('commentsUpdated'));
@@ -973,6 +957,22 @@ export class TaskNotificationManager {
       }
     } else {
       console.log('[TaskNotificationManager] ℹ️ No se encontraron notificaciones que necesiten migración');
+    }
+  }
+
+  // Verificar si una tarea está finalizada para un estudiante específico
+  static isTaskFinalizedForStudent(taskId: string, studentUsername: string): boolean {
+    try {
+      // Obtenemos las tareas del estudiante del localStorage
+      const userTasksKey = `userTasks_${studentUsername}`;
+      const userTasks = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+      
+      // Verificamos si la tarea existe y está en estado 'finalizado'
+      const task = userTasks.find((t: any) => t.id === taskId);
+      return task && task.status === 'finalizado';
+    } catch (error) {
+      console.error('Error checking task finalization status:', error);
+      return false;
     }
   }
 }
