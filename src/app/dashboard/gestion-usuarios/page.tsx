@@ -16,29 +16,33 @@ import { Separator } from '@/components/ui/separator';
 import { Users, Plus, Edit, Trash2, Shield, BookOpen, ChevronDown, ChevronRight, UserPlus, UserMinus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { User, UserRole, TeacherSubjectAssignment } from '@/contexts/auth-context';
+import { Course } from '@/lib/types'; // Import Course type
+import { generateUniqueId } from '@/lib/utils'; // Import generateUniqueId
 import { getAllSubjects, getSubjectsForCourse } from '@/lib/books-data';
 
 // Extended User interface with teacher assignment
-interface ExtendedUser extends User {
-  password: string;
-  assignedTeacher?: string; // For students: username of their assigned teacher
+interface ExtendedUser extends User { // User from auth-context already has id, username, role, displayName, activeCourses, email
+  password: string; // Password should ideally not be part of the client-side User object for long.
+  assignedTeacherId?: string; // For students: ID of their assigned teacher
   teachingSubjects?: string[]; // For teachers: subjects they teach (simplified version)
+  // activeCourses will store course IDs
 }
 
 // Simulate user database management
 interface UserFormData {
+  id?: string; // Optional: only present for existing users
   username: string;
   displayName: string;
   email: string;
   role: UserRole;
-  activeCourses: string[];
+  activeCourseIds: string[]; // Changed from activeCourses (names) to activeCourseIds
   password: string;
-  assignedTeacher?: string; // For students
+  assignedTeacherId?: string; // For students: ID of their assigned teacher
   teachingSubjects?: string[]; // For teachers
-  selectedCourse?: string; // For dynamic subject loading
+  selectedCourseId?: string; // For dynamic subject loading (stores course ID)
 }
 
-const availableCourses = [
+const initialAvailableCoursesData = [ // Renamed to avoid conflict, will be replaced by state
   '1ro Básico',
   '2do Básico', 
   '3ro Básico',
@@ -70,19 +74,21 @@ export default function GestionUsuariosPage() {
   const { toast } = useToast();
 
   const [users, setUsers] = useState<ExtendedUser[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]); // State for courses
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingUser, setEditingUser] = useState<ExtendedUser | null>(null);
   const [expandedTeachers, setExpandedTeachers] = useState<Record<string, boolean>>({});
   const [formData, setFormData] = useState<UserFormData>({
+    // id will be undefined for new users
     username: '',
     displayName: '',
     email: '',
     role: 'student',
-    activeCourses: [],
+    activeCourseIds: [], // Updated field name
     password: '',
-    assignedTeacher: undefined,
+    assignedTeacherId: undefined, // Updated field name
     teachingSubjects: [],
-    selectedCourse: undefined
+    selectedCourseId: undefined // Updated field name
   });
 
   // Redirect if not admin
@@ -97,103 +103,184 @@ export default function GestionUsuariosPage() {
     }
   }, [user, isAdmin, router, toast]);
 
-  // Load users from localStorage (simulated database)
+  // Load users and courses from localStorage (simulated database)
   useEffect(() => {
-    const loadUsers = () => {
-      const storedUsers = localStorage.getItem('smart-student-users');
-      if (storedUsers) {
+    const loadInitialData = () => {
+      // Load Courses
+      const storedCourses = localStorage.getItem('smart-student-courses');
+      let coursesModified = false;
+      let loadedCourses: Course[];
+
+      if (storedCourses) {
         try {
-          setUsers(JSON.parse(storedUsers));
+          loadedCourses = JSON.parse(storedCourses);
+          // Ensure all courses have IDs
+          loadedCourses.forEach(c => {
+            if (!c.id) {
+              c.id = generateUniqueId();
+              coursesModified = true;
+            }
+          });
         } catch (error) {
-          console.error('Error loading users:', error);
-          initializeDefaultUsers();
+          console.error('Error loading courses, initializing defaults:', error);
+          loadedCourses = initialAvailableCoursesData.map(courseName => ({
+            id: generateUniqueId(),
+            name: courseName,
+          }));
+          coursesModified = true;
         }
       } else {
-        initializeDefaultUsers();
+        loadedCourses = initialAvailableCoursesData.map(courseName => ({
+          id: generateUniqueId(),
+          name: courseName,
+        }));
+        coursesModified = true;
+      }
+      setCourses(loadedCourses);
+      if (coursesModified) {
+        localStorage.setItem('smart-student-courses', JSON.stringify(loadedCourses));
+      }
+
+      // Load Users
+      const storedUsers = localStorage.getItem('smart-student-users');
+      let usersModifiedInitially = false; // Tracks if IDs were added or defaults initialized
+      let loadedUsersData: ExtendedUser[];
+
+      if (storedUsers) {
+        try {
+          const parsedUsers = JSON.parse(storedUsers) as Partial<ExtendedUser>[];
+          loadedUsersData = parsedUsers.map(u => {
+            if (!u.id) {
+              u.id = u.username || generateUniqueId(); // Use username as ID if possible for existing, else generate
+              usersModifiedInitially = true;
+            }
+            return {
+              id: u.id,
+              username: u.username || `user-${u.id}`, // Ensure username exists
+              role: u.role || 'student',
+              displayName: u.displayName || u.username || `User ${u.id}`,
+              activeCourses: u.activeCourses || [], // This will be list of course names or IDs, to be migrated
+              email: u.email,
+              password: u.password || '1234', // Default password if missing
+              assignedTeacherId: (u as any).assignedTeacherId || (u as any).assignedTeacher, // Keep if ID, or keep username for now
+              teachingSubjects: u.teachingSubjects || [],
+              assignedTeachers: (u as User).assignedTeachers,
+              teachingAssignments: (u as User).teachingAssignments,
+            } as ExtendedUser;
+          });
+        } catch (error) {
+          console.error('Error loading or migrating users, initializing defaults:', error);
+          // Pass empty array for allCurrentUsers as they are not loaded yet to avoid circular dependency in this init step
+          loadedUsersData = initializeDefaultUsers(loadedCourses, []);
+          usersModifiedInitially = true;
+        }
+      } else {
+         // Pass empty array for allCurrentUsers
+        loadedUsersData = initializeDefaultUsers(loadedCourses, []);
+        usersModifiedInitially = true;
+      }
+
+      // Perform data migration for course names to IDs and teacher usernames to IDs
+      let usersDataUpdatedForMigration = false;
+      const finalUsers = loadedUsersData.map(u => {
+        let userChangedInMigration = false;
+        const currentActiveCourses = u.activeCourses || [];
+        const newActiveCourseIds: string[] = [];
+
+        if (currentActiveCourses.length > 0) {
+          currentActiveCourses.forEach(courseRef => {
+            // Check if courseRef is already an ID
+            const courseExistsById = loadedCourses.find(c => c.id === courseRef);
+            if (courseExistsById) {
+              newActiveCourseIds.push(courseRef);
+            } else { // Assume courseRef is a name and try to find its ID
+              const courseByName = loadedCourses.find(c => c.name === courseRef);
+              if (courseByName) {
+                newActiveCourseIds.push(courseByName.id);
+                userChangedInMigration = true;
+              } else {
+                // console.warn(`Course name "${courseRef}" not found for user ${u.username}`);
+              }
+            }
+          });
+          // Only update if there was a change in representation (name to ID)
+          if (userChangedInMigration || JSON.stringify(u.activeCourses) !== JSON.stringify(newActiveCourseIds)) {
+             u.activeCourses = newActiveCourseIds; // User.activeCourses now stores IDs
+          }
+        }
+
+
+        // Migrate assignedTeacher (username for default users) to assignedTeacherId
+        // This relies on all users being loaded in loadedUsersData with their IDs (even if defaults)
+        const oldAssignedTeacherFormat = (u as any).assignedTeacher;
+        if (u.role === 'student' && oldAssignedTeacherFormat && typeof oldAssignedTeacherFormat === 'string' && !u.assignedTeacherId) {
+          const teacherUser = loadedUsersData.find(t => t.username === oldAssignedTeacherFormat && t.role === 'teacher');
+          if (teacherUser && teacherUser.id) {
+            u.assignedTeacherId = teacherUser.id;
+            delete (u as any).assignedTeacher;
+            userChangedInMigration = true;
+          } else {
+            // console.warn(`Teacher username "${oldAssignedTeacherFormat}" not found for student ${u.username}`);
+          }
+        }
+        if(userChangedInMigration) usersDataUpdatedForMigration = true;
+        return u;
+      });
+
+      setUsers(finalUsers);
+      if (usersModifiedInitially || usersDataUpdatedForMigration) {
+        localStorage.setItem('smart-student-users', JSON.stringify(finalUsers));
       }
     };
 
-    const initializeDefaultUsers = () => {
-      const defaultUsers: ExtendedUser[] = [
-        {
-          username: 'admin',
-          displayName: 'Administrador del Sistema',
-          email: 'admin@smartstudent.com',
-          role: 'admin' as UserRole,
-          activeCourses: [],
-          password: '1234'
-        },
-        {
-          username: 'felipe',
-          displayName: 'Felipe Estudiante',
-          email: 'felipe@student.com',
-          role: 'student' as UserRole,
-          activeCourses: ['4to Básico'],
-          assignedTeacher: 'jorge', // Felipe is assigned to Jorge
-          password: '1234'
-        },
-        {
-          username: 'jorge',
-          displayName: 'Jorge Profesor',
-          email: 'jorge@teacher.com',
-          role: 'teacher' as UserRole,
-          activeCourses: ['4to Básico', '5to Básico'],
-          teachingSubjects: ['Matemáticas', 'Lenguaje y Comunicación'],
-          password: '1234'
-        },
-        {
-          username: 'maria',
-          displayName: 'María Estudiante',
-          email: 'maria@student.com',
-          role: 'student' as UserRole,
-          activeCourses: ['1ro Básico'],
-          assignedTeacher: 'carlos', // Maria is assigned to Carlos
-          password: '1234'
-        },
-        {
-          username: 'carlos',
-          displayName: 'Carlos Profesor',
-          email: 'carlos@teacher.com',
-          role: 'teacher' as UserRole,
-          activeCourses: ['1ro Básico', '2do Básico'],
-          teachingSubjects: ['Ciencias Naturales', 'Historia, Geografía y Ciencias Sociales', 'Matemáticas', 'Lenguaje y Comunicación'],
-          password: '1234'
-        },
-        // Add another teacher for the same course to demonstrate independence
-        {
-          username: 'ana',
-          displayName: 'Ana Profesora',
-          email: 'ana@teacher.com',
-          role: 'teacher' as UserRole,
-          activeCourses: ['4to Básico'], // Same course as Jorge but independent
-          teachingSubjects: ['Matemáticas'],
-          password: '1234'
-        },
-        // Add more students to demonstrate the separation
-        {
-          username: 'luis',
-          displayName: 'Luis Estudiante',
-          email: 'luis@student.com',
-          role: 'student' as UserRole,
-          activeCourses: ['4to Básico'],
-          assignedTeacher: 'ana', // Luis is assigned to Ana (different from Felipe who is with Jorge)
-          password: '1234'
-        },
-        {
-          username: 'sofia',
-          displayName: 'Sofía Estudiante', 
-          email: 'sofia@student.com',
-          role: 'student' as UserRole,
-          activeCourses: [], // No assignment yet
-          password: '1234'
-        }
+    const initializeDefaultUsers = (currentCourses: Course[], allCurrentUsersForLookup: ExtendedUser[]): ExtendedUser[] => {
+      const defaultUsersData: Array<Omit<ExtendedUser, 'id' | 'activeCourses' | 'assignedTeacherId'> & { activeCourseNames?: string[], assignedTeacherUsername?: string }> = [
+        { username: 'admin', displayName: 'Administrador del Sistema', email: 'admin@smartstudent.com', role: 'admin', password: '1234' },
+        { username: 'felipe', displayName: 'Felipe Estudiante', email: 'felipe@student.com', role: 'student', activeCourseNames: ['4to Básico'], assignedTeacherUsername: 'jorge', password: '1234' },
+        { username: 'jorge', displayName: 'Jorge Profesor', email: 'jorge@teacher.com', role: 'teacher', activeCourseNames: ['4to Básico', '5to Básico'], teachingSubjects: ['Matemáticas', 'Lenguaje y Comunicación'], password: '1234' },
+        { username: 'maria', displayName: 'María Estudiante', email: 'maria@student.com', role: 'student', activeCourseNames: ['1ro Básico'], assignedTeacherUsername: 'carlos', password: '1234' },
+        { username: 'carlos', displayName: 'Carlos Profesor', email: 'carlos@teacher.com', role: 'teacher', activeCourseNames: ['1ro Básico', '2do Básico'], teachingSubjects: ['Ciencias Naturales', 'Historia, Geografía y Ciencias Sociales', 'Matemáticas', 'Lenguaje y Comunicación'], password: '1234' },
+        { username: 'ana', displayName: 'Ana Profesora', email: 'ana@teacher.com', role: 'teacher', activeCourseNames: ['4to Básico'], teachingSubjects: ['Matemáticas'], password: '1234' },
+        { username: 'luis', displayName: 'Luis Estudiante', email: 'luis@student.com', role: 'student', activeCourseNames: ['4to Básico'], assignedTeacherUsername: 'ana', password: '1234' },
+        { username: 'sofia', displayName: 'Sofía Estudiante', email: 'sofia@student.com', role: 'student', password: '1234' }
       ];
-      setUsers(defaultUsers);
-      localStorage.setItem('smart-student-users', JSON.stringify(defaultUsers));
+
+      const getCourseIdByName = (name: string) => currentCourses.find(c => c.name === name)?.id;
+
+      // Create a map of usernames to IDs from the allCurrentUsersForLookup if available, or from the defaults themselves if it's the first pass
+      const tempUserMapForTeacherLookup = new Map<string, string>();
+      if (allCurrentUsersForLookup.length > 0) {
+        allCurrentUsersForLookup.forEach(u => tempUserMapForTeacherLookup.set(u.username, u.id));
+      } else { // If allCurrentUsersForLookup is empty, means we are initializing, so teacher IDs will be their usernames for now
+        defaultUsersData.filter(u => u.role === 'teacher').forEach(u => tempUserMapForTeacherLookup.set(u.username, u.username));
+      }
+
+
+      return defaultUsersData.map(uData => {
+        const user = uData as any;
+        const activeCourseIds = user.activeCourseNames?.map(getCourseIdByName).filter(Boolean) as string[] || [];
+
+        let teacherIdValue: string | undefined = undefined;
+        if (user.assignedTeacherUsername) {
+          teacherIdValue = tempUserMapForTeacherLookup.get(user.assignedTeacherUsername);
+          // If lookup failed (e.g. during very first init), store username temporarily for later migration pass
+          if (!teacherIdValue) teacherIdValue = user.assignedTeacherUsername;
+        }
+
+        return {
+          ...user,
+          id: user.username,
+          activeCourses: activeCourseIds,
+          assignedTeacherId: teacherIdValue,
+          assignedTeacher: undefined, // Ensure old field is not present
+          activeCourseNames: undefined,
+          assignedTeacherUsername: undefined,
+        } as ExtendedUser;
+      });
     };
 
-    loadUsers();
-  }, []);
+    loadInitialData();
+  }, []); // Runs once on mount
 
   const handleSaveUser = () => {
     if (!formData.username || !formData.displayName || !formData.password) {
@@ -226,7 +313,7 @@ export default function GestionUsuariosPage() {
     }
 
     // Validate student course assignment (only one course allowed)
-    if (formData.role === 'student' && formData.activeCourses.length > 1) {
+    if (formData.role === 'student' && formData.activeCourseIds.length > 1) {
       toast({
         title: "Error",
         description: translate('userManagementStudentOneCourseRule'),
@@ -236,7 +323,7 @@ export default function GestionUsuariosPage() {
     }
 
     // Validate student teacher assignment
-    if (formData.role === 'student' && formData.activeCourses.length > 0 && !formData.assignedTeacher) {
+    if (formData.role === 'student' && formData.activeCourseIds.length > 0 && !formData.assignedTeacherId) {
       toast({
         title: "Error",
         description: translate('userManagementSelectTeacher'),
@@ -245,28 +332,50 @@ export default function GestionUsuariosPage() {
       return;
     }
 
-    let updatedUsers;
-    if (editingUser) {
-      // Update existing user
-      updatedUsers = users.map(u => {
-        if (u.username === editingUser.username) {
-          return { ...formData };
+    let updatedUsersList;
+    if (editingUser && formData.id) { // Editing existing user
+      updatedUsersList = users.map(u => {
+        if (u.id === formData.id) {
+          return {
+            ...u, // Preserve existing fields like teachingAssignments if not directly in formData
+            id: formData.id,
+            username: formData.username,
+            displayName: formData.displayName,
+            email: formData.email,
+            role: formData.role,
+            activeCourses: formData.activeCourseIds, // User.activeCourses stores course IDs
+            password: formData.password, // Handle password update carefully in real app
+            assignedTeacherId: formData.assignedTeacherId,
+            teachingSubjects: formData.teachingSubjects,
+          } as ExtendedUser;
         }
         return u;
       });
-    } else {
-      // Create new user
-      const newUserData = { ...formData };
+    } else { // Creating new user
+      const newUserId = generateUniqueId();
+      const newUser: ExtendedUser = {
+        id: newUserId,
+        username: formData.username,
+        displayName: formData.displayName,
+        email: formData.email,
+        role: formData.role,
+        activeCourses: formData.activeCourseIds, // User.activeCourses stores course IDs
+        password: formData.password,
+        assignedTeacherId: formData.assignedTeacherId,
+        teachingSubjects: formData.role === 'teacher' ? formData.teachingSubjects : undefined,
+        // Initialize other User fields from auth-context if necessary
+        assignedTeachers: undefined,
+        teachingAssignments: undefined,
+      };
       
-      // If this is a student being assigned to a course, ensure only one course
-      if (newUserData.role === 'student' && newUserData.activeCourses.length > 0) {
-        newUserData.activeCourses = [newUserData.activeCourses[0]];
-      }
-      
-      updatedUsers = [...users, newUserData];
+      // If this is a student being assigned to a course, ensure only one course (already handled by activeCourseIds logic)
+      // if (newUser.role === 'student' && newUser.activeCourses.length > 0) {
+      //   newUser.activeCourses = [newUser.activeCourses[0]];
+      // }
+      updatedUsersList = [...users, newUser];
     }
 
-    setUsers(updatedUsers);
+    setUsers(updatedUsersList);
     // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
 
     toast({
@@ -365,8 +474,9 @@ export default function GestionUsuariosPage() {
     // Aquí se podría implementar lógica específica para estos casos
   };
 
-  const handleDeleteUser = (username: string) => {
-    if (username === 'admin') {
+  const handleDeleteUser = (userIdToDelete: string) => {
+    // Assuming 'admin' user has a fixed ID 'admin' (as set in initializeDefaultUsers)
+    if (userIdToDelete === 'admin') {
       toast({
         title: "Error",
         description: "No se puede eliminar el usuario administrador.",
@@ -375,7 +485,7 @@ export default function GestionUsuariosPage() {
       return;
     }
 
-    const updatedUsers = users.filter(u => u.username !== username);
+    const updatedUsers = users.filter(u => u.id !== userIdToDelete);
     setUsers(updatedUsers);
     // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
 
@@ -470,11 +580,11 @@ export default function GestionUsuariosPage() {
     }
   };
 
-  const handleCourseSelection = (course: string) => {
+  const handleCourseSelection = (courseId: string) => { // Parameter is now courseId
     setFormData(prev => ({
       ...prev,
-      selectedCourse: course,
-      activeCourses: [course], // Auto-select the course
+      selectedCourseId: courseId, // Use selectedCourseId
+      activeCourseIds: [courseId], // Use activeCourseIds and auto-select the course ID
       teachingSubjects: [] // Reset subjects when course changes
     }));
   };
@@ -507,54 +617,52 @@ export default function GestionUsuariosPage() {
 
   // Function to get students assigned to a specific teacher
   const getStudentsForTeacher = (teacherData: ExtendedUser) => {
-    if (teacherData.role !== 'teacher') return [];
+    if (teacherData.role !== 'teacher' || !teacherData.id) return [];
     
     return users.filter(user => 
       user.role === 'student' && 
-      user.assignedTeacher === teacherData.username
+      user.assignedTeacherId === teacherData.id // Compare with teacher's ID
     );
   };
 
   // Function to get available students (those not assigned to any teacher)
-  const getAvailableStudentsForTeacher = (teacherData: ExtendedUser) => {
-    if (teacherData.role !== 'teacher') return [];
-    
+  const getAvailableStudentsForTeacher = (teacherData: ExtendedUser) => { // teacherData is not strictly needed here if we just want unassigned students
     return users.filter(user => 
       user.role === 'student' && 
-      !user.assignedTeacher // Only students with no teacher assignment
+      !user.assignedTeacherId // Only students with no teacher assignment
     );
   };
 
   // Function to get students assigned to other teachers (for potential transfer)
   const getStudentsInOtherCourses = (teacherData: ExtendedUser) => {
-    if (teacherData.role !== 'teacher') return [];
+    if (teacherData.role !== 'teacher' || !teacherData.id) return [];
     
     return users.filter(user => 
       user.role === 'student' && 
-      user.assignedTeacher && 
-      user.assignedTeacher !== teacherData.username
+      user.assignedTeacherId &&
+      user.assignedTeacherId !== teacherData.id // Compare with teacher's ID
     );
   };
 
   // Function to add student to specific teacher (removes from other teachers first)
-  const addStudentToTeacher = (studentUsername: string, teacherUsername: string, course: string) => {
-    const teacher = users.find(u => u.username === teacherUsername && u.role === 'teacher');
-    if (!teacher || !teacher.activeCourses.includes(course)) {
+  const addStudentToTeacher = (studentId: string, teacherId: string, courseId: string) => {
+    const teacher = users.find(u => u.id === teacherId && u.role === 'teacher');
+    // Ensure teacher.activeCourses (now course IDs) includes the target courseId
+    if (!teacher || !teacher.activeCourses.includes(courseId)) {
       toast({
         title: "Error",
-        description: translate('teacherDoesntTeachCourse'),
+        description: translate('teacherDoesntTeachCourse'), // This translation might need adjustment if it mentions course name
         variant: 'destructive'
       });
       return;
     }
 
     const updatedUsers = users.map(user => {
-      if (user.username === studentUsername && user.role === 'student') {
-        // Assign student to specific teacher and course
+      if (user.id === studentId && user.role === 'student') {
         return {
           ...user,
-          activeCourses: [course], // Student has one course
-          assignedTeacher: teacherUsername // Student assigned to specific teacher
+          activeCourses: [courseId], // Student has one course (ID)
+          assignedTeacherId: teacherId // Student assigned to specific teacher ID
         };
       }
       return user;
@@ -563,26 +671,27 @@ export default function GestionUsuariosPage() {
     setUsers(updatedUsers);
     // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
     
-    const student = users.find(u => u.username === studentUsername);
-    const hadPreviousTeacher = student?.assignedTeacher;
+    const student = users.find(u => u.id === studentId);
+    const hadPreviousTeacher = student?.assignedTeacherId;
+    const courseName = courses.find(c => c.id === courseId)?.name || courseId;
     
     toast({
       title: "Éxito",
       description: (hadPreviousTeacher 
-        ? `Estudiante transferido al ${translate('teacherTitle')} ${teacher.displayName} - ${course}` 
-        : `Estudiante asignado al ${translate('teacherTitle')} ${teacher.displayName} - ${course}`) + 
+        ? `Estudiante transferido al ${translate('teacherTitle')} ${teacher.displayName} - ${courseName}`
+        : `Estudiante asignado al ${translate('teacherTitle')} ${teacher.displayName} - ${courseName}`) +
         ". Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema.",
     });
   };
 
   // Function to remove student from teacher (removes completely)
-  const removeStudentFromTeacher = (studentUsername: string) => {
+  const removeStudentFromTeacher = (studentId: string) => {
     const updatedUsers = users.map(user => {
-      if (user.username === studentUsername && user.role === 'student') {
+      if (user.id === studentId && user.role === 'student') {
         return {
           ...user,
-          activeCourses: [], // Remove from all courses
-          assignedTeacher: undefined // Remove teacher assignment
+          activeCourses: [], // Remove from all courses (course IDs)
+          assignedTeacherId: undefined // Remove teacher assignment ID
         };
       }
       return user;
@@ -597,11 +706,12 @@ export default function GestionUsuariosPage() {
     });
   };
 
-  // Function to get all teachers that teach a specific course
-  const getTeachersForCourse = (course: string) => {
+  // Function to get all teachers that teach a specific course (now by course ID)
+  const getTeachersForCourse = (courseId: string) => {
+    if (!courseId) return [];
     return users.filter(user => 
       user.role === 'teacher' && 
-      user.activeCourses.includes(course)
+      user.activeCourses.includes(courseId) // activeCourses now stores course IDs
     );
   };
 
@@ -635,19 +745,20 @@ export default function GestionUsuariosPage() {
     return subject.substring(0, 3).toUpperCase();
   };
 
-  // Function to get the current course and teacher for a student
-  const getStudentCurrentAssignment = (studentUsername: string) => {
-    const student = users.find(u => u.username === studentUsername);
-    if (!student || student.role !== 'student' || !student.assignedTeacher || student.activeCourses.length === 0) {
+  // Function to get the current course and teacher for a student (using IDs)
+  const getStudentCurrentAssignment = (studentId: string) => {
+    const student = users.find(u => u.id === studentId);
+    if (!student || student.role !== 'student' || !student.assignedTeacherId || !student.activeCourses || student.activeCourses.length === 0) {
       return null;
     }
     
-    const currentCourse = student.activeCourses[0]; // Should only have one course
-    const currentTeacher = users.find(u => u.username === student.assignedTeacher);
+    const currentCourseId = student.activeCourses[0]; // Student has one course ID
+    const currentCourse = courses.find(c => c.id === currentCourseId);
+    const currentTeacher = users.find(u => u.id === student.assignedTeacherId);
     
     return {
-      course: currentCourse,
-      teacher: currentTeacher
+      course: currentCourse, // This is now a Course object
+      teacher: currentTeacher // This is an ExtendedUser object (teacher)
     };
   };
 
@@ -727,7 +838,7 @@ export default function GestionUsuariosPage() {
           </h2>
           <div className="grid gap-4">
             {users.filter(u => u.role === 'admin').map((userData) => (
-              <Card key={userData.username}>
+              <Card key={userData.id}> {/* Use ID for key */}
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -763,11 +874,11 @@ export default function GestionUsuariosPage() {
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
-                      {userData.username !== 'admin' && (
+                       {userData.id !== 'admin' && ( // Check against ID 'admin'
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDeleteUser(userData.username)}
+                           onClick={() => handleDeleteUser(userData.id)} // Pass ID
                           className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -789,13 +900,13 @@ export default function GestionUsuariosPage() {
           </h2>
           <div className="grid gap-4">
             {users.filter(u => u.role === 'teacher').map((userData) => {
-              const assignedStudents = getStudentsForTeacher(userData);
-              const availableStudents = getAvailableStudentsForTeacher(userData);
-              const studentsInOtherCourses = getStudentsInOtherCourses(userData);
-              const isExpanded = expandedTeachers[userData.username] || false;
+              const assignedStudents = getStudentsForTeacher(userData); // Already updated to use ID
+              const availableStudents = getAvailableStudentsForTeacher(userData); // Already updated
+              const studentsInOtherCourses = getStudentsInOtherCourses(userData); // Already updated
+              const isExpanded = expandedTeachers[userData.id] || false; // Use ID for expanded state key
 
               return (
-                <Card key={userData.username}>
+                <Card key={userData.id}> {/* Use ID for key */}
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
@@ -820,7 +931,8 @@ export default function GestionUsuariosPage() {
                           <div className="flex items-center space-x-4 mt-1">
                             <p className="text-xs text-muted-foreground">
                               <BookOpen className="w-3 h-3 inline mr-1" />
-                              {userData.activeCourses.join(', ')}
+                              {/* Display course names by mapping IDs to names from 'courses' state */}
+                              {(userData.activeCourses || []).map(courseId => courses.find(c => c.id === courseId)?.name || courseId).join(', ')}
                             </p>
                             {userData.teachingSubjects && userData.teachingSubjects.length > 0 && (
                               <p className="text-xs text-purple-600">
@@ -838,9 +950,9 @@ export default function GestionUsuariosPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setExpandedTeachers(prev => ({
+                          onClick={() => setExpandedTeachers(prev => ({ // Use user ID for key in expandedTeachers
                             ...prev,
-                            [userData.username]: !isExpanded
+                            [userData.id]: !isExpanded
                           }))}
                         >
                           {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}

@@ -22,12 +22,12 @@ interface Task {
   id: string;
   title: string;
   description: string;
-  subject: string;
-  course: string;
-  assignedBy: string; // teacher username
-  assignedByName: string; // teacher display name
+  subject: string; // This might become subjectId if subjects get their own store
+  course: string; // This will become courseId
+  assignedById: string; // Changed from assignedBy (teacher username)
+  assignedByName: string; // teacher display name (can be kept for convenience or fetched)
   assignedTo: 'course' | 'student'; // type of assignment
-  assignedStudents?: string[]; // specific students if assignedTo is 'student'
+  assignedStudentIds?: string[]; // Changed from assignedStudents (specific student IDs)
   dueDate: string;
   createdAt: string;
   status: 'pending' | 'submitted' | 'reviewed' | 'delivered';
@@ -43,8 +43,8 @@ interface Task {
 interface TaskComment {
   id: string;
   taskId: string;
-  studentUsername: string;
-  studentName: string;
+  studentId: string; // Changed from studentUsername
+  studentName: string; // Can be kept for convenience or fetched using studentId
   comment: string;
   timestamp: string;
   isSubmission: boolean; // true if this is the student's submission
@@ -120,7 +120,7 @@ export default function TareasPage() {
   // Estados para el diálogo de revisión mejorado
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [currentReview, setCurrentReview] = useState<{
-    studentUsername: string;
+    studentId: string; // Changed from studentUsername
     studentDisplayName: string;
     taskId: string;
     submission?: TaskComment;
@@ -128,7 +128,7 @@ export default function TareasPage() {
     feedback: string;
     isGraded: boolean;
   }>({
-    studentUsername: '',
+    studentId: '', // Changed from studentUsername
     studentDisplayName: '',
     taskId: '',
     submission: undefined,
@@ -140,10 +140,10 @@ export default function TareasPage() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    subject: '',
-    course: '',
+    subject: '', // This might become subjectId
+    course: '', // This will hold courseId during form input
     assignedTo: 'course' as 'course' | 'student',
-    assignedStudents: [] as string[],
+    assignedStudentIds: [] as string[], // Changed from assignedStudents
     dueDate: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
     taskType: 'tarea' as 'tarea' | 'evaluacion',
@@ -212,30 +212,100 @@ export default function TareasPage() {
       loadComments();
       
       // Si el usuario es estudiante y hay una tarea seleccionada, marcar los comentarios como leídos
-      if (user?.role === 'student' && selectedTask) {
+      if (user?.role === 'student' && selectedTask && user.id) {
         console.log('🔔 Marking comments as read for task', selectedTask.id);
-        TaskNotificationManager.markCommentsAsReadForTask(selectedTask.id, user.username);
+        TaskNotificationManager.markCommentsAsReadForTask(selectedTask.id, user.id); // Pass user.id
       }
     }
   }, [showTaskDialog, selectedTask, user]);
 
   const loadTasks = () => {
     const storedTasks = localStorage.getItem('smart-student-tasks');
+    const usersText = localStorage.getItem('smart-student-users');
+    const allUsers: ExtendedUser[] = usersText ? JSON.parse(usersText) : [];
+
     if (storedTasks) {
-      setTasks(JSON.parse(storedTasks));
+      let tasksData = JSON.parse(storedTasks) as Partial<Task>[];
+      let tasksModified = false;
+
+      tasksData = tasksData.map(task => {
+        const migratedTask: Partial<Task> = { ...task };
+        // Migrate assignedBy to assignedById
+        if (task.assignedBy && !task.assignedById) {
+          const teacher = allUsers.find(u => u.username === task.assignedBy && u.role === 'teacher');
+          if (teacher && teacher.id) {
+            migratedTask.assignedById = teacher.id;
+            delete migratedTask.assignedBy; // Remove old field
+            tasksModified = true;
+          } else {
+            // console.warn(`Teacher username ${task.assignedBy} not found for task ${task.title}`);
+            migratedTask.assignedById = task.assignedBy; // Keep old value if no ID found, mark for review
+          }
+        }
+
+        // Migrate assignedStudents (usernames) to assignedStudentIds
+        if (task.assignedStudents && !task.assignedStudentIds) {
+          migratedTask.assignedStudentIds = task.assignedStudents
+            .map(username => {
+              const student = allUsers.find(u => u.username === username && u.role === 'student');
+              if (student && student.id) return student.id;
+              // console.warn(`Student username ${username} not found for task ${task.title}`);
+              return null;
+            })
+            .filter(id => id !== null) as string[];
+          delete migratedTask.assignedStudents;
+          tasksModified = true;
+        }
+        // Course is expected to be courseId, no direct migration here, assumed to be correct from creation
+        return migratedTask;
+      });
+
+      setTasks(tasksData as Task[]);
+      if (tasksModified) {
+        // console.log("Migrating tasks in localStorage due to ID changes...");
+        localStorage.setItem('smart-student-tasks', JSON.stringify(tasksData));
+      }
     }
   };
 
   const loadComments = () => {
     const storedComments = localStorage.getItem('smart-student-task-comments');
+    const usersText = localStorage.getItem('smart-student-users');
+    const allUsers: ExtendedUser[] = usersText ? JSON.parse(usersText) : [];
+
     if (storedComments) {
-      const parsedComments = JSON.parse(storedComments);
-      console.log('📥 Loading comments from localStorage:', {
-        totalComments: parsedComments.length,
-        submissions: parsedComments.filter((c: any) => c.isSubmission),
-        allComments: parsedComments
+      let commentsData = JSON.parse(storedComments) as Partial<TaskComment>[];
+      let commentsModified = false;
+
+      commentsData = commentsData.map(comment => {
+        const migratedComment: Partial<TaskComment> = { ...comment };
+        if (comment.studentUsername && !comment.studentId) {
+          const student = allUsers.find(u => u.username === comment.studentUsername && u.role === 'student');
+          if (student && student.id) {
+            migratedComment.studentId = student.id;
+            // studentName can be kept or re-fetched based on studentId if needed for consistency
+            // migratedComment.studentName = student.displayName;
+            delete migratedComment.studentUsername;
+            commentsModified = true;
+          } else {
+            // console.warn(`Student username ${comment.studentUsername} not found for comment ${comment.id}`);
+            migratedComment.studentId = comment.studentUsername; // Keep old value if no ID found
+          }
+        }
+        return migratedComment;
       });
-      setComments(parsedComments);
+
+      console.log('📥 Loading comments from localStorage:', {
+        totalComments: commentsData.length,
+        // submissions: commentsData.filter((c: any) => c.isSubmission),
+        // allComments: commentsData
+      });
+      setComments(commentsData as TaskComment[]);
+      if (commentsModified) {
+        // console.log("Migrating comments in localStorage due to ID changes...");
+        localStorage.setItem('smart-student-task-comments', JSON.stringify(commentsData));
+      }
+
     } else {
       console.log('📥 No comments found in localStorage');
       setComments([]);
@@ -268,76 +338,74 @@ export default function TareasPage() {
   };
 
   // Get students for selected course
-  const getStudentsForCourse = (course: string) => {
-    const users = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
-    return users.filter((u: any) => 
-      u.role === 'student' && 
-      u.activeCourses && 
-      u.activeCourses.includes(course)
-    );
+  const getStudentsForCourse = (courseId: string): { id: string, username: string, displayName: string }[] => {
+    if (!courseId) return [];
+    const usersText = localStorage.getItem('smart-student-users');
+    const allUsers: ExtendedUser[] = usersText ? JSON.parse(usersText) : [];
+
+    return allUsers
+      .filter(u => u.role === 'student' && u.activeCourses && u.activeCourses.includes(courseId))
+      .map(u => ({ id: u.id, username: u.username, displayName: u.displayName }));
   };
 
-  // Get students from a specific course
-  const getStudentsFromCourse = (course: string) => {
-    if (!course) return [];
-    
-    // Get all users from localStorage or mock data
-    const users = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
-    const studentUsers = Object.entries(users)
-      .filter(([_, userData]: [string, any]) => 
-        userData.role === 'student' && 
-        userData.activeCourses?.includes(course) &&
-        // Solo incluir estudiantes asignados a Jorge
-        (userData.teacher === undefined || userData.teacher === 'jorge' || userData.displayName?.toLowerCase().includes('maria') || userData.displayName?.toLowerCase().includes('felipe'))
-      )
-      .map(([username, userData]: [string, any]) => ({
-        username,
-        displayName: userData.displayName || username
-      }));
-    
-    console.log(`🎓 Students from course "${course}":`, {
-      totalUsers: Object.keys(users).length,
-      studentsInCourse: studentUsers,
-      courseStudentsCount: studentUsers.length
-    });
-    
+  // Get students from a specific course, ensuring they are assigned to the current teacher for that task
+  const getStudentsFromCourseRelevantToTask = (courseId: string, teacherId: string | undefined) => {
+    if (!courseId) return [];
+    const usersText = localStorage.getItem('smart-student-users');
+    const allUsers: ExtendedUser[] = usersText ? JSON.parse(usersText) : [];
+
+    const studentUsers = allUsers.filter(u =>
+      u.role === 'student' &&
+      u.activeCourses?.includes(courseId) &&
+      // If the task is assigned by a specific teacher, only show students assigned to that teacher.
+      // This assumes the `user` object (logged-in user) is the teacher viewing.
+      // Or, if teacherId is explicitly passed (e.g. task.assignedById)
+      (teacherId ? u.assignedTeacherId === teacherId : true)
+    ).map(u => ({
+      id: u.id, // Include ID
+      username: u.username,
+      displayName: u.displayName || u.username
+    }));
+
+    // console.log(`🎓 Students from course "${courseId}" for teacher "${teacherId}":`, {
+    //   studentsInCourse: studentUsers,
+    // });
     return studentUsers;
   };
 
   // Función para obtener los estudiantes asignados a una tarea
-  const getAssignedStudentsForTask = (task: Task | null) => {
-    if (!task) return [];
+  const getAssignedStudentsForTask = (task: Task | null): { id: string, username: string, displayName: string }[] => {
+    if (!task || !task.id) return [];
+    const usersText = localStorage.getItem('smart-student-users');
+    const allUsers: ExtendedUser[] = usersText ? JSON.parse(usersText) : [];
 
-    let students: { username: string; displayName: string; }[] = [];
+    let students: { id: string, username: string, displayName: string }[] = [];
 
     // Si la tarea está asignada a estudiantes específicos
-    if (task.assignedTo === 'student' && task.assignedStudents) {
-      students = task.assignedStudents.map(username => {
-        // Obtener información real de estudiantes desde localStorage
-        const users = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
-        const userData = users[username];
+    if (task.assignedTo === 'student' && task.assignedStudentIds) {
+      students = task.assignedStudentIds.map(studentId => {
+        const userData = allUsers.find(u => u.id === studentId);
         return {
-          username: username,
-          displayName: userData?.displayName || `Estudiante ${username}`
+          id: studentId,
+          username: userData?.username || `user-${studentId}`,
+          displayName: userData?.displayName || `Estudiante ${studentId}`
         };
-      });
+      }).filter(s => s.id); // Filter out any potential nulls if a studentId wasn't found
     }
     // Si la tarea está asignada a todo un curso
-    else if (task.assignedTo === 'course') {
-      students = getStudentsFromCourse(task.course);
+    else if (task.assignedTo === 'course' && task.course) { // task.course is courseId
+      students = getStudentsFromCourseRelevantToTask(task.course, task.assignedById);
     }
 
     // Solo mostrar los estudiantes que están explícitamente asignados
     // Sin agregar estudiantes adicionales que hayan entregado por error
 
-    // Filtrar para eliminar a Luis específicamente
-    students = students.filter(student => 
-      !student.displayName.toLowerCase().includes('luis')
-    );
+    // Specific filtering for "luis" is removed as it's not ID-based and generally not robust.
+    // If specific exclusions are needed, they should be handled by a more generic mechanism.
 
     console.log(`📋 Students assigned to task "${task.title}":`, {
       taskAssignedTo: task.assignedTo,
-      course: task.course,
+      courseId: task.course, // task.course is courseId
       studentsFound: students,
       studentsCount: students.length,
       studentUsernames: students.map(s => s.username),
@@ -347,144 +415,34 @@ export default function TareasPage() {
     return students;
   };
 
-  // Función para obtener la entrega de un estudiante
-  const getStudentSubmission = (taskId: string, studentUsername: string) => {
-    console.log(`🔍 getStudentSubmission searching for: "${studentUsername}" in task: "${taskId}"`);
+  // Función para obtener la entrega de un estudiante por su ID
+  const getStudentSubmission = (taskId: string, studentId: string): TaskComment | undefined => {
+    if (!taskId || !studentId) return undefined;
+
+    // console.log(`🔍 getStudentSubmission searching for studentId: "${studentId}" in task: "${taskId}"`);
     
-    // Filtrar solo las entregas para esta tarea
-    const taskSubmissions = comments.filter(c => 
-      c.taskId === taskId && c.isSubmission
+    const submission = comments.find(c =>
+      c.taskId === taskId &&
+      c.studentId === studentId &&
+      c.isSubmission
     );
     
-    console.log(`📊 Found ${taskSubmissions.length} submissions for task ${taskId}`);
-    console.log(`📝 All submissions for this task:`, taskSubmissions.map(s => ({
-      id: s.id,
-      studentUsername: s.studentUsername,
-      studentName: s.studentName,
-      comment: s.comment.substring(0, 50) + '...',
-      timestamp: s.timestamp
-    })));
-    
-    if (taskSubmissions.length === 0) {
-      console.log(`❌ No submissions found for task ${taskId}`);
-      return undefined;
-    }
-    
-    // Estrategias de búsqueda ordenadas por precisión
-    const searchStrategies = [
-      // 1. Username exacto
-      (c: TaskComment) => c.studentUsername === studentUsername,
-      // 2. StudentName exacto
-      (c: TaskComment) => c.studentName === studentUsername,
-      // 3. Username case insensitive
-      (c: TaskComment) => c.studentUsername?.toLowerCase() === studentUsername.toLowerCase(),
-      // 4. StudentName case insensitive
-      (c: TaskComment) => c.studentName?.toLowerCase() === studentUsername.toLowerCase(),
-      // 5. Contains en username
-      (c: TaskComment) => c.studentUsername?.toLowerCase().includes(studentUsername.toLowerCase()),
-      // 6. Contains en studentName
-      (c: TaskComment) => c.studentName?.toLowerCase().includes(studentUsername.toLowerCase()),
-      // 7. Reverse contains (estudiante contiene búsqueda)
-      (c: TaskComment) => studentUsername.toLowerCase().includes((c.studentUsername || '').toLowerCase()) || studentUsername.toLowerCase().includes((c.studentName || '').toLowerCase()),
-      // 8. Primera palabra del nombre coincide (para casos como "Felipe Estudiante")
-      (c: TaskComment) => {
-        const firstWord = studentUsername.split(' ')[0].toLowerCase();
-        return c.studentName?.toLowerCase().startsWith(firstWord) || c.studentUsername?.toLowerCase().startsWith(firstWord);
-      },
-      // 9. Si es la única entrega para esta tarea, asumimos que es la correcta
-      (c: TaskComment) => {
-        const submissions = comments.filter(sub => sub.taskId === taskId && sub.isSubmission);
-        return submissions.length === 1;
-      },
-      // 10. Búsqueda por aproximación - cualquier coincidencia parcial en cualquier dirección
-      (c: TaskComment) => {
-        // Convertir a minúsculas y quitar espacios
-        const searchNormalized = studentUsername.toLowerCase().replace(/\s+/g, '');
-        const nameNormalized = (c.studentName || '').toLowerCase().replace(/\s+/g, '');
-        const userNormalized = (c.studentUsername || '').toLowerCase().replace(/\s+/g, '');
-        return nameNormalized.includes(searchNormalized) || 
-               searchNormalized.includes(nameNormalized) ||
-               userNormalized.includes(searchNormalized) ||
-               searchNormalized.includes(userNormalized);
-      }
-    ];
-    
-    for (let i = 0; i < searchStrategies.length; i++) {
-      const found = taskSubmissions.find(searchStrategies[i]);    if (found) {
-      console.log(`✅ Submission found using strategy ${i + 1}:`, {
-        id: found.id,
-        studentUsername: found.studentUsername,
-        studentName: found.studentName,
-        strategy: `Strategy ${i + 1}`
-      });
-      
-      // Devolver la entrega con campos de revisión incluidos (sin reviewed, solo reviewedAt)
+    if (submission) {
+      // console.log(`✅ Submission found for studentId "${studentId}":`, submission);
       return {
-        ...found,
-        grade: found.grade || undefined,
-        teacherComment: found.teacherComment || '',
-        reviewedAt: found.reviewedAt || (found.grade !== undefined ? new Date().toISOString() : undefined)
+        ...submission,
+        grade: submission.grade || undefined,
+        teacherComment: submission.teacherComment || '',
+        reviewedAt: submission.reviewedAt || (submission.grade !== undefined && !submission.reviewedAt ? new Date().toISOString() : undefined)
       };
     }
-    }
-
-    // Si no se encontró, debug especial para "Felipe" y "Maria"
-    if (studentUsername.toLowerCase().includes('felipe')) {
-      const felipeSubmission = comments.find(c =>
-        c.taskId === taskId &&
-        c.isSubmission &&
-        ((c.studentName && c.studentName.toLowerCase().includes('felipe')) ||
-         (c.studentUsername && c.studentUsername.toLowerCase().includes('felipe')))
-      );
-      if (felipeSubmission) {
-        console.log('✅ Entrega encontrada por búsqueda especial para Felipe:', felipeSubmission);
-        return {
-          ...felipeSubmission,
-          grade: felipeSubmission.grade || undefined,
-          teacherComment: felipeSubmission.teacherComment || '',
-          reviewedAt: felipeSubmission.reviewedAt || (felipeSubmission.grade !== undefined ? new Date().toISOString() : undefined)
-        };
-      }
-    }
-
-    // Búsqueda especial para Maria
-    if (studentUsername.toLowerCase().includes('maria')) {
-      console.log(`🔎 MARIA SEARCH: Looking for submissions with "maria" in task ${taskId}`);
-      console.log(`📋 Available submissions:`, taskSubmissions);
-      
-      const mariaSubmission = comments.find(c =>
-        c.taskId === taskId &&
-        c.isSubmission &&
-        ((c.studentName && c.studentName.toLowerCase().includes('maria')) ||
-         (c.studentUsername && c.studentUsername.toLowerCase().includes('maria')))
-      );
-      
-      console.log(`🔍 Maria submission search result:`, mariaSubmission);
-      
-      if (mariaSubmission) {
-        console.log('✅ Entrega encontrada por búsqueda especial para Maria:', mariaSubmission);
-        return {
-          ...mariaSubmission,
-          grade: mariaSubmission.grade || undefined,
-          teacherComment: mariaSubmission.teacherComment || '',
-          reviewedAt: mariaSubmission.reviewedAt || (mariaSubmission.grade !== undefined ? new Date().toISOString() : undefined)
-        };
-      } else {
-        console.log('❌ No se encontró entrega de Maria usando búsqueda especial');
-      }
-    }
     
-    console.log(`❌ No submission found for "${studentUsername}" using any strategy`);
-    console.log('Available submissions:', taskSubmissions.map(s => ({
-      username: s.studentUsername,
-      name: s.studentName
-    })));
-    
+    // console.log(`❌ No submission found for studentId "${studentId}" in task "${taskId}"`);
     return undefined;
   };
 
   // Función para obtener el resultado de una evaluación de un estudiante
-  const getStudentEvaluationResult = (taskId: string, studentUsername: string) => {
+  const getStudentEvaluationResult = (taskId: string, studentId: string) => { // Changed studentUsername to studentId
     // En un entorno real, esta información vendría de una tabla específica en la base de datos
     // Aquí simulamos que algunos estudiantes han completado la evaluación
     const hasCompleted = Math.random() > 0.4;
@@ -635,12 +593,12 @@ export default function TareasPage() {
       id: taskId,
       title: formData.title,
       description: formData.description,
-      subject: formData.subject,
-      course: formData.course,
-      assignedBy: user?.username || '',
-      assignedByName: user?.displayName || '',
+      subject: formData.subject, // This might become subjectId later
+      course: formData.course, // This is expected to be courseId from the form
+      assignedById: user?.id || '', // Use user ID
+      assignedByName: user?.displayName || '', // Keep for display convenience
       assignedTo: formData.assignedTo,
-      assignedStudents: formData.assignedTo === 'student' ? formData.assignedStudents : undefined,
+      assignedStudentIds: formData.assignedTo === 'student' ? formData.assignedStudentIds : undefined, // Use assignedStudentIds
       dueDate: formData.dueDate,
       createdAt: new Date().toISOString(),
       status: 'pending',
@@ -660,20 +618,22 @@ export default function TareasPage() {
     TaskNotificationManager.createPendingGradingNotification(
       taskId,
       formData.title,
-      formData.course,
+      formData.course, // This is courseId
       formData.subject,
-      user?.username || '',
+      user?.id || '', // Pass user.id
       user?.displayName || '',
       formData.taskType === 'evaluacion' ? 'evaluation' : 'assignment'
     );
 
     // Crear notificaciones para los estudiantes sobre la nueva tarea
+    // This function might need internal adjustment if it relies on teacherUsername to find users.
+    // For now, passing ID as teacherId.
     TaskNotificationManager.createNewTaskNotifications(
       taskId,
       formData.title,
-      formData.course,
+      formData.course, // This is courseId
       formData.subject,
-      user?.username || '',
+      user?.id || '', // Pass user.id as teacherId
       user?.displayName || '',
       formData.taskType === 'evaluacion' ? 'evaluation' : 'assignment'
     );
@@ -706,10 +666,10 @@ export default function TareasPage() {
     if (!newComment.trim() || !selectedTask) return;
 
     // Check if student already made a submission for this task
-    if (isSubmission && user?.role === 'student') {
+    if (isSubmission && user?.role === 'student' && user.id) { // Check user.id
       const existingSubmission = comments.find(comment => 
         comment.taskId === selectedTask.id && 
-        comment.studentUsername === user.username && 
+        comment.studentId === user.id && // Compare with user.id
         comment.isSubmission
       );
       
@@ -734,8 +694,8 @@ export default function TareasPage() {
     const comment: TaskComment = {
       id: `comment_${Date.now()}`,
       taskId: selectedTask.id,
-      studentUsername: user?.username || '',
-      studentName: user?.displayName || '',
+      studentId: user?.id || '', // Use user.id
+      studentName: user?.displayName || user?.username || '', // Keep displayName
       comment: newComment,
       timestamp: new Date().toISOString(),
       isSubmission: isSubmission,
@@ -765,13 +725,13 @@ export default function TareasPage() {
         type: 'task_submission',
         taskId: selectedTask.id,
         taskTitle: selectedTask.title,
-        studentName: user.displayName || user.username,
-        studentUsername: user.username,
-        teacherUsername: selectedTask.assignedBy,
+        studentName: user.displayName || user.username, // Keep for display
+        studentId: user.id, // Add studentId
+        teacherId: selectedTask.assignedById, // Use assignedById (teacher's ID)
         message: `${user.displayName || user.username} ha entregado la tarea "${selectedTask.title}"`,
         timestamp: new Date().toISOString(),
         read: false,
-        course: selectedTask.course,
+        course: selectedTask.course, // This is courseId
         subject: selectedTask.subject
       };
 
@@ -834,10 +794,10 @@ export default function TareasPage() {
     setFormData({
       title: task.title,
       description: task.description,
-      subject: task.subject,
-      course: task.course,
+      subject: task.subject, // Might become subjectId
+      course: task.course, // Expected to be courseId
       assignedTo: task.assignedTo,
-      assignedStudents: task.assignedStudents || [],
+      assignedStudentIds: task.assignedStudentIds || [], // Use assignedStudentIds
       dueDate: task.dueDate,
       priority: task.priority,
       taskType: task.taskType || 'tarea',
@@ -874,10 +834,10 @@ export default function TareasPage() {
       ...selectedTask,
       title: formData.title,
       description: formData.description,
-      subject: formData.subject,
-      course: formData.course,
+      subject: formData.subject, // Might become subjectId
+      course: formData.course, // Expected to be courseId
       assignedTo: formData.assignedTo,
-      assignedStudents: formData.assignedTo === 'student' ? formData.assignedStudents : undefined,
+      assignedStudentIds: formData.assignedTo === 'student' ? formData.assignedStudentIds : undefined, // Use assignedStudentIds
       dueDate: formData.dueDate,
       priority: formData.priority,
       taskType: formData.taskType,
@@ -1142,44 +1102,37 @@ export default function TareasPage() {
   };
 
   // Get individual student status for a task - UPDATED para nuevos estados
-  const getStudentTaskStatus = (taskId: string, studentUsername: string) => {
-    console.log(`🔍 getStudentTaskStatus called with:`, { taskId, studentUsername });
-    
-    // Buscar la entrega del estudiante
-    const submission = comments.find(c => 
-      c.taskId === taskId && 
-      c.isSubmission &&
-      (c.studentUsername === studentUsername || c.studentName === studentUsername)
-    );
-    
-    console.log(`🔍 Search results for student ${studentUsername} in task ${taskId}:`, {
-      allComments: comments.length,
-      taskComments: comments.filter(c => c.taskId === taskId).length,
-      foundSubmission: submission ? {
-        id: submission.id,
-        timestamp: submission.timestamp,
-        studentUsername: submission.studentUsername,
-        studentName: submission.studentName,
-        hasGrade: submission.grade !== undefined,
-        hasTeacherComment: !!submission.teacherComment,
-        reviewedAt: submission.reviewedAt
-      } : null
-    });
+  const getStudentTaskStatus = (taskId: string, studentId: string) => { // Changed studentUsername to studentId
+    // console.log(`🔍 getStudentTaskStatus called with:`, { taskId, studentId });
+
+    const submission = getStudentSubmission(taskId, studentId); // Use the updated getStudentSubmission
+
+    // console.log(`🔍 Search results for student ${studentId} in task ${taskId}:`, {
+    //   foundSubmission: submission ? {
+    //     id: submission.id,
+    //     timestamp: submission.timestamp,
+    //     studentId: submission.studentId,
+    //     studentName: submission.studentName,
+    //     hasGrade: submission.grade !== undefined,
+    //     hasTeacherComment: !!submission.teacherComment,
+    //     reviewedAt: submission.reviewedAt
+    //   } : null
+    // });
     
     if (!submission) {
-      console.log(`❌ No submission found for ${studentUsername} - returning 'pending'`);
+      // console.log(`❌ No submission found for ${studentId} - returning 'pending'`);
       return 'pending';
     }
     
     // Si tiene calificación o comentario del profesor Y fecha de revisión, está finalizado
     if (submission.reviewedAt && (submission.grade !== undefined || submission.teacherComment)) {
-      console.log(`✅ Submission finalized for ${studentUsername} - returning 'reviewed'`);
+      // console.log(`✅ Submission finalized for ${studentId} - returning 'reviewed'`);
       return 'reviewed'; // Finalizado
     }
     
     // Si tiene entrega pero no revisión, está en revisión
-    console.log(`📋 Submission under review for ${studentUsername} - returning 'delivered'`);
-    return 'delivered'; // En Revisión
+    // console.log(`📋 Submission under review for ${studentId} - returning 'delivered'`);
+    return 'delivered'; // En Revisión (o 'submitted' if that's preferred before grading)
   };
 
   // Function for teacher to grade a submission - UPDATED para estado Finalizado
@@ -1200,9 +1153,9 @@ export default function TareasPage() {
 
     // Verificar si todas las entregas de esta tarea están revisadas
     if (selectedTask) {
-      const allStudents = getAssignedStudentsForTask(selectedTask);
+      const allStudents = getAssignedStudentsForTask(selectedTask); // Returns {id, username, displayName}
       const allReviewed = allStudents.every(student => {
-        const studentSubmission = getStudentSubmission(selectedTask.id, student.username);
+        const studentSubmission = getStudentSubmission(selectedTask.id, student.id); // Use student.id
         // Considerar revisado si tiene reviewedAt O es la entrega que acabamos de calificar
         return studentSubmission?.reviewedAt || studentSubmission?.id === submissionId;
       });
@@ -1211,29 +1164,29 @@ export default function TareasPage() {
       if (allReviewed) {
         const updatedTasks = tasks.map(task => 
           task.id === selectedTask.id 
-            ? { ...task, status: 'reviewed' as const }
+            ? { ...task, status: 'reviewed' as const } // Mark task as reviewed
             : task
         );
         saveTasks(updatedTasks);
-        console.log(`✅ Tarea ${selectedTask.id} marcada como Finalizada - todos los estudiantes revisados`);
+        // console.log(`✅ Tarea ${selectedTask.id} marcada como Finalizada - todos los estudiantes revisados`);
       }
     }
 
     // Crear notificación para el estudiante
-    const submission = comments.find(c => c.id === submissionId);
-    if (submission && selectedTask) {
+    const submission = comments.find(c => c.id === submissionId); // This submission has studentId
+    if (submission && selectedTask && submission.studentId) {
       const notification = {
         id: `notif_${Date.now()}`,
         type: 'task_graded',
         taskId: selectedTask.id,
         taskTitle: selectedTask.title,
-        studentUsername: submission.studentUsername,
+        studentId: submission.studentId,
         teacherName: user?.displayName || user?.username,
         message: `Tu tarea "${selectedTask.title}" ha sido calificada`,
         timestamp: new Date().toISOString(),
         read: false,
         grade: grade,
-        course: selectedTask.course,
+        course: selectedTask.course, // This is courseId
         subject: selectedTask.subject
       };
 
@@ -1250,145 +1203,28 @@ export default function TareasPage() {
   };
 
   // Open grade dialog
-  const openGradeDialog = (taskId: string, studentUsername: string) => {
-    console.log('🎯 Opening grade dialog for:', { taskId, studentUsername });
-    console.log('🔍 Comments state loaded:', comments.length > 0 ? 'YES' : 'NO');
-    console.log('🔍 Total comments:', comments.length);
+  const openGradeDialog = (taskId: string, studentId: string) => { // Changed studentUsername to studentId
+    // console.log('🎯 Opening grade dialog for:', { taskId, studentId });
     
-    // Si no hay comentarios cargados, intentar cargar primero
-    if (comments.length === 0) {
-      console.log('� No comments loaded, attempting to reload...');
-      loadComments();
-      // Dar un pequeño delay para que se carguen
-      setTimeout(() => {
-        openGradeDialog(taskId, studentUsername);
-      }, 100);
+    const submission = getStudentSubmission(taskId, studentId); // Use updated getStudentSubmission
+    
+    if (!submission) {
+      const studentData = users.find(u => u.id === studentId); // Fetch student for name
+      const studentDisplayName = studentData?.displayName || `ID ${studentId}`;
+      const errorMessage = `No se encontró una entrega para el estudiante "${studentDisplayName}" en esta tarea.`;
+      
+      // console.error('❌ No submission found for openGradeDialog:', { taskId, studentId });
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
       return;
     }
     
-    // Debug: Filtrar información relevante
-    const allTaskComments = comments.filter(c => c.taskId === taskId);
-    const allSubmissions = comments.filter(c => c.isSubmission);
-    const taskSubmissions = comments.filter(c => c.taskId === taskId && c.isSubmission);
+    // console.log(`✅ Submission found for studentId "${studentId}":`, submission);
     
-    console.log('� Task analysis:', {
-      taskId,
-      allCommentsForTask: allTaskComments.length,
-      submissionsForTask: taskSubmissions.length,
-      totalSubmissionsInSystem: allSubmissions.length
-    });
-    
-    // Mostrar detalles de las entregas disponibles
-    if (taskSubmissions.length > 0) {
-      console.log('� Available submissions for this task:');
-      taskSubmissions.forEach((sub, index) => {
-        console.log(`  ${index + 1}. ${sub.studentUsername || sub.studentName} - ${sub.comment?.substring(0, 50)}...`);
-      });
-    }
-    
-    // Estrategia mejorada de búsqueda
-    let submission = null;
-    let searchMethod = '';
-    
-    // Estrategia 1: Búsqueda exacta por username
-    submission = taskSubmissions.find(s => s.studentUsername === studentUsername);
-    if (submission) searchMethod = 'exact username match';
-    
-    // Estrategia 2: Búsqueda exacta por studentName
-    if (!submission) {
-      submission = taskSubmissions.find(s => s.studentName === studentUsername);
-      if (submission) searchMethod = 'exact student name match';
-    }
-    
-    // Estrategia 3: Búsqueda case-insensitive por username
-    if (!submission) {
-      submission = taskSubmissions.find(s => 
-        s.studentUsername?.toLowerCase() === studentUsername.toLowerCase()
-      );
-      if (submission) searchMethod = 'case-insensitive username match';
-    }
-    
-    // Estrategia 4: Búsqueda case-insensitive por studentName
-    if (!submission) {
-      submission = taskSubmissions.find(s => 
-        s.studentName?.toLowerCase() === studentUsername.toLowerCase()
-      );
-      if (submission) searchMethod = 'case-insensitive student name match';
-    }
-    
-    // Estrategia 5: Búsqueda parcial (contains)
-    if (!submission) {
-      submission = taskSubmissions.find(s => 
-        s.studentUsername?.toLowerCase().includes(studentUsername.toLowerCase()) ||
-        s.studentName?.toLowerCase().includes(studentUsername.toLowerCase()) ||
-        studentUsername.toLowerCase().includes(s.studentUsername?.toLowerCase() || '') ||
-        studentUsername.toLowerCase().includes(s.studentName?.toLowerCase() || '')
-      );
-      if (submission) searchMethod = 'partial match';
-    }
-    
-    // Estrategia especial para Felipe
-    if (!submission && studentUsername.toLowerCase().includes('felipe')) {
-      submission = taskSubmissions.find(s => 
-        s.studentUsername?.toLowerCase().includes('felipe') ||
-        s.studentName?.toLowerCase().includes('felipe')
-      );
-      if (submission) searchMethod = 'Felipe special match';
-    }
-    
-    if (!submission) {
-      const errorMessage = `No se encontró una entrega para "${studentUsername}" en esta tarea.
-
-INFORMACIÓN DE DEBUG:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 Estadísticas:
-   • Tarea ID: ${taskId}
-   • Estudiante buscado: "${studentUsername}"
-   • Total comentarios en sistema: ${comments.length}
-   • Comentarios para esta tarea: ${allTaskComments.length}
-   • Entregas para esta tarea: ${taskSubmissions.length}
-   • Total entregas en sistema: ${allSubmissions.length}
-
-📝 Entregas disponibles en esta tarea:
-${taskSubmissions.length > 0 
-  ? taskSubmissions.map((sub, i) => 
-      `   ${i + 1}. "${sub.studentUsername}" / "${sub.studentName}"`
-    ).join('\n')
-  : '   (No hay entregas registradas)'
-}
-
-🔍 Estudiantes con entregas en el sistema:
-${allSubmissions.length > 0
-  ? [...new Set(allSubmissions.map(s => `"${s.studentUsername}" / "${s.studentName}"`))].slice(0, 10).join('\n   ')
-  : '   (No hay entregas en el sistema)'
-}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Por favor, verifica que el estudiante haya entregado la tarea.`;
-      
-      console.error('❌ No submission found:', {
-        taskId,
-        studentUsername,
-        availableSubmissions: taskSubmissions.map(s => ({
-          username: s.studentUsername,
-          name: s.studentName,
-          comment: s.comment?.substring(0, 50)
-        }))
-      });
-      
-      alert(errorMessage);
-      return;
-    }
-    
-    console.log(`✅ Submission found via ${searchMethod}:`, {
-      id: submission.id,
-      studentUsername: submission.studentUsername,
-      studentName: submission.studentName,
-      hasAttachments: submission.attachments ? submission.attachments.length > 0 : false,
-      currentGrade: submission.grade
-    });
-    
-    setSubmissionToGrade(submission);
+    setSubmissionToGrade(submission); // submission already contains grade and teacherComment if they exist
     setGradeForm({
       grade: submission.grade?.toString() || '',
       teacherComment: submission.teacherComment || ''
@@ -1595,13 +1431,14 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
       type: 'task_graded',
       taskId: selectedTask.id,
       taskTitle: selectedTask.title,
-      studentUsername: currentReview.studentUsername,
-      teacherName: user?.displayName || user?.username,
+      studentId: currentReview.studentId, // Use studentId
+      teacherName: user?.displayName || user?.username, // Keep for display
+      // teacherId: user?.id, // Optionally add teacherId
       message: `Tu tarea "${selectedTask.title}" ha sido calificada con ${currentReview.grade}/100`,
       timestamp: new Date().toISOString(),
       read: false,
       grade: currentReview.grade,
-      course: selectedTask.course,
+      course: selectedTask.course, // This is courseId
       subject: selectedTask.subject
     };
 
