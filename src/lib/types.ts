@@ -35,4 +35,10 @@ export interface EvaluationHistoryItem {
   score: number; // Number of correct answers
   totalQuestions: number; // Total number of questions in the evaluation
 }
-    
+
+export interface Course {
+  id: string;
+  name: string;
+  // color?: string; // Optional: for UI theming per course
+  // teacherIds?: string[]; // Optional: quick link to teachers of this course
+}

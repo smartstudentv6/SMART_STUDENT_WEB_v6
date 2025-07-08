@@ -17,15 +17,16 @@ export interface TeacherSubjectAssignment {
 
 // Extended user interface
 export interface User {
+  id: string; // Unique identifier
   username: string;
   role: UserRole;
   displayName: string;
-  activeCourses: string[]; // Cursos a los que tiene acceso
+  activeCourses: string[]; // Cursos a los que tiene acceso (will become array of course IDs)
   email?: string;
   // For students: their assigned teachers by subject
-  assignedTeachers?: Record<string, string>; // { subject: teacherUsername }
+  assignedTeachers?: Record<string, string>; // { subject: teacherUsername } (will become teacher IDs)
   // For teachers: subjects they teach and in which courses
-  teachingAssignments?: TeacherSubjectAssignment[];
+  teachingAssignments?: TeacherSubjectAssignment[]; // This might also need to reference course IDs
 }
 
 interface AuthContextType {
@@ -40,7 +41,8 @@ interface AuthContextType {
 }
 
 // Mock users database
-const USERS: Record<string, { 
+const USERS: Record<string, {
+  id: string; // Added ID
   password: string; 
   role: UserRole; 
   displayName: string; 
@@ -50,6 +52,7 @@ const USERS: Record<string, {
   teachingAssignments?: TeacherSubjectAssignment[];
 }> = {
   'admin': {
+    id: 'admin', // Added ID
     password: '1234',
     role: 'admin',
     displayName: 'Administrador',
@@ -57,6 +60,7 @@ const USERS: Record<string, {
     email: 'admin@smartstudent.com'
   },
   'felipe': {
+    id: 'felipe', // Added ID
     password: '1234',
     role: 'student',
     displayName: 'Felipe',
@@ -70,6 +74,7 @@ const USERS: Record<string, {
     }
   },
   'jorge': {
+    id: 'jorge', // Added ID
     password: '1234',
     role: 'teacher',
     displayName: 'Jorge Profesor',
@@ -91,6 +96,7 @@ const USERS: Record<string, {
     ]
   },
   'maria': {
+    id: 'maria', // Added ID
     password: '1234',
     role: 'student',
     displayName: 'María Estudiante',
@@ -104,6 +110,7 @@ const USERS: Record<string, {
     }
   },
   'carlos': {
+    id: 'carlos', // Added ID
     password: '1234',
     role: 'teacher',
     displayName: 'Carlos Profesor',
@@ -237,11 +244,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     const user: User = {
+      id: userData.id, // Ensure ID is passed
       username: userKey,
       role: userData.role,
       displayName: userData.displayName,
       activeCourses: userData.activeCourses,
-      email: userData.email
+      email: userData.email,
+      // Ensure assignedTeachers and teachingAssignments are also passed if they exist on userData
+      assignedTeachers: userData.assignedTeachers,
+      teachingAssignments: userData.teachingAssignments
     };
     
     setIsAuthenticated(true);
