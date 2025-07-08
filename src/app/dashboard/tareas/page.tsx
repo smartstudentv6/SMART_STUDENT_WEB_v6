@@ -787,7 +787,7 @@ export default function TareasPage() {
       });
     }
 
-    // Update task status only if ALL students have submitted
+    // Update task status only if ALL students have submitted - UPDATED para estados mejorados
     if (isSubmission) {
       // Obtener todos los estudiantes asignados a la tarea
       const assignedStudents = getAssignedStudentsForTask(selectedTask);
@@ -800,14 +800,17 @@ export default function TareasPage() {
           hasStudentSubmitted(selectedTask.id, student.username) // Los otros ya entregaron antes
         );
       
-      // Actualizar el estado solo si todos han entregado
+      // Actualizar el estado de la tarea del profesor:
+      // - Si todos han entregado, cambia a 'submitted' (En Revisión para el profesor)  
+      // - Solo cambia a 'reviewed' (Finalizada) cuando el profesor califique a todos
       if (allStudentsSubmitted) {
         const updatedTasks = tasks.map(task => 
           task.id === selectedTask.id 
-            ? { ...task, status: 'submitted' as const }
+            ? { ...task, status: 'submitted' as const } // Todas las entregas recibidas, pendiente de revisión
             : task
         );
         saveTasks(updatedTasks);
+        console.log(`✅ Tarea ${selectedTask.id} cambiada a 'submitted' - todas las entregas recibidas`);
       }
     }
 
@@ -1138,78 +1141,28 @@ export default function TareasPage() {
     return mariaSubmissions.length > 0 ? mariaSubmissions[0] : undefined;
   };
 
-  // Get individual student status for a task
+  // Get individual student status for a task - UPDATED para nuevos estados
   const getStudentTaskStatus = (taskId: string, studentUsername: string) => {
     console.log(`🔍 getStudentTaskStatus called with:`, { taskId, studentUsername });
     
-    // Forzar el estado "delivered" para María independientemente de si se encuentra la entrega o no
-    if (studentUsername.toLowerCase().includes('maria')) {
-      console.log('👩‍🎓 Estado FORZADO para María: delivered');
-      return 'delivered';
-    }
-    
-    // Intentar múltiples estrategias de búsqueda para otros estudiantes
-    const searchStrategies = [
-      // Estrategia 1: Username exacto
-      (c: TaskComment) => c.taskId === taskId && c.studentUsername === studentUsername && c.isSubmission,
-      // Estrategia 2: Por displayName
-      (c: TaskComment) => c.taskId === taskId && c.studentName === studentUsername && c.isSubmission,
-      // Estrategia 3: Case insensitive username
-      (c: TaskComment) => c.taskId === taskId && c.studentUsername.toLowerCase() === studentUsername.toLowerCase() && c.isSubmission,
-      // Estrategia 4: Case insensitive displayName
-      (c: TaskComment) => c.taskId === taskId && c.studentName.toLowerCase() === studentUsername.toLowerCase() && c.isSubmission,
-      // Estrategia 5: Buscar por partial match
-      (c: TaskComment) => c.taskId === taskId && (c.studentUsername.includes(studentUsername) || c.studentName.includes(studentUsername)) && c.isSubmission
-    ];
-    
-    let submission = undefined;
-    let strategyUsed = -1;
-    
-    // Búsqueda especial para María
-    if (studentUsername.toLowerCase().includes('maria')) {
-      console.log('👩‍🎓 Búsqueda especial para María');
-      const mariaSubmission = comments.find(c => 
-        c.taskId === taskId && 
-        c.isSubmission &&
-        ((c.studentName && c.studentName.toLowerCase().includes('maria')) ||
-         (c.studentUsername && c.studentUsername.toLowerCase().includes('maria')))
-      );
-      
-      if (mariaSubmission) {
-        console.log('✅ Entrega de María encontrada en getStudentTaskStatus:', mariaSubmission);
-        submission = mariaSubmission;
-        strategyUsed = 100; // Número especial para indicar la estrategia de María
-      } else {
-        console.log('❌ No se encontró entrega de María en getStudentTaskStatus');
-      }
-    } else {
-      // Estrategias normales para otros estudiantes
-      for (let i = 0; i < searchStrategies.length; i++) {
-        submission = comments.find(searchStrategies[i]);
-        if (submission) {
-          strategyUsed = i + 1;
-          break;
-        }
-      }
-    }
+    // Buscar la entrega del estudiante
+    const submission = comments.find(c => 
+      c.taskId === taskId && 
+      c.isSubmission &&
+      (c.studentUsername === studentUsername || c.studentName === studentUsername)
+    );
     
     console.log(`🔍 Search results for student ${studentUsername} in task ${taskId}:`, {
       allComments: comments.length,
       taskComments: comments.filter(c => c.taskId === taskId).length,
-      allStudentComments: comments.filter(c => c.taskId === taskId && (c.studentUsername === studentUsername || c.studentName === studentUsername)).length,
-      submissions: comments.filter(c => c.taskId === taskId && c.isSubmission).map(c => ({
-        studentUsername: c.studentUsername,
-        studentName: c.studentName,
-        comment: c.comment.substring(0, 50) + '...'
-      })),
-      strategyUsed,
       foundSubmission: submission ? {
         id: submission.id,
         timestamp: submission.timestamp,
         studentUsername: submission.studentUsername,
         studentName: submission.studentName,
         hasGrade: submission.grade !== undefined,
-        hasTeacherComment: !!submission.teacherComment
+        hasTeacherComment: !!submission.teacherComment,
+        reviewedAt: submission.reviewedAt
       } : null
     });
     
@@ -1218,16 +1171,18 @@ export default function TareasPage() {
       return 'pending';
     }
     
-    if (submission.grade !== undefined || submission.teacherComment) {
-      console.log(`✅ Submission reviewed for ${studentUsername} - returning 'reviewed'`);
-      return 'reviewed';
+    // Si tiene calificación o comentario del profesor Y fecha de revisión, está finalizado
+    if (submission.reviewedAt && (submission.grade !== undefined || submission.teacherComment)) {
+      console.log(`✅ Submission finalized for ${studentUsername} - returning 'reviewed'`);
+      return 'reviewed'; // Finalizado
     }
     
-    console.log(`📋 Submission delivered for ${studentUsername} - returning 'delivered'`);
-    return 'delivered';
+    // Si tiene entrega pero no revisión, está en revisión
+    console.log(`📋 Submission under review for ${studentUsername} - returning 'delivered'`);
+    return 'delivered'; // En Revisión
   };
 
-  // Function for teacher to grade a submission
+  // Function for teacher to grade a submission - UPDATED para estado Finalizado
   const handleGradeSubmission = (submissionId: string, grade: number, teacherComment: string) => {
     const updatedComments = comments.map(comment => 
       comment.id === submissionId 
@@ -1242,6 +1197,27 @@ export default function TareasPage() {
     saveComments(updatedComments);
     // Forzar recarga de comentarios desde localStorage para refrescar panel
     loadComments();
+
+    // Verificar si todas las entregas de esta tarea están revisadas
+    if (selectedTask) {
+      const allStudents = getAssignedStudentsForTask(selectedTask);
+      const allReviewed = allStudents.every(student => {
+        const studentSubmission = getStudentSubmission(selectedTask.id, student.username);
+        // Considerar revisado si tiene reviewedAt O es la entrega que acabamos de calificar
+        return studentSubmission?.reviewedAt || studentSubmission?.id === submissionId;
+      });
+
+      // Si todos están revisados, cambiar el estado de la tarea del profesor a 'reviewed' (Finalizada)
+      if (allReviewed) {
+        const updatedTasks = tasks.map(task => 
+          task.id === selectedTask.id 
+            ? { ...task, status: 'reviewed' as const }
+            : task
+        );
+        saveTasks(updatedTasks);
+        console.log(`✅ Tarea ${selectedTask.id} marcada como Finalizada - todos los estudiantes revisados`);
+      }
+    }
 
     // Crear notificación para el estudiante
     const submission = comments.find(c => c.id === submissionId);
@@ -1780,9 +1756,9 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                                  task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                               </Badge>
                               <Badge className={getStatusColor(task.status)}>
-                                {task.status === 'pending' ? translate('statusPending') : 
-                                 task.status === 'delivered' ? translate('underReview') :
-                                 task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
+                                {task.status === 'pending' ? 'Pendiente' : 
+                                 task.status === 'delivered' ? 'En Revisión' :
+                                 task.status === 'submitted' ? 'En Revisión' : 'Finalizada'}
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
@@ -1898,7 +1874,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                               return (
                                 <>
                                   <Badge className={getStatusColor('submitted') + ' font-bold mr-1'}>
-                                    Finalizado
+                                    {translate('statusFinished')}
                                   </Badge>
                                   <Badge className={mySubmission.grade >= 70 ? 'bg-green-100 text-green-700 font-bold ml-2' : 'bg-red-100 text-red-700 font-bold ml-2'}>
                                     {mySubmission.grade}%
@@ -1910,7 +1886,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                             <Badge className={getStatusColor(task.status)}>
                               {task.status === 'pending' ? translate('statusPending') : 
                                 task.status === 'delivered' ? translate('underReview') :
-                                task.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
+                                task.status === 'submitted' ? translate('underReview') : translate('statusFinished')}
                             </Badge>
                           )}
                         </div>
@@ -2373,21 +2349,21 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                       // En Revisión: amarillo (forzado)
                       return (
                         <Badge className="bg-yellow-100 text-yellow-800 font-bold ml-1">
-                          {translate('In Review')}
+                          {translate('underReview')}
                         </Badge>
                       );
                     } else if (mySubmission && typeof mySubmission.grade === 'number') {
                       // Finalizado
                       return (
                         <Badge className={getStatusColor('submitted') + ' font-bold ml-1'}>
-                          Finalizado
+                          {translate('statusFinished')}
                         </Badge>
                       );
                     }
                   })() : (
                     <Badge className={`ml-1 ${getStatusColor(selectedTask.status)}`}>
                       {selectedTask.status === 'pending' ? translate('statusPending') : 
-                        selectedTask.status === 'submitted' ? translate('statusSubmitted') : translate('statusReviewed')}
+                        selectedTask.status === 'submitted' ? translate('underReview') : translate('statusFinished')}
                     </Badge>
                   )}
                 </span>
@@ -2512,12 +2488,12 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                                     <td className="py-2 px-3">
                                       <Badge className={
                                         (studentStatus === 'pending' && !student.displayName.toLowerCase().includes('maria')) ? 'bg-gray-100 text-gray-800' :
-                                        studentStatus === 'delivered' || student.displayName.toLowerCase().includes('maria') ? 'bg-orange-100 text-orange-800' :
+                                        studentStatus === 'delivered' || student.displayName.toLowerCase().includes('maria') ? 'bg-yellow-100 text-yellow-800' :
                                         'bg-green-100 text-green-800'
                                       }>
                                         {(studentStatus === 'pending' && !student.displayName.toLowerCase().includes('maria')) ? 'Pendiente' : 
-                                         studentStatus === 'delivered' || student.displayName.toLowerCase().includes('maria') ? translate('underReview') : 
-                                         'Calificado'}
+                                         studentStatus === 'delivered' || student.displayName.toLowerCase().includes('maria') ? 'En Revisión' : 
+                                         'Finalizado'}
                                       </Badge>
                                     </td>
                                     <td className="py-2 px-3">
@@ -2675,7 +2651,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                               {/* Nombre primero */}
                               <span className="font-semibold text-base text-gray-900 dark:text-gray-100">{comment.studentName}</span>
                               {/* Estado Entregado */}
-                              <Badge className="bg-blue-100 text-blue-800 font-bold px-2 py-1 text-xs ml-4 md:ml-6">{translate('Delivered')}</Badge>
+                              <Badge className="bg-blue-100 text-blue-800 font-bold px-2 py-1 text-xs ml-4 md:ml-6">{translate('submitted')}</Badge>
                               {/* Fecha */}
                               <span className="text-xs text-muted-foreground ml-2 md:ml-4">{formatDateOneLine(comment.timestamp)}</span>
                               {/* Porcentaje */}
@@ -2689,12 +2665,12 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                             <div className="flex items-center gap-2 md:ml-auto">
                               {user?.role === 'student' && comment.studentUsername === user.username && !comment.grade && !comment.reviewedAt && (
                                 <Button variant="destructive" size="sm" onClick={() => handleDeleteSubmission(comment.id)}>
-                                  <Trash2 className="w-4 h-4 mr-1" /> {translate('Delete')}
+                                  <Trash2 className="w-4 h-4 mr-1" /> {translate('delete')}
                                 </Button>
                               )}
                               {comment.reviewedAt && (
                                 <Badge className="bg-red-100 text-red-700 font-bold px-2 py-1 text-xs flex items-center">
-                                  <Lock className="w-3 h-3 mr-1" /> Calificado
+                                  <Lock className="w-3 h-3 mr-1" /> {translate('graded')}
                                 </Badge>
                               )}
                             </div>
@@ -3313,9 +3289,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                     <p><strong>Nombre:</strong> {currentReview.studentDisplayName}</p>
                     <p><strong>Usuario:</strong> {currentReview.studentUsername}</p>
                   </div>
-                  <div>Under Review
-
-
+                  <div>
                     <p><strong>Fecha de entrega:</strong> {formatDateOneLine(currentReview.submission.timestamp)}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <strong>Estado:</strong>
@@ -3332,7 +3306,7 @@ Por favor, verifica que el estudiante haya entregado la tarea.`;
                           // Entregada pero sin nota: En Revisión (amarillo)
                           return (
                             <Badge className="bg-yellow-100 text-yellow-800 font-bold">
-                              {translate('In Review')}
+                              {translate('underReview')}
                             </Badge>
                           );
                         } else if (currentReview.submission && typeof currentReview.submission.grade === 'number') {
