@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth, User as UserType } from '@/contexts/auth-context';
 import { useLanguage } from '@/contexts/language-context';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Separator } from '@/components/ui/separator';
 import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload, Star, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+// Extended User interface with teacher assignment
+interface ExtendedUser extends UserType {
+  password: string;
+  assignedTeacherId?: string;
+  teachingSubjects?: string[];
+}
 
 interface Task {
   id: string;
@@ -231,29 +238,29 @@ export default function TareasPage() {
       tasksData = tasksData.map(task => {
         const migratedTask: Partial<Task> = { ...task };
         // Migrate assignedBy to assignedById
-        if (task.assignedBy && !task.assignedById) {
-          const teacher = allUsers.find(u => u.username === task.assignedBy && u.role === 'teacher');
+        if ((task as any).assignedBy && !task.assignedById) {
+          const teacher = allUsers.find(u => u.username === (task as any).assignedBy && u.role === 'teacher');
           if (teacher && teacher.id) {
             migratedTask.assignedById = teacher.id;
-            delete migratedTask.assignedBy; // Remove old field
+            delete (migratedTask as any).assignedBy; // Remove old field
             tasksModified = true;
           } else {
-            // console.warn(`Teacher username ${task.assignedBy} not found for task ${task.title}`);
-            migratedTask.assignedById = task.assignedBy; // Keep old value if no ID found, mark for review
+            // console.warn(`Teacher username ${(task as any).assignedBy} not found for task ${task.title}`);
+            migratedTask.assignedById = (task as any).assignedBy; // Keep old value if no ID found, mark for review
           }
         }
 
         // Migrate assignedStudents (usernames) to assignedStudentIds
-        if (task.assignedStudents && !task.assignedStudentIds) {
-          migratedTask.assignedStudentIds = task.assignedStudents
-            .map(username => {
+        if ((task as any).assignedStudents && !task.assignedStudentIds) {
+          migratedTask.assignedStudentIds = (task as any).assignedStudents
+            .map((username: string) => {
               const student = allUsers.find(u => u.username === username && u.role === 'student');
               if (student && student.id) return student.id;
               // console.warn(`Student username ${username} not found for task ${task.title}`);
               return null;
             })
-            .filter(id => id !== null) as string[];
-          delete migratedTask.assignedStudents;
+            .filter((id: string | null) => id !== null) as string[];
+          delete (migratedTask as any).assignedStudents;
           tasksModified = true;
         }
         // Course is expected to be courseId, no direct migration here, assumed to be correct from creation
@@ -279,17 +286,17 @@ export default function TareasPage() {
 
       commentsData = commentsData.map(comment => {
         const migratedComment: Partial<TaskComment> = { ...comment };
-        if (comment.studentUsername && !comment.studentId) {
-          const student = allUsers.find(u => u.username === comment.studentUsername && u.role === 'student');
+        if ((comment as any).studentUsername && !comment.studentId) {
+          const student = allUsers.find(u => u.username === (comment as any).studentUsername && u.role === 'student');
           if (student && student.id) {
             migratedComment.studentId = student.id;
             // studentName can be kept or re-fetched based on studentId if needed for consistency
             // migratedComment.studentName = student.displayName;
-            delete migratedComment.studentUsername;
+            delete (migratedComment as any).studentUsername;
             commentsModified = true;
           } else {
-            // console.warn(`Student username ${comment.studentUsername} not found for comment ${comment.id}`);
-            migratedComment.studentId = comment.studentUsername; // Keep old value if no ID found
+            // console.warn(`Student username ${(comment as any).studentUsername} not found for comment ${comment.id}`);
+            migratedComment.studentId = (comment as any).studentUsername; // Keep old value if no ID found
           }
         }
         return migratedComment;
@@ -326,6 +333,29 @@ export default function TareasPage() {
   const getAvailableCourses = () => {
     if (user?.role === 'teacher') {
       return user.activeCourses || [];
+    }
+    return [];
+  };
+
+  // Function to get course name from course ID
+  const getCourseNameById = (courseId: string): string => {
+    const coursesText = localStorage.getItem('smart-student-courses');
+    if (coursesText) {
+      const courses = JSON.parse(coursesText);
+      const course = courses.find((c: any) => c.id === courseId);
+      return course ? course.name : courseId; // Return name if found, otherwise return ID
+    }
+    return courseId;
+  };
+
+  // Function to get all courses with their names for dropdown
+  const getAvailableCoursesWithNames = () => {
+    if (user?.role === 'teacher') {
+      const courseIds = user.activeCourses || [];
+      return courseIds.map(courseId => ({
+        id: courseId,
+        name: getCourseNameById(courseId)
+      }));
     }
     return [];
   };
@@ -452,7 +482,7 @@ export default function TareasPage() {
     // Simulamos resultados de evaluación
     return {
       taskId,
-      studentUsername,
+      studentId,
       score: Math.floor(Math.random() * 10) + 1, // Entre 1 y 10 respuestas correctas
       totalQuestions: 10,
       completionPercentage: Math.floor(Math.random() * 50) + 50, // Entre 50% y 100%
@@ -481,7 +511,7 @@ export default function TareasPage() {
   const getFilteredTasks = () => {
     if (user?.role === 'teacher') {
       // Los profesores ven solo las tareas que crearon
-      let filtered = tasks.filter(task => task.assignedBy === user.username);
+      let filtered = tasks.filter(task => task.assignedById === user.id);
       if (selectedCourseFilter !== 'all') {
         filtered = filtered.filter(task => task.course === selectedCourseFilter);
       }
@@ -492,11 +522,11 @@ export default function TareasPage() {
       // Si el profesor elimina una tarea, ya no debe aparecer para el estudiante
       return tasks.filter(task => {
         // Solo tareas asignadas por un profesor válido y que existan
-        if (!task.assignedBy) return false;
+        if (!task.assignedById) return false;
         if (task.assignedTo === 'course') {
           return user.activeCourses?.includes(task.course);
         } else {
-          return task.assignedStudents?.includes(user.username);
+          return task.assignedStudentIds?.includes(user.id);
         }
       });
     }
@@ -650,7 +680,7 @@ export default function TareasPage() {
       subject: '',
       course: '',
       assignedTo: 'course',
-      assignedStudents: [],
+      assignedStudentIds: [],
       dueDate: '',
       priority: 'medium',
       taskType: 'tarea',
@@ -666,10 +696,10 @@ export default function TareasPage() {
     if (!newComment.trim() || !selectedTask) return;
 
     // Check if student already made a submission for this task
-    if (isSubmission && user?.role === 'student' && user.id) { // Check user.id
+    if (isSubmission && user?.role === 'student' && user.id) {
       const existingSubmission = comments.find(comment => 
         comment.taskId === selectedTask.id && 
-        comment.studentId === user.id && // Compare with user.id
+        comment.studentId === user.id && 
         comment.isSubmission
       );
       
@@ -709,7 +739,7 @@ export default function TareasPage() {
 
     console.log('💾 Comment saved:', {
       isSubmission,
-      studentUsername: user?.username,
+      studentId: user?.id,
       taskId: selectedTask.id,
       commentId: comment.id,
       totalComments: updatedComments.length,
@@ -756,8 +786,8 @@ export default function TareasPage() {
       // Incluimos el comentario actual en la verificación
       const allStudentsSubmitted = assignedStudents.length > 0 && 
         assignedStudents.every(student => 
-          student.username === user?.username || // Este estudiante acaba de entregar
-          hasStudentSubmitted(selectedTask.id, student.username) // Los otros ya entregaron antes
+          student.id === user?.id || // Este estudiante acaba de entregar
+          hasStudentSubmitted(selectedTask.id, student.id) // Los otros ya entregaron antes
         );
       
       // Actualizar el estado de la tarea del profesor:
@@ -864,7 +894,7 @@ export default function TareasPage() {
       subject: '',
       course: '',
       assignedTo: 'course',
-      assignedStudents: [],
+      assignedStudentIds: [],
       dueDate: '',
       priority: 'medium',
       taskType: 'tarea',
@@ -1030,21 +1060,26 @@ export default function TareasPage() {
   };
 
   // Check if student has already submitted this task
-  const hasStudentSubmitted = (taskId: string, studentUsername: string) => {
-    // Primero intentar con el username exacto
+  const hasStudentSubmitted = (taskId: string, studentId: string) => {
+    // Check if student has submitted using studentId
     let hasSubmission = comments.some(comment => 
       comment.taskId === taskId && 
-      comment.studentUsername === studentUsername && 
+      comment.studentId === studentId && 
       comment.isSubmission
     );
     
-    // Si no encuentra nada, intentar con variaciones del nombre
+    // If not found, try with studentName fallback (for legacy compatibility)
     if (!hasSubmission) {
-      hasSubmission = comments.some(comment => 
-        comment.taskId === taskId && 
-        (comment.studentName === studentUsername || comment.studentUsername.toLowerCase() === studentUsername.toLowerCase()) &&
-        comment.isSubmission
-      );
+      const usersText = localStorage.getItem('smart-student-users');
+      const allUsers: ExtendedUser[] = usersText ? JSON.parse(usersText) : [];
+      const studentData = allUsers.find(u => u.id === studentId);
+      if (studentData) {
+        hasSubmission = comments.some(comment => 
+          comment.taskId === taskId && 
+          (comment.studentName === studentData.displayName || comment.studentName === studentData.username) &&
+          comment.isSubmission
+        );
+      }
     }
     
     return hasSubmission;
@@ -1059,15 +1094,14 @@ export default function TareasPage() {
       c.taskId === taskId && 
       c.isSubmission && 
       (
-        c.studentUsername === 'Felipe Estudiante' ||
         c.studentName === 'Felipe Estudiante' ||
-        c.studentUsername?.toLowerCase().includes('felipe') ||
-        c.studentName?.toLowerCase().includes('felipe')
+        c.studentName?.toLowerCase().includes('felipe') ||
+        c.studentId === 'felipe-id' // Legacy compatibility
       )
     );
     
     console.log('Felipe submissions found:', felipeSubmissions.length, felipeSubmissions.map(s => ({
-      username: s.studentUsername,
+      studentId: s.studentId,
       name: s.studentName,
       id: s.id
     })));
@@ -1084,15 +1118,14 @@ export default function TareasPage() {
       c.taskId === taskId && 
       c.isSubmission && 
       (
-        c.studentUsername === 'Maria Estudiante' ||
         c.studentName === 'Maria Estudiante' ||
-        c.studentUsername?.toLowerCase().includes('maria') ||
-        c.studentName?.toLowerCase().includes('maria')
+        c.studentName?.toLowerCase().includes('maria') ||
+        c.studentId === 'maria-id' // Legacy compatibility
       )
     );
     
     console.log('Maria submissions found:', mariaSubmissions.length, mariaSubmissions.map(s => ({
-      username: s.studentUsername,
+      studentId: s.studentId,
       name: s.studentName,
       id: s.id,
       comment: s.comment.substring(0, 30) + '...'
@@ -1209,7 +1242,9 @@ export default function TareasPage() {
     const submission = getStudentSubmission(taskId, studentId); // Use updated getStudentSubmission
     
     if (!submission) {
-      const studentData = users.find(u => u.id === studentId); // Fetch student for name
+      const usersText = localStorage.getItem('smart-student-users');
+      const allUsers: ExtendedUser[] = usersText ? JSON.parse(usersText) : [];
+      const studentData = allUsers.find(u => u.id === studentId); // Fetch student for name
       const studentDisplayName = studentData?.displayName || `ID ${studentId}`;
       const errorMessage = `No se encontró una entrega para el estudiante "${studentDisplayName}" en esta tarea.`;
       
@@ -1328,8 +1363,8 @@ export default function TareasPage() {
     // Verificar si ahora todos los estudiantes han entregado la tarea
     const allStudentsSubmitted = assignedStudents.length > 0 && 
       assignedStudents.every(student => 
-        student.username !== commentToDelete.studentUsername && // Excluimos el que acabamos de eliminar
-        hasStudentSubmitted(selectedTask.id, student.username)
+        student.id !== commentToDelete.studentId && // Excluimos el que acabamos de eliminar
+        hasStudentSubmitted(selectedTask.id, student.id)
       );
     
     // Actualizar el estado a "pendiente" si ya no todos han entregado
@@ -1351,11 +1386,11 @@ export default function TareasPage() {
   const filteredTasks = getFilteredTasks();
 
   // Función para abrir el diálogo de revisión mejorado
-  const handleReviewSubmission = (studentUsername: string, taskId: string, tryDisplayName?: boolean) => {
-    let submission = getStudentSubmission(taskId, studentUsername);
+  const handleReviewSubmission = (studentId: string, taskId: string, tryDisplayName?: boolean) => {
+    let submission = getStudentSubmission(taskId, studentId);
     // Si no se encuentra, intentar con el displayName
     if (!submission && tryDisplayName) {
-      const student = getAssignedStudentsForTask(selectedTask).find(s => s.username === studentUsername);
+      const student = getAssignedStudentsForTask(selectedTask).find(s => s.id === studentId);
       if (student && student.displayName) {
         submission = getStudentSubmission(taskId, student.displayName);
       }
@@ -1368,10 +1403,10 @@ export default function TareasPage() {
       });
       return;
     }
-    const student = getAssignedStudentsForTask(selectedTask).find(s => s.username === studentUsername);
+    const student = getAssignedStudentsForTask(selectedTask).find(s => s.id === studentId);
     setCurrentReview({
-      studentUsername,
-      studentDisplayName: student?.displayName || studentUsername,
+      studentId,
+      studentDisplayName: student?.displayName || studentId,
       taskId,
       submission,
       grade: submission.grade || 0,
@@ -1412,8 +1447,8 @@ export default function TareasPage() {
     
     // Verificar si todas las entregas están revisadas
     const allSubmissionsReviewed = getAssignedStudentsForTask(selectedTask).every(student => {
-      const studentSubmission = getStudentSubmission(selectedTask.id, student.username);
-      return !!studentSubmission?.reviewedAt || student.username === currentReview.studentUsername;
+      const studentSubmission = getStudentSubmission(selectedTask.id, student.id);
+      return !!studentSubmission?.reviewedAt || student.id === currentReview.studentId;
     });
     
     if (allSubmissionsReviewed) {
@@ -1456,7 +1491,7 @@ export default function TareasPage() {
 
   // Función auxiliar para obtener el nombre del estudiante por username
   const getStudentNameByUsername = (username: string) => {
-    const student = getStudentsFromCourse(selectedTask?.course || '').find(
+    const student = getStudentsForCourse(selectedTask?.course || '').find(
       s => s.username === username
     );
     return student?.displayName || username;
@@ -1508,8 +1543,8 @@ export default function TareasPage() {
                 </SelectTrigger>
                 <SelectContent className="select-orange-hover">
                   <SelectItem value="all" className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{translate('allCourses')}</SelectItem>
-                  {getAvailableCourses().map(course => (
-                    <SelectItem key={course} value={course} className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{course}</SelectItem>
+                  {getAvailableCoursesWithNames().map(course => (
+                    <SelectItem key={course.id} value={course.id} className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{course.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1691,7 +1726,7 @@ export default function TareasPage() {
                           {/* Badge de estado y badge de porcentaje en burbujas separadas para estudiante */}
                           {user?.role === 'student' ? (() => {
                             // Buscar la entrega del estudiante
-                            const mySubmission = comments.find(c => c.taskId === task.id && c.studentUsername === user.username && c.isSubmission);
+                            const mySubmission = comments.find(c => c.taskId === task.id && c.studentId === user.id && c.isSubmission);
                             if (!mySubmission) {
                               // Pendiente: igual que en la vista detalle
                               return (
@@ -1742,7 +1777,7 @@ export default function TareasPage() {
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {user?.role === 'teacher' && task.assignedBy === user.username && (
+                        {user?.role === 'teacher' && task.assignedById === user.id && (
                           <>
                             <Button
                               variant="outline"
@@ -1779,12 +1814,12 @@ export default function TareasPage() {
                           {task.assignedTo === 'course' ? (
                             <>
                               <Users className="w-3 h-3 mr-1" />
-                              {task.course}
+                              {getCourseNameById(task.course)}
                             </>
                           ) : (
                             <>
                               <User className="w-3 h-3 mr-1" />
-                              {task.assignedStudents?.length} {translate('studentsCount')}
+                              {task.assignedStudentIds?.length} {translate('studentsCount')}
                             </>
                           )}
                         </span>
@@ -1844,8 +1879,8 @@ export default function TareasPage() {
                   <SelectValue placeholder={translate('selectCourse')} />
                 </SelectTrigger>
                 <SelectContent className={formData.taskType === 'evaluacion' ? 'select-purple-hover' : 'select-orange-hover'}>
-                  {getAvailableCourses().map(course => (
-                    <SelectItem key={course} value={course}>{course}</SelectItem>
+                  {getAvailableCoursesWithNames().map(course => (
+                    <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -2088,7 +2123,7 @@ export default function TareasPage() {
             const mariaExists = comments.some(c => 
               c.taskId === selectedTask.id && 
               c.isSubmission && 
-              (c.studentName?.toLowerCase().includes('maria') || c.studentUsername?.toLowerCase().includes('maria'))
+              (c.studentName?.toLowerCase().includes('maria') || c.studentId?.toLowerCase().includes('maria'))
             );
             
             if (!mariaExists) {
@@ -2096,7 +2131,7 @@ export default function TareasPage() {
               const mariaSubmission: TaskComment = {
                 id: `fake_maria_submission_${Date.now()}`,
                 taskId: selectedTask.id,
-                studentUsername: 'maria',
+                studentId: 'maria',
                 studentName: 'Maria Estudiante',
                 comment: 'Entrega de María (generada automáticamente)',
                 timestamp: new Date().toISOString(),
@@ -2174,7 +2209,7 @@ export default function TareasPage() {
                   <strong>{translate('taskStatusLabel')}</strong>
                   {user?.role === 'student' ? (() => {
                     // Lógica UNIFICADA: buscar la entrega igual que en la lista
-                    const mySubmission = comments.find(c => c.taskId === selectedTask.id && c.studentUsername === user.username && c.isSubmission);
+                    const mySubmission = comments.find(c => c.taskId === selectedTask.id && c.studentId === user.id && c.isSubmission);
                     if (!mySubmission) {
                       // Pendiente
                       return (
@@ -2306,14 +2341,14 @@ export default function TareasPage() {
                                   submissionId: submission?.id,
                                   submissionTimestamp: submission?.timestamp,
                                   submissionDetails: submission ? {
-                                    studentUsername: submission.studentUsername,
+                                    studentId: submission.studentId,
                                     studentName: submission.studentName,
                                     isSubmission: submission.isSubmission,
                                     comment: submission.comment.substring(0, 50)
                                   } : null,
                                   allCommentsForThisTask: comments.filter(c => c.taskId === selectedTask.id).map(c => ({
                                     id: c.id,
-                                    studentUsername: c.studentUsername,
+                                    studentId: c.studentId,
                                     studentName: c.studentName,
                                     isSubmission: c.isSubmission
                                   }))
@@ -2463,7 +2498,7 @@ export default function TareasPage() {
                       // ESTUDIANTE: solo su entrega y todos los comentarios
                       if (user?.role === 'student') {
                         if (comment.isSubmission) {
-                          return comment.studentUsername === user.username;
+                          return comment.studentId === user.id;
                         }
                         return true;
                       }
@@ -2709,8 +2744,8 @@ export default function TareasPage() {
                   <SelectValue placeholder={translate('selectCourse')} />
                 </SelectTrigger>
                 <SelectContent className="select-orange-hover">
-                  {getAvailableCourses().map(course => (
-                    <SelectItem key={course} value={course}>{course}</SelectItem>
+                  {getAvailableCoursesWithNames().map(course => (
+                    <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -2923,7 +2958,7 @@ export default function TareasPage() {
                   <p><strong>Tarea:</strong> {selectedTask.title}</p>
                   <p><strong>Descripción:</strong> {selectedTask.description}</p>
                   <p><strong>Fecha límite:</strong> {formatDateOneLine(selectedTask.dueDate)}</p>
-                  <p><strong>Curso:</strong> {selectedTask.course}</p>
+                  <p><strong>Curso:</strong> {getCourseNameById(selectedTask.course)}</p>
                   <p><strong>Materia:</strong> {selectedTask.subject}</p>
                 </div>
               </div>
@@ -3096,7 +3131,7 @@ export default function TareasPage() {
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <div>
                     <p><strong>Título:</strong> {selectedTask.title}</p>
-                    <p><strong>Curso:</strong> {selectedTask.course}</p>
+                    <p><strong>Curso:</strong> {getCourseNameById(selectedTask.course)}</p>
                     <p><strong>Materia:</strong> {selectedTask.subject}</p>
                   </div>
                   <div>
@@ -3124,7 +3159,7 @@ export default function TareasPage() {
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <div>
                     <p><strong>Nombre:</strong> {currentReview.studentDisplayName}</p>
-                    <p><strong>Usuario:</strong> {currentReview.studentUsername}</p>
+                    <p><strong>ID:</strong> {currentReview.studentId}</p>
                   </div>
                   <div>
                     <p><strong>Fecha de entrega:</strong> {formatDateOneLine(currentReview.submission.timestamp)}</p>
