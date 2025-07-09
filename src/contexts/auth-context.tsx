@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -38,6 +37,7 @@ interface AuthContextType {
   hasAccessToCourse: (course: string) => boolean;
   isAdmin: () => boolean;
   getAccessibleCourses: () => string[];
+  refreshUser: () => void; // Nueva función para actualizar el usuario
 }
 
 // Mock users database
@@ -172,6 +172,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Efecto para actualizar automáticamente los datos del usuario desde localStorage
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const refreshUserData = () => {
+      try {
+        const storedUsers = localStorage.getItem('smart-student-users');
+        if (storedUsers) {
+          const users = JSON.parse(storedUsers);
+          const updatedUser = users.find((u: any) => u.username === user.username);
+          
+          if (updatedUser) {
+            const newUser: User = {
+              id: updatedUser.id,
+              username: updatedUser.username,
+              role: updatedUser.role,
+              displayName: updatedUser.displayName,
+              activeCourses: updatedUser.activeCourses,
+              email: updatedUser.email,
+              assignedTeachers: updatedUser.assignedTeachers,
+              teachingAssignments: updatedUser.teachingAssignments
+            };
+            
+            // Solo actualizar si hay cambios
+            if (JSON.stringify(user.activeCourses) !== JSON.stringify(newUser.activeCourses)) {
+              console.log('🔄 Actualizando datos del usuario desde localStorage');
+              setUser(newUser);
+              localStorage.setItem('smart-student-user', JSON.stringify(newUser));
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Error al actualizar datos del usuario:', error);
+      }
+    };
+
+    // Actualizar inmediatamente
+    refreshUserData();
+
+    // Configurar un intervalo para verificar cambios cada 2 segundos
+    const interval = setInterval(refreshUserData, 2000);
+    
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user?.username]);
+
   const login = async (username: string, pass: string): Promise<boolean> => {
     const userKey = username.toLowerCase();
     
@@ -180,7 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('Contraseña ingresada:', pass);
     
     // First try to get user from localStorage (updated by user management)
-    let userData;
+    let userData: any = undefined;
     let userFoundInStorage = false;
     
     try {
@@ -296,13 +341,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Admin tiene acceso a todos los cursos
     if (user.role === 'admin') return true;
     
-    // Estudiantes y profesores solo a sus cursos activos
     // Verificar que activeCourses existe y es un array
     if (!user.activeCourses || !Array.isArray(user.activeCourses)) {
       return false;
     }
     
-    return user.activeCourses.includes(course);
+    // Primero verificar si el curso está directamente en activeCourses (compatibilidad con nombres)
+    if (user.activeCourses.includes(course)) {
+      return true;
+    }
+    
+    // Si activeCourses contiene IDs, necesitamos convertir IDs a nombres
+    try {
+      const storedCourses = localStorage.getItem('smart-student-courses');
+      if (storedCourses) {
+        const courses = JSON.parse(storedCourses);
+        
+        // Verificar si algún ID en activeCourses corresponde al nombre del curso
+        return user.activeCourses.some(courseId => {
+          const courseObj = courses.find((c: any) => c.id === courseId);
+          return courseObj && courseObj.name === course;
+        });
+      }
+    } catch (error) {
+      console.warn('Error al verificar acceso a curso:', error);
+    }
+    
+    return false;
   };
 
   const isAdmin = (): boolean => {
@@ -326,7 +391,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return [];
     }
     
+    // Si activeCourses contiene nombres de cursos directamente, retornarlos
+    if (user.activeCourses.some(course => typeof course === 'string' && course.includes('Básico'))) {
+      return user.activeCourses;
+    }
+    
+    // Si activeCourses contiene IDs, convertir a nombres
+    try {
+      const storedCourses = localStorage.getItem('smart-student-courses');
+      if (storedCourses) {
+        const courses = JSON.parse(storedCourses);
+        return user.activeCourses.map(courseId => {
+          const courseObj = courses.find((c: any) => c.id === courseId);
+          return courseObj ? courseObj.name : courseId;
+        }).filter(Boolean);
+      }
+    } catch (error) {
+      console.warn('Error al obtener cursos accesibles:', error);
+    }
+    
     return user.activeCourses;
+  };
+
+  const refreshUser = () => {
+    if (!user) return;
+    
+    try {
+      const storedUsers = localStorage.getItem('smart-student-users');
+      if (storedUsers) {
+        const users = JSON.parse(storedUsers);
+        const updatedUser = users.find((u: any) => u.username === user.username);
+        
+        if (updatedUser) {
+          const newUser: User = {
+            id: updatedUser.id,
+            username: updatedUser.username,
+            role: updatedUser.role,
+            displayName: updatedUser.displayName,
+            activeCourses: updatedUser.activeCourses,
+            email: updatedUser.email,
+            assignedTeachers: updatedUser.assignedTeachers,
+            teachingAssignments: updatedUser.teachingAssignments
+          };
+          
+          setUser(newUser);
+          localStorage.setItem('smart-student-user', JSON.stringify(newUser));
+        }
+      }
+    } catch (error) {
+      console.warn('Could not refresh user data:', error);
+    }
   };
 
   return (
@@ -338,7 +452,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       hasAccessToCourse,
       isAdmin,
-      getAccessibleCourses
+      getAccessibleCourses,
+      refreshUser
     }}>
       {children}
     </AuthContext.Provider>
@@ -353,4 +468,3 @@ export function useAuth() {
   return context;
 }
 
-    

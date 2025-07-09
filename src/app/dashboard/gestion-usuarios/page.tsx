@@ -68,7 +68,7 @@ const getSubjectsForSpecificCourse = (course: string) => {
 };
 
 export default function GestionUsuariosPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, refreshUser } = useAuth();
   const { translate } = useLanguage();
   const router = useRouter();
   const { toast } = useToast();
@@ -90,6 +90,9 @@ export default function GestionUsuariosPage() {
     teachingSubjects: [],
     selectedCourseId: undefined // Updated field name
   });
+
+  // Available courses (using the initial data for now)
+  const availableCourses = initialAvailableCoursesData;
 
   // Redirect if not admin
   useEffect(() => {
@@ -229,7 +232,19 @@ export default function GestionUsuariosPage() {
 
       setUsers(finalUsers);
       if (usersModifiedInitially || usersDataUpdatedForMigration) {
-        localStorage.setItem('smart-student-users', JSON.stringify(finalUsers));
+        // Clean up duplicates before saving
+        const cleanedUsers = cleanupDuplicateUsers(finalUsers);
+        setUsers(cleanedUsers);
+        localStorage.setItem('smart-student-users', JSON.stringify(cleanedUsers));
+      } else {
+        // Still clean duplicates even if no migration was needed
+        const cleanedUsers = cleanupDuplicateUsers(finalUsers);
+        if (cleanedUsers.length !== finalUsers.length) {
+          setUsers(cleanedUsers);
+          localStorage.setItem('smart-student-users', JSON.stringify(cleanedUsers));
+        } else {
+          setUsers(finalUsers);
+        }
       }
     };
 
@@ -376,7 +391,16 @@ export default function GestionUsuariosPage() {
     }
 
     setUsers(updatedUsersList);
-    // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
+    // Guardar inmediatamente en localStorage
+    localStorage.setItem('smart-student-users', JSON.stringify(updatedUsersList));
+    
+    // Actualizar el contexto de autenticación si el usuario actual está logueado
+    if (user) {
+      refreshUser();
+    }
+    
+    // Marcar que hay cambios sin guardar (para mostrar el botón de guardar cambios)
+    setHasUnsavedChanges(true);
 
     toast({
       title: "Éxito",
@@ -390,8 +414,20 @@ export default function GestionUsuariosPage() {
 
   // Función para sincronizar todos los cambios a nivel global
   const syncAllChanges = () => {
+    // Primero limpiar duplicados
+    const cleanedUsers = cleanupDuplicateUsers(users);
+    if (cleanedUsers.length !== users.length) {
+      setUsers(cleanedUsers);
+      console.log(`🧹 Limpieza: Removidos ${users.length - cleanedUsers.length} usuarios duplicados`);
+    }
+    
     // Guardar usuarios actualizados en localStorage
-    localStorage.setItem('smart-student-users', JSON.stringify(users));
+    localStorage.setItem('smart-student-users', JSON.stringify(cleanedUsers));
+    
+    // Actualizar el contexto de autenticación si el usuario actual está logueado
+    if (user) {
+      refreshUser();
+    }
     
     // Actualizar otras referencias en localStorage
     try {
@@ -408,9 +444,12 @@ export default function GestionUsuariosPage() {
       // Otras sincronizaciones específicas
       ensureSpecialCases();
       
+      const duplicatesRemoved = users.length - cleanedUsers.length;
+      const duplicateMessage = duplicatesRemoved > 0 ? ` Duplicados eliminados: ${duplicatesRemoved}.` : '';
+      
       toast({
         title: "Cambios guardados",
-        description: "¡Perfecto! Los cambios han sido guardados y aplicados correctamente en todo el sistema. Ahora todos los cursos, tareas y evaluaciones están actualizados.",
+        description: `¡Perfecto! Los cambios han sido guardados y aplicados correctamente en todo el sistema.${duplicateMessage}`,
       });
     } catch (error) {
       console.error('Error al sincronizar los cambios:', error);
@@ -475,8 +514,11 @@ export default function GestionUsuariosPage() {
   };
 
   const handleDeleteUser = (userIdToDelete: string) => {
-    // Assuming 'admin' user has a fixed ID 'admin' (as set in initializeDefaultUsers)
-    if (userIdToDelete === 'admin') {
+    // Find the user to delete
+    const userToDelete = users.find(u => u.id === userIdToDelete);
+    
+    // Protect admin user - check by role and username
+    if (userToDelete && (userToDelete.role === 'admin' || userToDelete.username === 'admin')) {
       toast({
         title: "Error",
         description: "No se puede eliminar el usuario administrador.",
@@ -487,11 +529,20 @@ export default function GestionUsuariosPage() {
 
     const updatedUsers = users.filter(u => u.id !== userIdToDelete);
     setUsers(updatedUsers);
-    // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
+    // Guardar inmediatamente en localStorage
+    localStorage.setItem('smart-student-users', JSON.stringify(updatedUsers));
+    
+    // Actualizar el contexto de autenticación si el usuario actual está logueado
+    if (user) {
+      refreshUser();
+    }
+    
+    // Marcar que hay cambios sin guardar
+    setHasUnsavedChanges(true);
 
     toast({
       title: "Éxito",
-      description: "Usuario eliminado correctamente. Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema.",
+      description: "Usuario eliminado correctamente.",
     });
   };
 
@@ -509,11 +560,11 @@ export default function GestionUsuariosPage() {
       displayName: userToEdit.displayName,
       email: userToEdit.email || '',
       role: userToEdit.role,
-      activeCourses: coursesToSet,
+      activeCourseIds: coursesToSet,
       password: userToEdit.password,
-      assignedTeacher: userToEdit.assignedTeacher,
+      assignedTeacherId: userToEdit.assignedTeacherId,
       teachingSubjects: userToEdit.teachingSubjects || [],
-      selectedCourse: userToEdit.role === 'teacher' && userToEdit.activeCourses.length > 0 ? userToEdit.activeCourses[0] : undefined
+      selectedCourseId: userToEdit.role === 'teacher' && userToEdit.activeCourses.length > 0 ? userToEdit.activeCourses[0] : undefined
     });
     setShowCreateDialog(true);
   };
@@ -526,28 +577,35 @@ export default function GestionUsuariosPage() {
       displayName: '',
       email: '',
       role: 'student',
-      activeCourses: [],
+      activeCourseIds: [],
       password: '',
-      assignedTeacher: undefined,
+      assignedTeacherId: undefined,
       teachingSubjects: [],
-      selectedCourse: undefined
+      selectedCourseId: undefined
     });
   };
 
-  const handleCourseToggle = (course: string, checked: boolean) => {
+  const handleCourseToggle = (courseName: string, checked: boolean) => {
+    // Find the course ID for this course name
+    const courseId = courses.find(c => c.name === courseName)?.id;
+    if (!courseId) {
+      console.error(`Course ID not found for course name: ${courseName}`);
+      return;
+    }
+    
     if (formData.role === 'student') {
       // Students can only be in ONE course at a time
       if (checked) {
         setFormData(prev => ({
           ...prev,
-          activeCourses: [course], // Replace with only this course
-          assignedTeacher: undefined // Reset teacher assignment when course changes
+          activeCourseIds: [courseId], // Replace with only this course ID
+          assignedTeacherId: undefined // Reset teacher assignment when course changes
         }));
       } else {
         setFormData(prev => ({
           ...prev,
-          activeCourses: [], // Remove from all courses
-          assignedTeacher: undefined // Remove teacher assignment
+          activeCourseIds: [], // Remove from all courses
+          assignedTeacherId: undefined // Remove teacher assignment
         }));
       }
     } else {
@@ -555,12 +613,12 @@ export default function GestionUsuariosPage() {
       if (checked) {
         setFormData(prev => ({
           ...prev,
-          activeCourses: [...prev.activeCourses, course]
+          activeCourseIds: [...prev.activeCourseIds, courseId]
         }));
       } else {
         setFormData(prev => ({
           ...prev,
-          activeCourses: prev.activeCourses.filter(c => c !== course)
+          activeCourseIds: prev.activeCourseIds.filter(c => c !== courseId)
         }));
       }
     }
@@ -580,7 +638,14 @@ export default function GestionUsuariosPage() {
     }
   };
 
-  const handleCourseSelection = (courseId: string) => { // Parameter is now courseId
+  const handleCourseSelection = (courseName: string) => {
+    // Find the course ID for this course name
+    const courseId = courses.find(c => c.name === courseName)?.id;
+    if (!courseId) {
+      console.error(`Course ID not found for course name: ${courseName}`);
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       selectedCourseId: courseId, // Use selectedCourseId
@@ -626,10 +691,13 @@ export default function GestionUsuariosPage() {
   };
 
   // Function to get available students (those not assigned to any teacher)
-  const getAvailableStudentsForTeacher = (teacherData: ExtendedUser) => { // teacherData is not strictly needed here if we just want unassigned students
+  const getAvailableStudentsForTeacher = (teacherData: ExtendedUser) => {
+    if (teacherData.role !== 'teacher') return [];
+    
     return users.filter(user => 
       user.role === 'student' && 
-      !user.assignedTeacherId // Only students with no teacher assignment
+      !user.assignedTeacherId && // Only students with no teacher assignment
+      user.activeCourses.some(courseId => teacherData.activeCourses.includes(courseId)) // Student has a course that the teacher teaches
     );
   };
 
@@ -640,7 +708,8 @@ export default function GestionUsuariosPage() {
     return users.filter(user => 
       user.role === 'student' && 
       user.assignedTeacherId &&
-      user.assignedTeacherId !== teacherData.id // Compare with teacher's ID
+      user.assignedTeacherId !== teacherData.id && // Different teacher
+      user.activeCourses.some(courseId => teacherData.activeCourses.includes(courseId)) // Student has a course that the teacher teaches
     );
   };
 
@@ -787,6 +856,23 @@ export default function GestionUsuariosPage() {
     }
   }, [users]);
 
+  // Function to clean up duplicate users
+  const cleanupDuplicateUsers = (usersList: ExtendedUser[]): ExtendedUser[] => {
+    const seenUsernames = new Set<string>();
+    const uniqueUsers: ExtendedUser[] = [];
+    
+    usersList.forEach(user => {
+      if (!seenUsernames.has(user.username)) {
+        seenUsernames.add(user.username);
+        uniqueUsers.push(user);
+      } else {
+        console.log(`🧹 Removiendo usuario duplicado: ${user.username} (ID: ${user.id})`);
+      }
+    });
+    
+    return uniqueUsers;
+  };
+
   return (
     <div className="space-y-6">
       {/* Mensaje de advertencia sobre cambios no guardados */}
@@ -795,7 +881,7 @@ export default function GestionUsuariosPage() {
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-4 4a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
             </div>
             <div className="ml-3">
@@ -813,6 +899,28 @@ export default function GestionUsuariosPage() {
           <p className="text-muted-foreground">{translate('userManagementPageDescription')}</p>
         </div>
         <div className="flex space-x-2">
+          <Button 
+            variant="outline"
+            className="text-red-600 hover:text-red-700 border-red-200"
+            onClick={() => {
+              const originalCount = users.length;
+              const cleanedUsers = cleanupDuplicateUsers(users);
+              setUsers(cleanedUsers);
+              localStorage.setItem('smart-student-users', JSON.stringify(cleanedUsers));
+              
+              const removedCount = originalCount - cleanedUsers.length;
+              toast({
+                title: "Limpieza completada",
+                description: removedCount > 0 ? `Se eliminaron ${removedCount} usuarios duplicados.` : "No se encontraron duplicados.",
+              });
+              
+              if (user) {
+                refreshUser();
+              }
+            }}
+          >
+            🧹 Limpiar Duplicados
+          </Button>
           <Button 
             className={`${hasUnsavedChanges ? 'bg-amber-600 hover:bg-amber-700 animate-pulse' : 'bg-teal-600 hover:bg-teal-700'}`}
             onClick={() => {
@@ -967,7 +1075,7 @@ export default function GestionUsuariosPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDeleteUser(userData.username)}
+                          onClick={() => handleDeleteUser(userData.id)}
                           className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -980,18 +1088,21 @@ export default function GestionUsuariosPage() {
                       <>
                         <Separator className="my-4" />
                         <div className="space-y-4">
-                          {userData.activeCourses.map(course => {
+                          {userData.activeCourses.map(courseId => {
+                            const course = courses.find(c => c.id === courseId);
+                            if (!course) return null;
+                            
                             // Only show students assigned to THIS specific teacher for this course
                             const studentsInThisCourse = assignedStudents.filter(student => 
-                              student.activeCourses.includes(course) && 
-                              student.assignedTeacher === userData.username
+                              student.activeCourses.includes(courseId) && 
+                              student.assignedTeacherId === userData.id
                             );
 
                             return (
-                              <div key={course} className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg">
+                              <div key={courseId} className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg">
                                 <h4 className="font-medium text-sm text-foreground mb-3 flex items-center">
                                   <BookOpen className="w-4 h-4 mr-2" />
-                                  {course} - {userData.displayName}
+                                  {course.name} - {userData.displayName}
                                   <Badge variant="outline" className="ml-2">
                                     {studentsInThisCourse.length} {translate('userManagementStudentsCount')}
                                   </Badge>
@@ -1001,7 +1112,7 @@ export default function GestionUsuariosPage() {
                                 {studentsInThisCourse.length > 0 ? (
                                   <div className="space-y-2 mb-3">
                                     {studentsInThisCourse.map(student => (
-                                      <div key={student.username} className="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded border">
+                                      <div key={student.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded border">
                                         <div>
                                           <span className="text-sm font-medium">{student.displayName}</span>
                                           <span className="text-xs text-muted-foreground ml-2">@{student.username}</span>
@@ -1009,7 +1120,7 @@ export default function GestionUsuariosPage() {
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          onClick={() => removeStudentFromTeacher(student.username)}
+                                          onClick={() => removeStudentFromTeacher(student.id)}
                                           className="text-red-600 hover:text-red-700"
                                         >
                                           <UserMinus className="w-3 h-3" />
@@ -1022,43 +1133,50 @@ export default function GestionUsuariosPage() {
                                 )}
 
                                 {/* Add available students (not assigned to any teacher) */}
-                                {availableStudents.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t">
-                                    <p className="text-xs text-muted-foreground mb-2">{translate('userManagementAvailableStudents')}</p>
-                                    <div className="flex gap-2 flex-wrap">
-                                      {availableStudents.map(student => (
-                                        <Button
-                                          key={student.username}
+                                {(() => {
+                                  const availableStudentsForCourse = availableStudents.filter(student => 
+                                    student.activeCourses.includes(courseId)
+                                  );
+                                  return availableStudentsForCourse.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t">
+                                      <p className="text-xs text-muted-foreground mb-2">{translate('userManagementAvailableStudents')}</p>
+                                      <div className="flex gap-2 flex-wrap">
+                                        {availableStudentsForCourse.map(student => (                                        <Button
+                                          key={student.id}
                                           variant="outline"
                                           size="sm"
-                                          onClick={() => addStudentToTeacher(student.username, userData.username, course)}
+                                          onClick={() => addStudentToTeacher(student.id, userData.id, courseId)}
                                           className="text-green-600 hover:text-green-700"
                                         >
                                           <UserPlus className="w-3 h-3 mr-1" />
                                           {student.displayName}
                                         </Button>
-                                      ))}
+                                        ))}
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  );
+                                })()}
 
                                 {/* Transfer students from other teachers */}
-                                {studentsInOtherCourses.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-yellow-200">
-                                    <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-2">
-                                      {translate('transferStudentFrom')}
-                                    </p>
-                                    <div className="flex gap-2 flex-wrap">
-                                      {studentsInOtherCourses.map(student => {
-                                        const currentAssignment = getStudentCurrentAssignment(student.username);
-                                        return (
-                                          <Button
-                                            key={student.username}
+                                {(() => {
+                                  const studentsInOtherCoursesForCourse = studentsInOtherCourses.filter(student => 
+                                    student.activeCourses.includes(courseId)
+                                  );
+                                  return studentsInOtherCoursesForCourse.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-yellow-200">
+                                      <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-2">
+                                        {translate('transferStudentFrom')}
+                                      </p>
+                                      <div className="flex gap-2 flex-wrap">
+                                        {studentsInOtherCoursesForCourse.map(student => {
+                                          const currentAssignment = getStudentCurrentAssignment(student.id);
+                                          return (                                          <Button
+                                            key={student.id}
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => addStudentToTeacher(student.username, userData.username, course)}
+                                            onClick={() => addStudentToTeacher(student.id, userData.id, courseId)}
                                             className="text-orange-600 hover:text-orange-700 border-orange-200"
-                                            title={`Transferir desde: ${translate('teacherTitle')} ${currentAssignment?.teacher?.displayName} - ${currentAssignment?.course}`}
+                                            title={`Transferir desde: ${translate('teacherTitle')} ${currentAssignment?.teacher?.displayName} - ${currentAssignment?.course?.name}`}
                                           >
                                             <UserPlus className="w-3 h-3 mr-1" />
                                             {student.displayName}
@@ -1066,14 +1184,15 @@ export default function GestionUsuariosPage() {
                                               ({translate('teacherTitle')} {currentAssignment?.teacher?.displayName})
                                             </span>
                                           </Button>
-                                        );
-                                      })}
+                                          );
+                                        })}
+                                      </div>
+                                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 italic">
+                                        {translate('studentWillBeRemoved')}
+                                      </p>
                                     </div>
-                                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 italic">
-                                      {translate('studentWillBeRemoved')}
-                                    </p>
-                                  </div>
-                                )}
+                                  );
+                                })()}
                               </div>
                             );
                           })}
@@ -1095,10 +1214,10 @@ export default function GestionUsuariosPage() {
           </h2>
           <div className="grid gap-4">
             {users.filter(u => u.role === 'student').map((userData) => {
-              const currentAssignment = getStudentCurrentAssignment(userData.username);
+              const currentAssignment = getStudentCurrentAssignment(userData.id);
 
               return (
-                <Card key={userData.username}>
+                <Card key={userData.id}>
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
@@ -1126,7 +1245,7 @@ export default function GestionUsuariosPage() {
                                 <div className="flex items-center space-x-4">
                                   <p className="text-xs text-muted-foreground">
                                     <BookOpen className="w-3 h-3 inline mr-1" />
-                                    {currentAssignment.course}
+                                    {currentAssignment.course?.name || 'Curso no encontrado'}
                                   </p>
                                   {currentAssignment.teacher && (
                                     <p className="text-xs text-blue-600">
@@ -1136,9 +1255,9 @@ export default function GestionUsuariosPage() {
                                   )}
                                 </div>
                                 <div className="flex flex-wrap gap-1 mt-2">
-                                  {getSubjectsForCourse(currentAssignment.course).map(subject => (
+                                  {currentAssignment.course?.name && getSubjectsForCourse(currentAssignment.course.name).map(subject => (
                                     <span 
-                                      key={`student-${userData.username}-${subject}`} 
+                                      key={`student-${userData.id}-${subject}`} 
                                       className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
                                       title={subject}
                                     >
@@ -1167,7 +1286,7 @@ export default function GestionUsuariosPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDeleteUser(userData.username)}
+                          onClick={() => handleDeleteUser(userData.id)}
                           className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1270,7 +1389,7 @@ export default function GestionUsuariosPage() {
                       Curso Principal *
                     </Label>
                     <Select 
-                      value={formData.selectedCourse || ''} 
+                      value={formData.selectedCourseId ? courses.find(c => c.id === formData.selectedCourseId)?.name || '' : ''} 
                       onValueChange={(value) => handleCourseSelection(value)}
                     >
                       <SelectTrigger className="col-span-3">
@@ -1288,16 +1407,16 @@ export default function GestionUsuariosPage() {
                 )}
                 
                 {/* Subject selection for teachers - STEP 2 (only show after course selection) */}
-                {formData.role === 'teacher' && formData.selectedCourse && (
+                {formData.role === 'teacher' && formData.selectedCourseId && (
                   <div className="grid grid-cols-4 items-start gap-4">
                     <Label className="text-right pt-2">
                       Asignaturas *
                     </Label>
                     <div className="col-span-3 space-y-2">
                       <p className="text-xs text-muted-foreground mb-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
-                        📚 Asignaturas disponibles para <strong>{formData.selectedCourse}</strong>
+                        📚 Asignaturas disponibles para <strong>{formData.selectedCourseId ? courses.find(c => c.id === formData.selectedCourseId)?.name : ''}</strong>
                       </p>
-                      {getSubjectsForSpecificCourse(formData.selectedCourse).map((subject) => (
+                      {formData.selectedCourseId && getSubjectsForSpecificCourse(courses.find(c => c.id === formData.selectedCourseId)?.name || '').map((subject) => (
                         <div key={subject} className="flex items-center space-x-2">
                           <Checkbox
                             id={subject}
@@ -1317,22 +1436,22 @@ export default function GestionUsuariosPage() {
                         </p>
                         <div className="space-y-2">
                           {availableCourses
-                            .filter(course => course !== formData.selectedCourse)
+                            .filter(course => course !== formData.selectedCourseId)
                             .map((course) => (
                             <div key={course} className="flex items-center space-x-2">
                               <Checkbox
                                 id={`additional-${course}`}
-                                checked={formData.activeCourses.includes(course)}
+                                checked={formData.activeCourseIds.includes(course)}
                                 onCheckedChange={(checked) => {
                                   if (checked) {
                                     setFormData(prev => ({
                                       ...prev,
-                                      activeCourses: [...prev.activeCourses, course]
+                                      activeCourseIds: [...prev.activeCourseIds, course]
                                     }));
                                   } else {
                                     setFormData(prev => ({
                                       ...prev,
-                                      activeCourses: prev.activeCourses.filter(c => c !== course)
+                                      activeCourseIds: prev.activeCourseIds.filter(c => c !== course)
                                     }));
                                   }
                                 }}
@@ -1357,12 +1476,12 @@ export default function GestionUsuariosPage() {
                     <div className="col-span-3 space-y-2">
                       {formData.role === 'student' && (
                         <div className="flex flex-wrap gap-2 mb-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
-                          {formData.activeCourses.length > 0 ? (
+                          {formData.activeCourseIds.length > 0 ? (
                             <>
                               <p className="text-xs text-muted-foreground w-full mb-1">
                                 {translate('userManagementStudentSubjects')}:
                               </p>
-                              {formData.activeCourses.flatMap(course =>
+                              {formData.activeCourseIds.flatMap(course =>
                                 getSubjectsForCourse(course).map(subject => (
                                   <span 
                                     key={`${course}-${subject}`} 
@@ -1381,39 +1500,42 @@ export default function GestionUsuariosPage() {
                           )}
                         </div>
                       )}
-                      {availableCourses.map((course) => (
-                        <div key={course} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={course}
-                            checked={formData.activeCourses.includes(course)}
-                            onCheckedChange={(checked) => handleCourseToggle(course, checked as boolean)}
-                          />
-                          <Label htmlFor={course} className="text-sm">
-                            {course}
-                          </Label>
-                        </div>
-                      ))}
+                      {availableCourses.map((course) => {
+                        const courseId = courses.find(c => c.name === course)?.id;
+                        return (
+                          <div key={course} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={course}
+                              checked={courseId ? formData.activeCourseIds.includes(courseId) : false}
+                              onCheckedChange={(checked) => handleCourseToggle(course, checked as boolean)}
+                            />
+                            <Label htmlFor={course} className="text-sm">
+                              {course}
+                            </Label>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
                 
                 {/* Teacher selection for students */}
-                {formData.role === 'student' && formData.activeCourses.length > 0 && (
+                {formData.role === 'student' && formData.activeCourseIds.length > 0 && (
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="assignedTeacher" className="text-right">
                       {translate('teacherLabel')}
                     </Label>
                     <Select 
-                      value={formData.assignedTeacher || ''} 
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, assignedTeacher: value }))}
+                      value={formData.assignedTeacherId || ''} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, assignedTeacherId: value }))}
                     >
                       <SelectTrigger className="col-span-3">
                         <SelectValue placeholder={translate('selectTeacher')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {getTeachersForCourse(formData.activeCourses[0]).map(teacher => (
-                          <SelectItem key={teacher.username} value={teacher.username}>
-                            {teacher.displayName} - {formData.activeCourses[0]}
+                        {getTeachersForCourse(formData.activeCourseIds[0]).map(teacher => (
+                          <SelectItem key={teacher.id} value={teacher.id}>
+                            {teacher.displayName} - {courses.find(c => c.id === formData.activeCourseIds[0])?.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

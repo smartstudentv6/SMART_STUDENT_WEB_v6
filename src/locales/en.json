@@ -80,6 +80,14 @@
     "quizActionCreateSummary": "Create Summary",
     "quizActionCreateMap": "Create Mind Map",
     "quizActionCreateEval": "Create Evaluation",
+    "summaryActionDownloadPdf": "Download PDF",
+    "summaryActionCreateMap": "Create Mind Map",
+    "summaryActionCreateQuiz": "Create Quiz",
+    "summaryActionCreateEval": "Create Evaluation",
+    "mapActionDownloadPdf": "Download PDF",
+    "mapActionCreateSummary": "Create Summary",
+    "mapActionCreateQuiz": "Create Quiz",
+    "mapActionCreateEval": "Create Evaluation",
     "quizTitlePrefix": "QUIZ",
     "evalPageTitle": "Knowledge Assessment",
     "evalPageSub": "Test your understanding of the topic with 15 automatically generated questions: 5 true/false, 5 multiple choice, and 5 multiple selection.",
@@ -356,6 +364,8 @@
     "userManagementCreateUser": "Create User",
     "userManagementStudentsCount": "assigned students",
     "userManagementAssignedStudents": "assigned students",
+    "userManagementNoStudentsAssigned": "No students assigned to this course",
+    "userManagementAvailableStudents": "Available students to assign:",
     "teacherTitle": "Teacher",
     "teacherLabel": "Teacher *",
     "transferStudentFrom": "Transfer student from another teacher:",
@@ -563,7 +573,7 @@
     "assignedStudentsTitle": "Assigned Students",
     "comments": "Comments",
     "underReview": "In Review",
-    "submitted": "Delivered",
+    "submittedDelivered": "Delivered",
     "delete": "Delete"
 }
 
