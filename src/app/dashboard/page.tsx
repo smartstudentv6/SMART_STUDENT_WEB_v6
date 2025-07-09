@@ -381,6 +381,34 @@ export default function DashboardHomePage() {
     }
   };
 
+  // Función para cargar tareas pendientes del profesor (estado 'pending')
+  const loadPendingTeacherTasks = () => {
+    if (user && user.role === 'teacher') {
+      try {
+        const storedTasks = localStorage.getItem('smart-student-tasks');
+        if (storedTasks) {
+          const tasks = JSON.parse(storedTasks);
+          
+          // Filtrar tareas creadas por este profesor que están en estado 'pending'
+          const pendingTasks = tasks.filter((task: any) => 
+            task.assignedById === user.id && 
+            task.status === 'pending'
+          );
+          
+          console.log(`[Dashboard] Teacher ${user.username} has ${pendingTasks.length} pending tasks`);
+          
+          // Usar el estado existente pendingTasksCount para mostrar las tareas pendientes
+          setPendingTasksCount(pendingTasks.length);
+        } else {
+          setPendingTasksCount(0);
+        }
+      } catch (error) {
+        console.error('Error loading pending teacher tasks:', error);
+        setPendingTasksCount(0);
+      }
+    }
+  };
+
   // Cargar solicitudes de contraseña pendientes y entregas pendientes, y actualizar la cuenta de comentarios
   useEffect(() => {
     // Primero limpiar datos inconsistentes
@@ -391,6 +419,11 @@ export default function DashboardHomePage() {
     loadPendingTaskSubmissions();
     loadTaskNotifications();
     loadPendingTasks();
+    
+    // 🔔 NUEVA FUNCIONALIDAD: Cargar tareas pendientes del profesor para notificaciones
+    if (user?.role === 'teacher') {
+      loadPendingTeacherTasks();
+    }
     
     // Escuchar cambios en localStorage para actualizar los contadores en tiempo real
     const handleStorageChange = (e: StorageEvent) => {
@@ -424,6 +457,16 @@ export default function DashboardHomePage() {
           // Recargar entregas pendientes para profesores
           loadPendingTaskSubmissions();
         }
+      }
+      
+      // 🔔 NUEVA FUNCIONALIDAD: Escuchar cambios en tareas para actualizar tareas pendientes del profesor
+      if (e.key === 'smart-student-tasks') {
+        if (user?.role === 'teacher') {
+          loadPendingTeacherTasks();
+        }
+        // También actualizar otras métricas relacionadas con tareas
+        loadPendingTasks();
+        loadPendingTaskSubmissions();
       }
     };
     
@@ -464,6 +507,11 @@ export default function DashboardHomePage() {
     const handleTaskNotificationsUpdated = () => {
       loadTaskNotifications();
       loadPendingTasks(); // También actualizar el contador de tareas pendientes
+      
+      // 🔔 NUEVA FUNCIONALIDAD: Actualizar tareas pendientes del profesor
+      if (user?.role === 'teacher') {
+        loadPendingTeacherTasks();
+      }
     };
     
     window.addEventListener('storage', handleStorageChange);
@@ -553,7 +601,7 @@ export default function DashboardHomePage() {
                   const totalCount = user.role === 'admin' 
                     ? pendingPasswordRequestsCount
                     : user.role === 'teacher'
-                      ? pendingTaskSubmissionsCount + unreadStudentCommentsCount + taskNotificationsCount // Para profesores: entregas pendientes + comentarios no leídos + notificaciones (SIN pendingTasksCount para evitar duplicados)
+                      ? pendingTaskSubmissionsCount + unreadStudentCommentsCount + taskNotificationsCount // Para profesores: entregas pendientes + comentarios no leídos + notificaciones (incluye tareas pendientes)
                       : pendingTasksCount + unreadCommentsCount + taskNotificationsCount; // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones de tareas (calificaciones, etc.)
                   
                   console.log(`[Dashboard] Total count for ${user.username} (${user.role}): ${totalCount} (pending tasks: ${pendingTasksCount}, submissions: ${pendingTaskSubmissionsCount}, student comments: ${unreadStudentCommentsCount}, comments: ${unreadCommentsCount}, task notifications: ${taskNotificationsCount})`);
@@ -574,7 +622,7 @@ export default function DashboardHomePage() {
                 (() => {
                   const totalTaskCount = user?.role === 'student' 
                     ? pendingTasksCount + unreadCommentsCount + taskNotificationsCount // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones (calificaciones)
-                    : pendingTaskSubmissionsCount + unreadStudentCommentsCount + taskNotificationsCount; // Para profesores: entregas pendientes + comentarios no leídos + notificaciones (SIN pendingTasksCount para evitar duplicados)
+                    : pendingTaskSubmissionsCount + unreadStudentCommentsCount + taskNotificationsCount; // Para profesores: entregas pendientes + comentarios no leídos + notificaciones (incluye tareas pendientes)
 
                   return totalTaskCount > 0 && (
                     user?.role === 'student' ? (

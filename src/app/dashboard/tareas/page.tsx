@@ -597,7 +597,7 @@ export default function TareasPage() {
   };
 
   const handleCreateTask = () => {
-    if (!formData.title || !formData.description || !formData.course || !formData.dueDate) {
+    if (!formData.title || !formData.description || !formData.course || !formData.dueDate || !formData.subject) {
       toast({
         title: translate('error'),
         description: translate('completeAllFields'),
@@ -644,20 +644,18 @@ export default function TareasPage() {
     const updatedTasks = [...tasks, newTask];
     saveTasks(updatedTasks);
     
-    // Crear notificación de tarea pendiente para el profesor (para que aparezca en su campana)
-    TaskNotificationManager.createPendingGradingNotification(
+    // 🔔 NUEVA FUNCIONALIDAD: Crear notificación de "Tarea Pendiente" para el profesor
+    TaskNotificationManager.createTaskPendingNotification(
       taskId,
       formData.title,
       formData.course, // This is courseId
       formData.subject,
-      user?.id || '', // Pass user.id
+      user?.username || '', // Pass user.username, not user.id
       user?.displayName || '',
       formData.taskType === 'evaluacion' ? 'evaluation' : 'assignment'
     );
 
     // Crear notificaciones para los estudiantes sobre la nueva tarea
-    // This function might need internal adjustment if it relies on teacherUsername to find users.
-    // For now, passing ID as teacherId.
     TaskNotificationManager.createNewTaskNotifications(
       taskId,
       formData.title,
@@ -790,18 +788,19 @@ export default function TareasPage() {
           hasStudentSubmitted(selectedTask.id, student.id) // Los otros ya entregaron antes
         );
       
-      // Actualizar el estado de la tarea del profesor:
-      // - Si todos han entregado, cambia a 'submitted' (En Revisión para el profesor)  
-      // - Solo cambia a 'reviewed' (Finalizada) cuando el profesor califique a todos
-      if (allStudentsSubmitted) {
-        const updatedTasks = tasks.map(task => 
-          task.id === selectedTask.id 
-            ? { ...task, status: 'submitted' as const } // Todas las entregas recibidas, pendiente de revisión
-            : task
-        );
-        saveTasks(updatedTasks);
-        console.log(`✅ Tarea ${selectedTask.id} cambiada a 'submitted' - todas las entregas recibidas`);
-      }
+      // 🔥 CORRECCIÓN: NO cambiar el estado cuando los estudiantes entregan
+      // La tarea debe mantenerse en 'pending' hasta que el profesor califique TODAS las entregas
+      // El estado solo cambia a 'reviewed' (Finalizada) cuando el profesor termina de calificar a todos
+      
+      // Log para debug - mostrar cuántos estudiantes han entregado
+      const submittedCount = assignedStudents.filter(student => 
+        student.id === user?.id || hasStudentSubmitted(selectedTask.id, student.id)
+      ).length;
+      
+      console.log(`📊 Entregas: ${submittedCount}/${assignedStudents.length} estudiantes han entregado la tarea "${selectedTask.title}"`);
+      console.log(`⏳ Estado de la tarea mantiene: "pending" hasta que profesor califique todas las entregas`);
+      
+      // NO actualizar el estado aquí - se mantiene en 'pending' hasta calificación completa
     }
 
     setNewComment('');
@@ -839,7 +838,7 @@ export default function TareasPage() {
   };
 
   const handleUpdateTask = () => {
-    if (!selectedTask || !formData.title || !formData.description || !formData.course || !formData.dueDate) {
+    if (!selectedTask || !formData.title || !formData.description || !formData.course || !formData.dueDate || !formData.subject) {
       toast({
         title: translate('error'),
         description: translate('completeAllFields'),
@@ -1187,11 +1186,39 @@ export default function TareasPage() {
     // Verificar si todas las entregas de esta tarea están revisadas
     if (selectedTask) {
       const allStudents = getAssignedStudentsForTask(selectedTask); // Returns {id, username, displayName}
+      
+      // ✅ LÓGICA CORREGIDA: Verificar que TODOS los estudiantes hayan entregado Y sean calificados
       const allReviewed = allStudents.every(student => {
-        const studentSubmission = getStudentSubmission(selectedTask.id, student.id); // Use student.id
-        // Considerar revisado si tiene reviewedAt O es la entrega que acabamos de calificar
-        return studentSubmission?.reviewedAt || studentSubmission?.id === submissionId;
+        const studentSubmission = getStudentSubmission(selectedTask.id, student.id);
+        
+        // Para que esté "completamente revisado" debe cumplir TODAS estas condiciones:
+        // 1. El estudiante debe haber hecho una entrega (isSubmission = true)
+        // 2. La entrega debe tener calificación (grade !== undefined)
+        // 3. La entrega debe estar marcada como revisada (reviewedAt)
+        
+        if (!studentSubmission || !studentSubmission.isSubmission) {
+          console.log(`❌ Student ${student.displayName} has not submitted yet`);
+          return false; // No ha entregado
+        }
+        
+        const hasGrade = studentSubmission.grade !== undefined;
+        const isReviewed = studentSubmission.reviewedAt || studentSubmission.id === submissionId;
+        
+        if (!hasGrade) {
+          console.log(`❌ Student ${student.displayName} submission not graded yet`);
+          return false; // No tiene calificación
+        }
+        
+        if (!isReviewed) {
+          console.log(`❌ Student ${student.displayName} submission not reviewed yet`);
+          return false; // No está revisado
+        }
+        
+        console.log(`✅ Student ${student.displayName} submission is complete: delivered + graded + reviewed`);
+        return true; // Entregado, calificado y revisado
       });
+
+      console.log(`📊 Task completion check: ${allStudents.length} students total, all reviewed: ${allReviewed}`);
 
       // Si todos están revisados, cambiar el estado de la tarea del profesor a 'reviewed' (Finalizada)
       if (allReviewed) {
@@ -1201,7 +1228,17 @@ export default function TareasPage() {
             : task
         );
         saveTasks(updatedTasks);
-        // console.log(`✅ Tarea ${selectedTask.id} marcada como Finalizada - todos los estudiantes revisados`);
+        
+        // 🔔 ACTUALIZAR NOTIFICACIÓN: Cambiar de "Tarea Pendiente" a "Tarea Finalizada"
+        TaskNotificationManager.updateTaskStatusNotification(
+          selectedTask.id,
+          'reviewed',
+          user?.id || ''
+        );
+        
+        console.log('✅ Task marked as FINALIZED - all students have delivered AND been graded');
+      } else {
+        console.log('⏳ Task remains PENDING - not all students have delivered or been graded');
       }
     }
 
@@ -1597,7 +1634,7 @@ export default function TareasPage() {
                       <div>
                         <CardTitle className="text-xl flex items-center">
                           <Users className="w-5 h-5 mr-2" />
-                          {course}
+                          {getCourseNameById(course)}
                         </CardTitle>
                         <div className="flex items-center space-x-4 mt-2">
                           <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
@@ -1850,7 +1887,7 @@ export default function TareasPage() {
           
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">{translate('taskTitle')} *</Label>
+              <Label htmlFor="title" className="text-right">{translate('taskTitle')} <span className="text-red-500">*</span></Label>
               <Input
                 id="title"
                 value={formData.title}
@@ -1861,7 +1898,7 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="description" className="text-right pt-2">{translate('taskDescription')} *</Label>
+              <Label htmlFor="description" className="text-right pt-2">{translate('taskDescription')} <span className="text-red-500">*</span></Label>
               <Textarea
                 id="description"
                 value={formData.description}
@@ -1873,7 +1910,7 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="course" className="text-right">{translate('taskCourse')} *</Label>
+              <Label htmlFor="course" className="text-right">{translate('taskCourse')} <span className="text-red-500">*</span></Label>
               <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
                 <SelectTrigger className={`${formData.taskType === 'evaluacion' ? 'select-purple-hover-trigger' : 'select-orange-hover-trigger'} col-span-3`}>
                   <SelectValue placeholder={translate('selectCourse')} />
@@ -1887,8 +1924,8 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="subject" className="text-right">{translate('taskSubject')}</Label>
-              <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}>
+              <Label htmlFor="subject" className="text-right">{translate('taskSubject')} <span className="text-red-500">*</span></Label>
+              <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))} required>
                 <SelectTrigger className={`${formData.taskType === 'evaluacion' ? 'select-purple-hover-trigger' : 'select-orange-hover-trigger'} col-span-3`}>
                   <SelectValue placeholder={translate('selectSubject')} />
                 </SelectTrigger>
@@ -1954,7 +1991,7 @@ export default function TareasPage() {
             )}
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="dueDate" className="text-right">{translate('dueDate')} *</Label>
+              <Label htmlFor="dueDate" className="text-right">{translate('dueDate')} <span className="text-red-500">*</span></Label>
               <Input
                 id="dueDate"
                 type="datetime-local"
@@ -2118,6 +2155,9 @@ export default function TareasPage() {
           // Log debug information when opening task dialog
           console.log('🔍 TASK DIALOG OPENED FOR:', selectedTask);
           
+          // NOTA: Código de demo/debug deshabilitado para comportamiento correcto
+          // Solo deben aparecer entregas reales de estudiantes
+          /*
           // Forzar la creación de una entrega falsa para María si no existe
           if (selectedTask) {
             const mariaExists = comments.some(c => 
@@ -2144,6 +2184,7 @@ export default function TareasPage() {
               loadComments();
             }
           }
+          */
           if (selectedTask) {
             console.log(`🔍 Opening task dialog for "${selectedTask.title}":`, {
               taskId: selectedTask.id,
@@ -2297,6 +2338,9 @@ export default function TareasPage() {
                                 let submission = getStudentSubmission(selectedTask.id, student.username);
                                 let studentStatus = getStudentTaskStatus(selectedTask.id, student.username);
                                 
+                                // NOTA: Parches temporales deshabilitados para comportamiento correcto
+                                // El botón "Revisar" solo debe aparecer cuando hay entrega real
+                                /*
                                 // PARCHE TEMPORAL: Si es Felipe y no encontramos submission, usar método especial
                                 if (!submission && student.displayName === 'Felipe Estudiante') {
                                   console.log('🚨 Using Felipe special check');
@@ -2330,6 +2374,7 @@ export default function TareasPage() {
                                     console.log('❌ No Maria submission found using special function');
                                   }
                                 }
+                                */
                                 
                                 const hasSubmission = submission !== undefined;
                                 
@@ -2384,10 +2429,8 @@ export default function TareasPage() {
                                     </td>
                                     <td className="py-2 px-3">
                                       <div className="flex space-x-2">
-                                        {/* Unificación de los botones Revisar/Editar en uno solo que cambia según el estado */}
-                                        {((hasSubmission && (studentStatus === 'delivered' || studentStatus === 'reviewed')) || 
-                                         student.displayName.toLowerCase().includes('felipe') ||
-                                         (!hasSubmission && student.displayName.toLowerCase().includes('maria'))) ? (
+                                        {/* Solo mostrar botón Revisar/Editar cuando el estudiante ha hecho una entrega */}
+                                        {hasSubmission && (studentStatus === 'delivered' || studentStatus === 'reviewed') ? (
                                           <Button 
                                             size="sm" 
                                             className="h-7 bg-orange-500 hover:bg-orange-600 text-white"
@@ -2527,7 +2570,7 @@ export default function TareasPage() {
                               {/* Fecha */}
                               <span className="text-xs text-muted-foreground ml-2 md:ml-4">{formatDateOneLine(comment.timestamp)}</span>
                               {/* Porcentaje */}
-                              {((user?.role === 'teacher') || (user?.role === 'student' && comment.studentUsername === user.username)) && typeof comment.grade === 'number' && (
+                              {((user?.role === 'teacher') || (user?.role === 'student' && comment.studentId === user.id)) && typeof comment.grade === 'number' && (
                                 <Badge className={comment.grade >= 70 ? 'bg-green-100 text-green-700 font-bold px-2 py-1 text-xs ml-2 md:ml-4' : 'bg-red-100 text-red-700 font-bold px-2 py-1 text-xs ml-2 md:ml-4'}>
                                   {comment.grade}%
                                 </Badge>
@@ -2535,7 +2578,7 @@ export default function TareasPage() {
                             </div>
                             {/* Botón eliminar o badge calificado alineado derecha */}
                             <div className="flex items-center gap-2 md:ml-auto">
-                              {user?.role === 'student' && comment.studentUsername === user.username && !comment.grade && !comment.reviewedAt && (
+                              {user?.role === 'student' && comment.studentId === user.id && !comment.grade && !comment.reviewedAt && (
                                 <Button variant="destructive" size="sm" onClick={() => handleDeleteSubmission(comment.id)}>
                                   <Trash2 className="w-4 h-4 mr-1" /> {translate('delete')}
                                 </Button>
@@ -2715,7 +2758,7 @@ export default function TareasPage() {
           
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">{translate('taskTitle')} *</Label>
+              <Label htmlFor="title" className="text-right">{translate('taskTitle')} <span className="text-red-500">*</span></Label>
               <Input
                 id="title"
                 value={formData.title}
@@ -2726,7 +2769,7 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="description" className="text-right pt-2">{translate('taskDescription')} *</Label>
+              <Label htmlFor="description" className="text-right pt-2">{translate('taskDescription')} <span className="text-red-500">*</span></Label>
               <Textarea
                 id="description"
                 value={formData.description}
@@ -2738,7 +2781,7 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="course" className="text-right">{translate('taskCourse')} *</Label>
+              <Label htmlFor="course" className="text-right">{translate('taskCourse')} <span className="text-red-500">*</span></Label>
               <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
                 <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue placeholder={translate('selectCourse')} />
@@ -2752,8 +2795,8 @@ export default function TareasPage() {
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="subject" className="text-right">{translate('taskSubject')}</Label>
-              <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))}>
+              <Label htmlFor="subject" className="text-right">{translate('taskSubject')} <span className="text-red-500">*</span></Label>
+              <Select value={formData.subject} onValueChange={(value) => setFormData(prev => ({ ...prev, subject: value }))} required>
                 <SelectTrigger className="select-orange-hover-trigger col-span-3">
                   <SelectValue placeholder={translate('selectSubject')} />
                 </SelectTrigger>
@@ -2968,7 +3011,7 @@ export default function TareasPage() {
                 <h4 className="font-medium mb-2 text-green-800 dark:text-green-200">Información del Estudiante</h4>
                 <div className="space-y-2 text-sm">
                   <p><strong>Estudiante:</strong> {submissionToGrade.studentName}</p>
-                  <p><strong>Usuario:</strong> {submissionToGrade.studentUsername}</p>
+                  <p><strong>Usuario:</strong> {submissionToGrade.studentName}</p>
                   <p><strong>Fecha de entrega:</strong> {formatDateOneLine(submissionToGrade.timestamp)}</p>
                 </div>
               </div>

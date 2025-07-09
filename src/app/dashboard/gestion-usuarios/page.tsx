@@ -232,19 +232,10 @@ export default function GestionUsuariosPage() {
 
       setUsers(finalUsers);
       if (usersModifiedInitially || usersDataUpdatedForMigration) {
-        // Clean up duplicates before saving
-        const cleanedUsers = cleanupDuplicateUsers(finalUsers);
-        setUsers(cleanedUsers);
-        localStorage.setItem('smart-student-users', JSON.stringify(cleanedUsers));
+        setUsers(finalUsers);
+        localStorage.setItem('smart-student-users', JSON.stringify(finalUsers));
       } else {
-        // Still clean duplicates even if no migration was needed
-        const cleanedUsers = cleanupDuplicateUsers(finalUsers);
-        if (cleanedUsers.length !== finalUsers.length) {
-          setUsers(cleanedUsers);
-          localStorage.setItem('smart-student-users', JSON.stringify(cleanedUsers));
-        } else {
-          setUsers(finalUsers);
-        }
+        setUsers(finalUsers);
       }
     };
 
@@ -414,15 +405,8 @@ export default function GestionUsuariosPage() {
 
   // Función para sincronizar todos los cambios a nivel global
   const syncAllChanges = () => {
-    // Primero limpiar duplicados
-    const cleanedUsers = cleanupDuplicateUsers(users);
-    if (cleanedUsers.length !== users.length) {
-      setUsers(cleanedUsers);
-      console.log(`🧹 Limpieza: Removidos ${users.length - cleanedUsers.length} usuarios duplicados`);
-    }
-    
     // Guardar usuarios actualizados en localStorage
-    localStorage.setItem('smart-student-users', JSON.stringify(cleanedUsers));
+    localStorage.setItem('smart-student-users', JSON.stringify(users));
     
     // Actualizar el contexto de autenticación si el usuario actual está logueado
     if (user) {
@@ -444,12 +428,9 @@ export default function GestionUsuariosPage() {
       // Otras sincronizaciones específicas
       ensureSpecialCases();
       
-      const duplicatesRemoved = users.length - cleanedUsers.length;
-      const duplicateMessage = duplicatesRemoved > 0 ? ` Duplicados eliminados: ${duplicatesRemoved}.` : '';
-      
       toast({
         title: "Cambios guardados",
-        description: `¡Perfecto! Los cambios han sido guardados y aplicados correctamente en todo el sistema.${duplicateMessage}`,
+        description: `¡Perfecto! Los cambios han sido guardados y aplicados correctamente en todo el sistema.`,
       });
     } catch (error) {
       console.error('Error al sincronizar los cambios:', error);
@@ -857,22 +838,6 @@ export default function GestionUsuariosPage() {
   }, [users]);
 
   // Function to clean up duplicate users
-  const cleanupDuplicateUsers = (usersList: ExtendedUser[]): ExtendedUser[] => {
-    const seenUsernames = new Set<string>();
-    const uniqueUsers: ExtendedUser[] = [];
-    
-    usersList.forEach(user => {
-      if (!seenUsernames.has(user.username)) {
-        seenUsernames.add(user.username);
-        uniqueUsers.push(user);
-      } else {
-        console.log(`🧹 Removiendo usuario duplicado: ${user.username} (ID: ${user.id})`);
-      }
-    });
-    
-    return uniqueUsers;
-  };
-
   return (
     <div className="space-y-6">
       {/* Mensaje de advertencia sobre cambios no guardados */}
@@ -903,23 +868,85 @@ export default function GestionUsuariosPage() {
             variant="outline"
             className="text-red-600 hover:text-red-700 border-red-200"
             onClick={() => {
-              const originalCount = users.length;
-              const cleanedUsers = cleanupDuplicateUsers(users);
-              setUsers(cleanedUsers);
-              localStorage.setItem('smart-student-users', JSON.stringify(cleanedUsers));
+              const confirmed = window.confirm(
+                '¿Estás seguro de que quieres hacer un RESET COMPLETO?\n\n' +
+                'Esta acción eliminará:\n' +
+                '• Todas las tareas creadas por profesores\n' +
+                '• Todos los comentarios y entregas\n' +
+                '• Todas las notificaciones\n' +
+                '• Todas las evaluaciones\n\n' +
+                'Esta acción NO SE PUEDE DESHACER.'
+              );
               
-              const removedCount = originalCount - cleanedUsers.length;
-              toast({
-                title: "Limpieza completada",
-                description: removedCount > 0 ? `Se eliminaron ${removedCount} usuarios duplicados.` : "No se encontraron duplicados.",
-              });
-              
-              if (user) {
-                refreshUser();
+              if (confirmed) {
+                const secondConfirm = window.prompt(
+                  'Para confirmar, escribe exactamente: RESET COMPLETO'
+                );
+                
+                if (secondConfirm === 'RESET COMPLETO') {
+                  try {
+                    // Lista de claves a eliminar
+                    const keysToRemove = [
+                      'smart-student-tasks',
+                      'smart-student-task-comments',
+                      'smart-student-notifications',
+                      'smart-student-evaluations',
+                      'smart-student-task-assignments',
+                      'smart-student-submissions',
+                      'smart-student-grades',
+                      'smart-student-teacher-feedback',
+                      'smart-student-task-notifications',
+                      'notification-counts',
+                      'task-notification-counts'
+                    ];
+                    
+                    // Eliminar datos
+                    keysToRemove.forEach(key => {
+                      localStorage.removeItem(key);
+                    });
+                    
+                    // Reinicializar con arrays vacíos
+                    localStorage.setItem('smart-student-tasks', '[]');
+                    localStorage.setItem('smart-student-task-comments', '[]');
+                    localStorage.setItem('smart-student-notifications', '[]');
+                    localStorage.setItem('smart-student-evaluations', '[]');
+                    
+                    // Disparar eventos para actualizar la UI
+                    window.dispatchEvent(new Event('storage'));
+                    window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+                    window.dispatchEvent(new CustomEvent('notificationSyncCompleted'));
+                    window.dispatchEvent(new CustomEvent('commentsUpdated'));
+                    document.dispatchEvent(new Event('commentsUpdated'));
+                    document.dispatchEvent(new CustomEvent('notificationsCleared'));
+                    
+                    toast({
+                      title: "Reset Completo Exitoso",
+                      description: "Todas las tareas, comentarios, notificaciones y evaluaciones han sido eliminados. El sistema está ahora completamente limpio.",
+                    });
+                    
+                    // Recargar página después de 2 segundos
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 2000);
+                    
+                  } catch (error) {
+                    toast({
+                      title: "Error durante el reset",
+                      description: "Hubo un problema durante el reset completo.",
+                      variant: "destructive"
+                    });
+                  }
+                } else {
+                  toast({
+                    title: "Reset cancelado",
+                    description: "Confirmación incorrecta. Operación cancelada.",
+                    variant: "destructive"
+                  });
+                }
               }
             }}
           >
-            🧹 Limpiar Duplicados
+            🗑️ Reset Completo
           </Button>
           <Button 
             className={`${hasUnsavedChanges ? 'bg-amber-600 hover:bg-amber-700 animate-pulse' : 'bg-teal-600 hover:bg-teal-700'}`}

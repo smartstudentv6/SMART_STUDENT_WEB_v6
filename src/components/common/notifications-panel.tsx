@@ -101,6 +101,80 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     return firstLine && secondLine ? [firstLine, secondLine] : [text];
   };
 
+  // 🔧 NUEVA: Función para validar si una tarea existe
+  const validateTaskExists = (taskId: string): boolean => {
+    try {
+      const storedTasks = localStorage.getItem('smart-student-tasks');
+      if (!storedTasks) return false;
+      
+      const tasks: Task[] = JSON.parse(storedTasks);
+      const taskExists = tasks.some(task => task.id === taskId);
+      
+      if (!taskExists) {
+        console.warn(`[NotificationsPanel] Task ${taskId} not found in localStorage`);
+      }
+      
+      return taskExists;
+    } catch (error) {
+      console.error('Error validating task existence:', error);
+      return false;
+    }
+  };
+
+  // 🔧 NUEVA: Función para crear enlaces seguros a tareas
+  const createSafeTaskLink = (taskId: string, additionalParams: string = '', linkText: string = 'Ver tarea'): JSX.Element => {
+    const taskExists = validateTaskExists(taskId);
+    
+    if (!taskExists) {
+      return (
+        <button 
+          className="inline-block mt-2 text-xs text-gray-400 cursor-not-allowed"
+          disabled
+          title="Esta tarea ya no existe"
+        >
+          {linkText} (No disponible)
+        </button>
+      );
+    }
+    
+    const href = `/dashboard/tareas?taskId=${taskId}${additionalParams}&highlight=true`;
+    return (
+      <Link 
+        href={href}
+        className="inline-block mt-2 text-xs text-primary hover:underline"
+      >
+        {linkText}
+      </Link>
+    );
+  };
+
+  // 🔧 NUEVA: Función para crear enlaces seguros a comentarios
+  const createSafeCommentLink = (taskId: string, commentId: string, linkText: string = 'Ver comentario'): JSX.Element => {
+    const taskExists = validateTaskExists(taskId);
+    
+    if (!taskExists) {
+      return (
+        <button 
+          className="inline-block mt-2 text-xs text-gray-400 cursor-not-allowed"
+          disabled
+          title="La tarea asociada a este comentario ya no existe"
+        >
+          {linkText} (No disponible)
+        </button>
+      );
+    }
+    
+    const href = `/dashboard/tareas?taskId=${taskId}&commentId=${commentId}&highlight=true`;
+    return (
+      <Link 
+        href={href}
+        className="inline-block mt-2 text-xs text-primary hover:underline"
+      >
+        {linkText}
+      </Link>
+    );
+  };
+
   // Use the count provided by the parent component instead of calculating our own
   useEffect(() => {
     setCount(propCount);
@@ -139,6 +213,29 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         setPendingTasks([]);
       }
     }
+    
+    // Listener para sincronización automática de notificaciones
+    const handleNotificationSync = () => {
+      if (user) {
+        console.log('[NotificationsPanel] Notification sync event detected, reloading data...');
+        
+        // Recargar datos después de sincronización
+        setTimeout(() => {
+          if (user.role === 'student') {
+            loadUnreadComments();
+            loadPendingTasks();
+            loadTaskNotifications();
+          } else if (user.role === 'teacher') {
+            loadStudentSubmissions();
+            loadTaskNotifications();
+            loadPendingGrading();
+          }
+        }, 1000); // Esperar 1 segundo para que la sincronización complete
+      }
+    };
+    
+    // Agregar listener para eventos de sincronización
+    window.addEventListener('notificationSyncCompleted', handleNotificationSync);
     
     // Listener for storage events to update in real-time
     const handleStorageChange = (e: StorageEvent) => {
@@ -190,6 +287,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('commentsUpdated', handleCommentsUpdated);
       window.removeEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
+      window.removeEventListener('notificationSyncCompleted', handleNotificationSync);
     };
   }, [user, open]); // Reload data when the panel is opened or user changes
 
@@ -370,9 +468,17 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         user.username,
         'teacher'
       );
-      const pending = notifications.filter(n => n.type === 'pending_grading');
+      
+      // Filtrar solo notificaciones de pending_grading que NO sean del sistema
+      // Las notificaciones del sistema se manejan en taskNotifications
+      const pending = notifications.filter(n => 
+        n.type === 'pending_grading' && n.fromUsername !== 'system'
+      );
+      
+      console.log(`[NotificationsPanel] loadPendingGrading: Found ${pending.length} pending grading notifications (excluding system)`);
       setPendingGrading(pending);
     } catch (error) {
+      console.error('Error loading pending grading:', error);
       setPendingGrading([]);
     }
   };
@@ -381,10 +487,17 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     if (!user) return;
     
     try {
+      console.log(`[NotificationsPanel] Loading task notifications for user: ${user.username} (role: ${user.role})`);
+      
       const notifications = TaskNotificationManager.getUnreadNotificationsForUser(
         user.username, 
         user.role as 'student' | 'teacher'
       );
+      
+      console.log(`[NotificationsPanel] Raw notifications count: ${notifications.length}`);
+      notifications.forEach((n, index) => {
+        console.log(`[NotificationsPanel] ${index + 1}. Type: ${n.type}, TaskId: ${n.taskId}, From: ${n.fromUsername}, Target: ${n.targetUsernames.join(',')}, ReadBy: ${n.readBy.join(',')}`);
+      });
       
       // ✅ MEJORA: Filtrar mejor las notificaciones de evaluaciones completadas
       if (user.role === 'student') {
@@ -408,6 +521,24 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       } else if (user.role === 'teacher') {
         // Para profesores, separar notificaciones de evaluaciones y tareas
         setTaskNotifications(notifications);
+        
+        console.log(`[NotificationsPanel] Teacher ${user.username} - all notifications:`, notifications.length);
+        
+        // Debug para tareas pendientes del sistema
+        const systemPendingTasks = notifications.filter(n => 
+          n.type === 'pending_grading' && 
+          n.fromUsername === 'system' &&
+          n.taskType === 'assignment'
+        );
+        console.log(`[NotificationsPanel] ${user.username} system pending tasks:`, systemPendingTasks.length);
+        
+        // Debug para evaluaciones pendientes del sistema
+        const systemPendingEvaluations = notifications.filter(n => 
+          n.type === 'pending_grading' && 
+          n.fromUsername === 'system' &&
+          n.taskType === 'evaluation'
+        );
+        console.log(`[NotificationsPanel] ${user.username} system pending evaluations:`, systemPendingEvaluations.length);
         
         // Debug para evaluaciones pendientes
         const evaluationNotifications = notifications.filter(n => 
@@ -766,12 +897,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {translate('duePrefix')} {formatDate(task.dueDate)}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${task.id}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
-                                  >
-                                    Ver Evaluación
-                                  </Link>
+                                  {createSafeTaskLink(task.id, '', 'Ver Evaluación')}
                                 </div>
                               </div>
                             </div>
@@ -802,12 +928,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs font-medium mt-1">
                                     {notification.course} • {notification.subject}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${notification.taskId}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
-                                  >
-                                    Ver Evaluación
-                                  </Link>
+                                  {createSafeTaskLink(notification.taskId, '', 'Ver Evaluación')}
                                 </div>
                               </div>
                             </div>
@@ -851,12 +972,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {translate('duePrefix')} {formatDate(task.dueDate)}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${task.id}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
-                                  >
-                                    {translate('viewTask')}
-                                  </Link>
+                                  {createSafeTaskLink(task.id, '', translate('viewTask'))}
                                 </div>
                               </div>
                             </div>
@@ -887,12 +1003,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs font-medium mt-1">
                                     {notification.course} • {notification.subject}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${notification.taskId}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
-                                  >
-                                    {translate('viewTask')}
-                                  </Link>
+                                  {createSafeTaskLink(notification.taskId, '', translate('viewTask'))}
                                 </div>
                               </div>
                             </div>
@@ -930,12 +1041,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs font-medium mt-1">
                                     {comment.task?.title}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}&highlight=true`} 
-                                    className="inline-block mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                  >
-                                    {translate('viewComment')}
-                                  </Link>
+                                  {createSafeCommentLink(comment.taskId, comment.id, translate('viewComment'))}
                                 </div>
                               </div>
                             </div>
@@ -998,12 +1104,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs font-medium mt-1">
                                     {notification.course} • {notification.subject}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${notification.taskId}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-primary hover:underline"
-                                  >
-                                    Ver {notification.type === 'grade_received' ? 'Calificación' : 'Comentario'}
-                                  </Link>
+                                  {createSafeTaskLink(notification.taskId, '', `Ver ${notification.type === 'grade_received' ? 'Calificación' : 'Comentario'}`)}
                                 </div>
                               </div>
                             </div>
@@ -1026,13 +1127,61 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                   ) : (
                     <div className="divide-y divide-border">
                       {/* Sección de evaluaciones pendientes de calificar - PRIMERO */}
-                      {pendingGrading.filter(notif => notif.taskType === 'evaluation').length > 0 && (
+                      {(pendingGrading.filter(notif => notif.taskType === 'evaluation').length > 0 ||
+                        taskNotifications.filter(notif => 
+                          notif.type === 'pending_grading' && 
+                          notif.fromUsername === 'system' &&
+                          notif.taskType === 'evaluation'
+                        ).length > 0) && (
                         <>
                           <div className="px-4 py-2 bg-purple-100 dark:bg-purple-900/10 border-l-4 border-gray-200 dark:border-gray-700">
                             <h3 className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                              {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} ({pendingGrading.filter(notif => notif.taskType === 'evaluation').length})
+                              {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} ({
+                                pendingGrading.filter(notif => notif.taskType === 'evaluation').length +
+                                taskNotifications.filter(notif => 
+                                  notif.type === 'pending_grading' && 
+                                  notif.fromUsername === 'system' &&
+                                  notif.taskType === 'evaluation'
+                                ).length
+                              })
                             </h3>
                           </div>
+                          
+                          {/* Evaluaciones pendientes del sistema (recién creadas) */}
+                          {taskNotifications
+                            .filter(notif => 
+                              notif.type === 'pending_grading' && 
+                              notif.fromUsername === 'system' &&
+                              notif.taskType === 'evaluation'
+                            )
+                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                            .map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
+                                  <Clock className="h-4 w-4 text-purple-600 dark:text-purple-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.taskTitle}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(notif.subject).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
+                                  </p>
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewEvaluation'))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Evaluaciones pendientes de calificar (entregas de estudiantes) */}
                           {pendingGrading
                             .filter(notif => notif.taskType === 'evaluation')
                             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
@@ -1056,18 +1205,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {translate('evaluation') || 'Evaluación'}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${notif.taskId}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
-                                    onClick={() => {
-                                      if (user) {
-                                        // Marcar la notificación como leída cuando se hace clic
-                                        TaskNotificationManager.markAsReadByUser(notif.id, user.username);
-                                      }
-                                    }}
-                                  >
-                                    {translate('reviewEvaluation') || 'Revisar Evaluación'}
-                                  </Link>
+                                  {createSafeTaskLink(notif.taskId, '', translate('reviewEvaluation'))}
                                 </div>
                               </div>
                             </div>
@@ -1111,18 +1249,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(notif.timestamp)}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${notif.taskId}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-purple-500 dark:text-purple-400 hover:underline"
-                                    onClick={() => {
-                                      if (user) {
-                                        // Marcar la notificación como leída cuando se hace clic
-                                        TaskNotificationManager.markAsReadByUser(notif.id, user.username);
-                                      }
-                                    }}
-                                  >
-                                    {translate('viewResults') || 'Ver Resultados'}
-                                  </Link>
+                                  {createSafeTaskLink(notif.taskId, '', 'Ver Resultados')}
                                 </div>
                               </div>
                             </div>
@@ -1131,13 +1258,61 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       )}
 
                       {/* Sección de tareas pendientes de calificar */}
-                      {pendingGrading.filter(notif => notif.taskType === 'assignment').length > 0 && (
+                      {(pendingGrading.filter(notif => notif.taskType === 'assignment').length > 0 || 
+                        taskNotifications.filter(notif => 
+                          notif.type === 'pending_grading' && 
+                          notif.fromUsername === 'system' &&
+                          notif.taskType === 'assignment'
+                        ).length > 0) && (
                         <>
                           <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
                             <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                              {translate('pendingTasks') || 'Tareas Pendientes'} ({pendingGrading.filter(notif => notif.taskType === 'assignment').length})
+                              {translate('pendingTasks') || 'Tareas Pendientes'} ({
+                                pendingGrading.filter(notif => notif.taskType === 'assignment').length +
+                                taskNotifications.filter(notif => 
+                                  notif.type === 'pending_grading' && 
+                                  notif.fromUsername === 'system' &&
+                                  notif.taskType === 'assignment'
+                                ).length
+                              })
                             </h3>
                           </div>
+                          
+                          {/* Tareas pendientes del sistema (recién creadas) */}
+                          {taskNotifications
+                            .filter(notif => 
+                              notif.type === 'pending_grading' && 
+                              notif.fromUsername === 'system' &&
+                              notif.taskType === 'assignment'
+                            )
+                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                            .map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
+                                  <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.taskTitle}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(notif.subject).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
+                                  </p>
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Tareas pendientes de calificar (entregas de estudiantes) */}
                           {pendingGrading
                             .filter(notif => notif.taskType === 'assignment')
                             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
@@ -1161,18 +1336,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {translate('task') || 'Tarea'}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${notif.taskId}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
-                                    onClick={() => {
-                                      if (user) {
-                                        // Marcar la notificación como leída cuando se hace clic
-                                        TaskNotificationManager.markAsReadByUser(notif.id, user.username);
-                                      }
-                                    }}
-                                  >
-                                    {translate('viewTask') || 'Ver Tarea'}
-                                  </Link>
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
                                 </div>
                               </div>
                             </div>
@@ -1211,12 +1375,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(submission.timestamp)}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${submission.taskId}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-orange-600 dark:text-orange-400 hover:underline"
-                                  >
-                                    {translate('reviewTask') || 'Revisar Tarea'}
-                                  </Link>
+                                  {createSafeTaskLink(submission.taskId, '', translate('reviewTask'))}
                                 </div>
                               </div>
                             </div>
@@ -1258,18 +1417,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(comment.timestamp)}
                                   </p>
-                                  <Link 
-                                    href={`/dashboard/tareas?taskId=${comment.taskId}&commentId=${comment.id}&highlight=true`}
-                                    className="inline-block mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                                    onClick={() => {
-                                      if (user) {
-                                        // Marcar el comentario como leído cuando se hace clic
-                                        TaskNotificationManager.markCommentsAsReadForTask(comment.taskId, user.username);
-                                      }
-                                    }}
-                                  >
-                                    {translate('viewComment') || 'Ver Comentario'}
-                                  </Link>
+                                  {createSafeCommentLink(comment.taskId, comment.id, translate('viewComment'))}
                                 </div>
                               </div>
                             </div>

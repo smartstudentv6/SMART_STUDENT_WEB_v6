@@ -10,12 +10,30 @@ import { Badge } from '@/components/ui/badge';
 import { Settings, Database, Users, BookOpen, Shield, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UniqueCodeGenerator } from '@/lib/unique-codes';
+import { useNotificationSync } from '@/hooks/useNotificationSync';
 
 export default function AdminPage() {
   const { user, isAdmin } = useAuth();
   const { translate } = useLanguage();
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Sistema de sincronización de notificaciones
+  const {
+    isEnabled: syncEnabled,
+    lastSyncTime,
+    stats: syncStats,
+    healthScore,
+    isLoading: syncLoading,
+    error: syncError,
+    enable: enableSync,
+    disable: disableSync,
+    toggle: toggleSync,
+    forceSync,
+    generateReport,
+    checkConsistency,
+    clearStats
+  } = useNotificationSync();
   
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState<'idle' | 'running' | 'completed' | 'error'>('idle');
@@ -116,6 +134,135 @@ export default function AdminPage() {
     };
   };
 
+  // Función para forzar sincronización de notificaciones
+  const handleForceSync = async () => {
+    try {
+      await forceSync();
+      toast({
+        title: "Sincronización completada",
+        description: "Las notificaciones han sido sincronizadas exitosamente.",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error en sincronización",
+        description: "Hubo un problema al sincronizar las notificaciones.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Función para generar reporte de sincronización
+  const handleGenerateReport = () => {
+    try {
+      const report = generateReport();
+      console.log('=== REPORTE DE SINCRONIZACIÓN ===');
+      console.log('Timestamp:', report.timestamp);
+      console.log('Habilitado:', report.isEnabled);
+      console.log('Última sincronización:', report.lastSyncTime);
+      console.log('Estadísticas:', report.stats);
+      console.log('Datos:', report.data);
+      console.log('Problemas encontrados:', report.issues);
+      console.log('Puntuación de salud:', report.healthScore);
+      console.log('===============================');
+      
+      toast({
+        title: "Reporte generado",
+        description: "Revisar la consola para ver los detalles del reporte.",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error al generar reporte",
+        description: "No se pudo generar el reporte de sincronización.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Función para verificar consistencia
+  const handleCheckConsistency = () => {
+    try {
+      const consistency = checkConsistency();
+      console.log('=== VERIFICACIÓN DE CONSISTENCIA ===');
+      console.log('Resultado:', consistency);
+      console.log('===================================');
+      
+      toast({
+        title: "Verificación completada",
+        description: "Revisar la consola para ver los resultados.",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error en verificación",
+        description: "No se pudo verificar la consistencia.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Función para reparación inmediata de notificaciones fantasma
+  const handleEmergencyRepair = () => {
+    try {
+      // Cargar datos actuales
+      const notifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
+      const tasks = JSON.parse(localStorage.getItem('smart-student-tasks') || '[]');
+      const comments = JSON.parse(localStorage.getItem('smart-student-task-comments') || '[]');
+      
+      let ghostsRemoved = 0;
+      let orphansRemoved = 0;
+      let validNotifications = [];
+      let validComments = [];
+      
+      // Eliminar notificaciones fantasma
+      for (const notification of notifications) {
+        const taskExists = tasks.some(task => task.id === notification.taskId);
+        if (!taskExists) {
+          ghostsRemoved++;
+        } else {
+          validNotifications.push(notification);
+        }
+      }
+      
+      // Eliminar comentarios huérfanos
+      for (const comment of comments) {
+        const taskExists = tasks.some(task => task.id === comment.taskId);
+        if (!taskExists) {
+          orphansRemoved++;
+        } else {
+          validComments.push(comment);
+        }
+      }
+      
+      // Guardar datos limpios
+      localStorage.setItem('smart-student-task-notifications', JSON.stringify(validNotifications));
+      localStorage.setItem('smart-student-task-comments', JSON.stringify(validComments));
+      
+      // Disparar eventos para actualizar UI
+      window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+      window.dispatchEvent(new CustomEvent('commentsUpdated'));
+      
+      toast({
+        title: "🔧 Reparación Completada",
+        description: `Eliminadas ${ghostsRemoved} notificaciones fantasma y ${orphansRemoved} comentarios huérfanos.`,
+        variant: "default"
+      });
+      
+      // Recargar página después de 2 segundos
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+      
+    } catch (error) {
+      toast({
+        title: "Error en reparación",
+        description: "Hubo un problema durante la reparación de emergencia.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const diagnoseCourseAccess = () => {
     console.log('=== DIAGNÓSTICO DE ACCESO A CURSOS ===');
     console.log('Usuario actual:', user);
@@ -158,6 +305,43 @@ export default function AdminPage() {
           </p>
         </div>
         <div className="flex space-x-2">
+          <Button 
+            onClick={handleForceSync}
+            disabled={syncLoading}
+            variant="outline"
+            className="bg-green-500 hover:bg-green-600 text-white"
+          >
+            {syncLoading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            Sincronizar Notificaciones
+          </Button>
+          <Button 
+            onClick={toggleSync}
+            variant="outline"
+            className={`${syncEnabled ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white`}
+          >
+            {syncEnabled ? 'Desactivar' : 'Activar'} Auto-Sync
+          </Button>
+          <Button 
+            onClick={handleGenerateReport}
+            variant="outline"
+            className="bg-purple-500 hover:bg-purple-600 text-white"
+          >
+            📊 Generar Reporte
+          </Button>
+          <Button 
+            onClick={handleEmergencyRepair}
+            variant="outline"
+            className="bg-red-500 hover:bg-red-600 text-white"
+          >
+            🔧 Reparación Inmediata
+          </Button>
+          <Button 
+            onClick={() => window.open('/reset-all-tasks.html', '_blank')}
+            variant="outline"
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            🗑️ Reset Completo
+          </Button>
           <Button 
             onClick={diagnoseCourseAccess}
             variant="outline"
@@ -213,25 +397,53 @@ export default function AdminPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center">
-              <Database className="w-4 h-4 mr-2" />
-              Integridad
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Sincronización
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.usersWithCodes + stats.tasksWithCodes}
+            <div className="text-2xl font-bold text-center">
+              {Math.round(healthScore)}%
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Entidades con códigos únicos
+            <div className="text-xs text-muted-foreground mt-1 text-center">
+              Salud del sistema
             </div>
-            <div className="flex items-center mt-2">
-              <Badge variant={
-                (stats.usersWithCodes === stats.totalUsers && stats.tasksWithCodes === stats.totalTasks) 
-                  ? "default" : "destructive"
-              }>
-                {(stats.usersWithCodes === stats.totalUsers && stats.tasksWithCodes === stats.totalTasks) 
-                  ? "✅ Completo" : "⚠️ Incompleto"}
+            <div className="flex items-center justify-center mt-2">
+              <Badge variant={syncEnabled ? "default" : "secondary"}>
+                {syncEnabled ? "Activo" : "Inactivo"}
               </Badge>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1 text-center">
+              {syncStats.ghostsRemoved} fantasmas eliminados
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center">
+              <Database className="w-4 h-4 mr-2" />
+              Estado del Sistema
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-center">
+              {syncError ? (
+                <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
+              ) : (
+                <CheckCircle className="w-8 h-8 text-green-500 mx-auto" />
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1 text-center">
+              {syncError ? "Error detectado" : "Sistema OK"}
+            </div>
+            <div className="flex items-center justify-center mt-2">
+              <Badge variant={syncError ? "destructive" : "default"}>
+                {syncStats.totalSyncs} sincronizaciones
+              </Badge>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1 text-center">
+              {lastSyncTime ? `Última: ${new Date(lastSyncTime).toLocaleTimeString()}` : "Sin sincronizar"}
             </div>
           </CardContent>
         </Card>

@@ -93,6 +93,15 @@ Para verificar que la solución funciona correctamente:
 ✅ **SOLUCIÓN COMPLETA**: Todos los errores han sido corregidos
 ✅ **SERVIDOR FUNCIONANDO**: Aplicación ejecutándose en http://localhost:9002
 ✅ **LISTO PARA PRUEBAS**: Todo preparado para verificación manual
+✅ **SUBIDO A GITHUB**: Commit `0156434` sincronizado con origin/main
+
+## Información del Commit
+- **Hash**: `0156434`
+- **Mensaje**: "feat: Mostrar nombres de cursos en lugar de códigos en módulo Tareas"
+- **Archivos modificados**: 
+  - `src/app/dashboard/tareas/page.tsx` (224 insertions, 75 deletions)
+  - `SOLUCION_NOMBRE_CURSOS_TAREAS.md` (nuevo archivo)
+- **Estado**: ✅ Sincronizado con GitHub
 
 ## Cómo Probar
 1. Ir a Módulo Profesor > Tareas
