@@ -1821,9 +1821,9 @@ export default function TareasPage() {
                                  task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                               </Badge>
                               <Badge className={getStatusColor(task.status)}>
-                                {task.status === 'pending' ? 'Pendiente' : 
-                                 task.status === 'delivered' ? 'En Revisión' :
-                                 task.status === 'submitted' ? 'En Revisión' : 'Finalizada'}
+                                {task.status === 'pending' ? translate('statusPending') : 
+                                 task.status === 'delivered' ? translate('underReview') :
+                                 task.status === 'submitted' ? translate('underReview') : translate('statusFinished')}
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
@@ -2557,31 +2557,31 @@ export default function TareasPage() {
                                 
                                 return (
                                   <tr key={student.username} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                                    <td className="py-2 px-3">{student.displayName}</td>
-                                    <td className="py-2 px-3">
+                                    <td className="py-2 px-3 text-center">{student.displayName}</td>
+                                    <td className="py-2 px-3 text-center">
                                       <Badge className={
                                         studentStatus === 'pending' ? 'bg-gray-100 text-gray-800' :
                                         studentStatus === 'delivered' ? 'bg-yellow-100 text-yellow-800' :
                                         'bg-green-100 text-green-800'
                                       }>
-                                        {studentStatus === 'pending' ? 'Pendiente' : 
-                                         studentStatus === 'delivered' ? 'En Revisión' : 
-                                         'Finalizado'}
+                                        {studentStatus === 'pending' ? translate('statusPending') : 
+                                         studentStatus === 'delivered' ? translate('underReview') : 
+                                         translate('statusFinished')}
                                       </Badge>
                                     </td>
-                                    <td className="py-2 px-3">
+                                    <td className="py-2 px-3 text-center">
                                       {hasSubmission && submission && submission.grade !== undefined ? 
                                         <span className="font-medium">{submission.grade}/100</span> :
-                                        <span className="text-muted-foreground italic">{hasSubmission ? 'Sin calificar' : 'Sin entregar'}</span>
+                                        <span className="text-muted-foreground italic">{hasSubmission ? translate('pendingGrade') : translate('noSubmissionYet')}</span>
                                       }
                                     </td>
-                                    <td className="py-2 px-3 date-cell">
+                                    <td className="py-2 px-3 text-center date-cell">
                                       <span className="single-line-date font-medium">
                                         {hasSubmission && submission ? formatDateOneLine(submission.timestamp) : '-'}
                                       </span>
                                     </td>
-                                    <td className="py-2 px-3">
-                                      <div className="flex space-x-2">
+                                    <td className="py-2 px-3 text-center">
+                                      <div className="flex justify-center space-x-2">
                                         {/* Solo mostrar botón Revisar/Editar cuando el estudiante ha hecho una entrega */}
                                         {hasSubmission && (studentStatus === 'delivered' || studentStatus === 'reviewed') ? (
                                           <Button 
@@ -2589,7 +2589,7 @@ export default function TareasPage() {
                                             className="h-7 bg-orange-500 hover:bg-orange-600 text-white"
                                             onClick={() => handleReviewSubmission(student.id || student.username, selectedTask.id, true)}
                                           >
-                                            {studentStatus === 'reviewed' ? 'Editar' : 'Revisar'}
+                                            {studentStatus === 'reviewed' ? translate('editSubmission') : translate('reviewSubmission')}
                                           </Button>
                                         ) : (
                                           <span className="text-xs text-muted-foreground">{translate('noSubmission') || "Sin entrega"}</span>
@@ -3139,9 +3139,9 @@ export default function TareasPage() {
       <Dialog open={showGradeDialog} onOpenChange={handleCloseGradeDialog}>
         <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Calificar Entrega</DialogTitle>
+            <DialogTitle>{translate('gradeSubmissionTitle')}</DialogTitle>
             <DialogDescription>
-              Revisar y calificar la entrega del estudiante
+              {translate('gradeSubmissionDesc')}
             </DialogDescription>
           </DialogHeader>
           
@@ -3149,23 +3149,23 @@ export default function TareasPage() {
             <div className="space-y-6">
               {/* Información de la tarea */}
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border">
-                <h4 className="font-medium mb-2 text-blue-800 dark:text-blue-200">Información de la Tarea</h4>
+                <h4 className="font-medium mb-2 text-blue-800 dark:text-blue-200">{translate('taskInformation')}</h4>
                 <div className="space-y-2 text-sm">
-                  <p><strong>Tarea:</strong> {selectedTask.title}</p>
-                  <p><strong>Descripción:</strong> {selectedTask.description}</p>
-                  <p><strong>Fecha límite:</strong> {formatDateOneLine(selectedTask.dueDate)}</p>
-                  <p><strong>Curso:</strong> {getCourseNameById(selectedTask.course)}</p>
-                  <p><strong>Materia:</strong> {selectedTask.subject}</p>
+                  <p><strong>{translate('task')}:</strong> {selectedTask.title}</p>
+                  <p><strong>{translate('taskDescription')}:</strong> {selectedTask.description}</p>
+                  <p><strong>{translate('dueDate')}:</strong> {formatDateOneLine(selectedTask.dueDate)}</p>
+                  <p><strong>{translate('tableCourse')}:</strong> {getCourseNameById(selectedTask.course)}</p>
+                  <p><strong>{translate('taskSubject')}:</strong> {selectedTask.subject}</p>
                 </div>
               </div>
 
               {/* Información del estudiante */}
               <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border">
-                <h4 className="font-medium mb-2 text-green-800 dark:text-green-200">Información del Estudiante</h4>
+                <h4 className="font-medium mb-2 text-green-800 dark:text-green-200">{translate('studentInformation')}</h4>
                 <div className="space-y-2 text-sm">
-                  <p><strong>Estudiante:</strong> {submissionToGrade.studentName}</p>
-                  <p><strong>Usuario:</strong> {submissionToGrade.studentName}</p>
-                  <p><strong>Fecha de entrega:</strong> {formatDateOneLine(submissionToGrade.timestamp)}</p>
+                  <p><strong>{translate('studentNameColumn')}:</strong> {submissionToGrade.studentName}</p>
+                  <p><strong>{translate('user')}:</strong> {submissionToGrade.studentName}</p>
+                  <p><strong>{translate('submissionDateColumn')}:</strong> {formatDateOneLine(submissionToGrade.timestamp)}</p>
                 </div>
               </div>
 
@@ -3241,7 +3241,7 @@ export default function TareasPage() {
                   {/* Campo de calificación */}
                   <div>
                     <label htmlFor="gradeInput" className="block text-sm font-medium mb-2">
-                      Calificación (0-100) <span className="text-red-500">*</span>
+                      {translate('gradeRange')} <span className="text-red-500">*</span>
                     </label>
                     <div className="flex items-center space-x-2">
                       <Input
@@ -3257,7 +3257,7 @@ export default function TareasPage() {
                       <span className="text-sm text-muted-foreground">/ 100</span>
                       {gradeForm.grade && (
                         <Badge variant="outline" className={parseInt(gradeForm.grade) >= 70 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                          {parseInt(gradeForm.grade) >= 70 ? 'Aprobado' : 'Reprobado'}
+                          {parseInt(gradeForm.grade) >= 70 ? translate('approved') : translate('failed')}
                         </Badge>
                       )}
                     </div>
@@ -3272,7 +3272,7 @@ export default function TareasPage() {
                       id="teacherComment"
                       value={gradeForm.teacherComment}
                       onChange={(e) => setGradeForm(prev => ({ ...prev, teacherComment: e.target.value }))}
-                      placeholder="Escribe aquí tu retroalimentación para el estudiante..."
+                      placeholder={translate('feedbackPlaceholder')}
                       rows={4}
                     />
                   </div>
@@ -3286,14 +3286,14 @@ export default function TareasPage() {
                   onClick={handleCloseGradeDialog}
                   className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
                 >
-                  Cancelar
+                  {translate('cancel')}
                 </Button>
                 <Button 
                   onClick={saveGrade}
                   className="bg-orange-500 hover:bg-orange-600 text-white"
                   disabled={!gradeForm.grade.trim()}
                 >
-                  Guardar Calificación
+                  {translate('saveGrade')}
                 </Button>
               </div>
             </div>
@@ -3306,9 +3306,9 @@ export default function TareasPage() {
         <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
-              <span>{currentReview.isGraded ? 'Editar' : 'Revisar'} Entrega - {currentReview.studentDisplayName}</span>
+              <span>{currentReview.isGraded ? translate('editSubmission') : translate('reviewSubmission')} - {currentReview.studentDisplayName}</span>
               <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                {currentReview.isGraded ? 'Calificada' : 'Por Calificar'}
+                {currentReview.isGraded ? translate('graded') : translate('toGrade')}
               </Badge>
             </DialogTitle>
             <DialogDescription>
@@ -3322,26 +3322,26 @@ export default function TareasPage() {
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200">
                 <h4 className="font-medium mb-3 text-blue-800 dark:text-blue-200 flex items-center">
                   <ClipboardList className="w-5 h-5 mr-2" />
-                  Información de la Tarea
+                  {translate('taskInformation')}
                 </h4>
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p><strong>Título:</strong> {selectedTask.title}</p>
-                    <p><strong>Curso:</strong> {getCourseNameById(selectedTask.course)}</p>
-                    <p><strong>Materia:</strong> {selectedTask.subject}</p>
+                    <p><strong>{translate('taskTitle')}:</strong> {selectedTask.title}</p>
+                    <p><strong>{translate('tableCourse')}:</strong> {getCourseNameById(selectedTask.course)}</p>
+                    <p><strong>{translate('taskSubject')}:</strong> {selectedTask.subject}</p>
                   </div>
                   <div>
-                    <p><strong>Fecha límite:</strong> {formatDateOneLine(selectedTask.dueDate)}</p>
-                    <div><strong>Prioridad:</strong> 
+                    <p><strong>{translate('dueDate')}:</strong> {formatDateOneLine(selectedTask.dueDate)}</p>
+                    <div><strong>{translate('priority')}:</strong> 
                       <Badge className={`ml-1 ${getPriorityColor(selectedTask.priority)}`}>
-                        {selectedTask.priority === 'high' ? 'Alta' : 
-                         selectedTask.priority === 'medium' ? 'Media' : 'Baja'}
+                        {selectedTask.priority === 'high' ? translate('high') : 
+                         selectedTask.priority === 'medium' ? translate('medium') : translate('low')}
                       </Badge>
                     </div>
                   </div>
                 </div>
                 <div className="mt-3">
-                  <p><strong>Descripción:</strong></p>
+                  <p><strong>{translate('taskDescription')}:</strong></p>
                   <p className="text-muted-foreground mt-1">{selectedTask.description}</p>
                 </div>
               </div>
@@ -3350,16 +3350,16 @@ export default function TareasPage() {
               <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200">
                 <h4 className="font-medium mb-3 text-green-800 dark:text-green-200 flex items-center">
                   <User className="w-5 h-5 mr-2" />
-                  Información del Estudiante y Entrega
+                  {translate('studentAndSubmissionInfo')}
                 </h4>
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p><strong>Nombre:</strong> {currentReview.studentDisplayName}</p>
+                    <p><strong>{translate('studentNameColumn')}:</strong> {currentReview.studentDisplayName}</p>
                     <p><strong>ID:</strong> {currentReview.studentId}</p>
-                    <p><strong>Hora de entrega:</strong> {formatDate(currentReview.submission.timestamp)}</p>
+                    <p><strong>{translate('deliveryTime')}:</strong> {formatDate(currentReview.submission.timestamp)}</p>
                   </div>
                   <div>
-                    <p><strong>Fecha completa:</strong> {new Date(currentReview.submission.timestamp).toLocaleString('es-ES', {
+                    <p><strong>{translate('fullDate')}:</strong> {new Date(currentReview.submission.timestamp).toLocaleString('es-ES', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
@@ -3368,7 +3368,7 @@ export default function TareasPage() {
                       minute: '2-digit',
                       second: '2-digit'
                     })}</p>
-                    <p><strong>Tiempo transcurrido:</strong> {(() => {
+                    <p><strong>{translate('timeElapsed')}:</strong> {(() => {
                       const now = new Date();
                       const submissionTime = new Date(currentReview.submission.timestamp);
                       const diffMs = now.getTime() - submissionTime.getTime();
@@ -3385,21 +3385,21 @@ export default function TareasPage() {
                       }
                     })()}</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <strong>Estado actual:</strong>
+                      <strong>{translate('currentStatus')}:</strong>
                       {/* Estado de la entrega del estudiante, igual que en la lista */}
                       {(() => {
                         if (!currentReview.submission) {
                           // No hay entrega: Pendiente
                           return (
                             <Badge className="bg-gray-100 text-gray-800">
-                              Pendiente
+                              {translate('statusPending')}
                             </Badge>
                           );
                         } else if (currentReview.submission && (currentReview.submission.grade === undefined || currentReview.submission.grade === null)) {
                           // Entregada pero sin nota: En Revisión (amarillo)
                           return (
                             <Badge className="bg-yellow-100 text-yellow-800 font-bold">
-                              En Revisión
+                              {translate('underReview')}
                             </Badge>
                           );
                         } else if (currentReview.submission && typeof currentReview.submission.grade === 'number') {
@@ -3407,7 +3407,7 @@ export default function TareasPage() {
                           return (
                             <>
                               <Badge className="bg-green-100 text-green-800 font-bold mr-1">
-                                Finalizado
+                                {translate('statusFinished')}
                               </Badge>
                               <Badge className={currentReview.submission.grade >= 70 ? 'bg-green-100 text-green-700 font-bold ml-2' : 'bg-red-100 text-red-700 font-bold ml-2'}>
                                 {currentReview.submission.grade}/100
@@ -3425,11 +3425,11 @@ export default function TareasPage() {
               <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border">
                 <h4 className="font-medium mb-3 flex items-center">
                   <MessageSquare className="w-5 h-5 mr-2" />
-                  Contenido de la Entrega
+                  {translate('submissionContent')}
                 </h4>
                 <div className="bg-white dark:bg-gray-800 p-4 rounded border min-h-[100px]">
                   <p className="text-sm whitespace-pre-wrap">
-                    {currentReview.submission.comment || 'Sin contenido de texto'}
+                    {currentReview.submission.comment || translate('noTextContent')}
                   </p>
                 </div>
               </div>
@@ -3439,7 +3439,7 @@ export default function TareasPage() {
                 <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200">
                   <h4 className="font-medium mb-3 flex items-center text-purple-800 dark:text-purple-200">
                     <Paperclip className="w-5 h-5 mr-2" />
-                    Archivos Adjuntos de la Entrega ({currentReview.submission.attachments.length})
+                    {translate('submissionAttachments')} ({currentReview.submission.attachments.length})
                   </h4>
                   <div className="space-y-3">
                     {currentReview.submission.attachments.map((file, index) => (
@@ -3456,7 +3456,7 @@ export default function TareasPage() {
                               Tamaño: {formatFileSize(file.size)} • Subido: {formatDate(file.uploadedAt)}
                             </p>
                             <p className="text-xs text-blue-600 dark:text-blue-400">
-                              Archivo #{index + 1} de {currentReview.submission.attachments.length}
+                              {translate('fileNumber', { number: index + 1, total: currentReview.submission.attachments.length })}
                             </p>
                           </div>
                         </div>
@@ -3482,12 +3482,12 @@ export default function TareasPage() {
                 <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border border-gray-200">
                   <h4 className="font-medium mb-3 flex items-center text-gray-600 dark:text-gray-400">
                     <Paperclip className="w-5 h-5 mr-2" />
-                    Archivos Adjuntos
+                    {translate('attachedFiles')}
                   </h4>
                   <div className="text-center py-6">
                     <Paperclip className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                     <p className="text-sm text-gray-500">
-                      El estudiante no adjuntó archivos con esta entrega
+                      {translate('noAttachedFiles')}
                     </p>
                   </div>
                 </div>
@@ -3497,21 +3497,21 @@ export default function TareasPage() {
               <div className="bg-orange-50 dark:bg-orange-900/20 p-6 rounded-lg border border-orange-200">
                 <h4 className="font-medium mb-4 text-orange-800 dark:text-orange-200 flex items-center">
                   <Star className="w-5 h-5 mr-2" />
-                  Calificación y Retroalimentación
+                  {translate('gradeAndFeedback')}
                 </h4>
                 
                 <div className="space-y-6">
                   {/* Resumen de la Entrega */}
                   <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border border-blue-200">
-                    <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">📋 Resumen de la Entrega</h5>
+                    <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">📋 {translate('submissionSummary')}</h5>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p><strong>Estudiante:</strong> {currentReview.studentDisplayName}</p>
-                        <p><strong>Entregado:</strong> {formatDate(currentReview.submission.timestamp)}</p>
+                        <p><strong>{translate('studentNameColumn')}:</strong> {currentReview.studentDisplayName}</p>
+                        <p><strong>{translate('submittedOn')}:</strong> {formatDate(currentReview.submission.timestamp)}</p>
                       </div>
                       <div>
-                        <p><strong>Archivos adjuntos:</strong> {currentReview.submission.attachments?.length || 0}</p>
-                        <p><strong>Comentarios:</strong> {currentReview.submission.comment ? 'Sí' : 'No'}</p>
+                        <p><strong>{translate('attachedFiles')}:</strong> {currentReview.submission.attachments?.length || 0}</p>
+                        <p><strong>{translate('comments')}:</strong> {currentReview.submission.comment ? translate('yes') : translate('no')}</p>
                       </div>
                     </div>
                   </div>
@@ -3519,7 +3519,7 @@ export default function TareasPage() {
                   {/* Campo de calificación mejorado */}
                   <div>
                     <label htmlFor="gradeInputNew" className="block text-sm font-medium mb-3">
-                      🎯 Calificación (0-100) <span className="text-red-500">*</span>
+                      🎯 {translate('gradeRange')} <span className="text-red-500">*</span>
                     </label>
                     <div className="space-y-3">
                       <div className="flex items-center space-x-4">
@@ -3543,7 +3543,7 @@ export default function TareasPage() {
                               ? 'bg-green-100 text-green-800 border-green-300 text-sm font-bold' 
                               : 'bg-red-100 text-red-800 border-red-300 text-sm font-bold'
                           }>
-                            {currentReview.grade >= 70 ? '✅ Aprobado' : '❌ Reprobado'}
+                            {currentReview.grade >= 70 ? `✅ ${translate('approved')}` : `❌ ${translate('failed')}`}
                           </Badge>
                         )}
                       </div>
@@ -3568,11 +3568,11 @@ export default function TareasPage() {
                           ></div>
                         </div>
                         <div className="flex justify-between text-xs text-gray-600 mt-1">
-                          <span>Insuficiente</span>
-                          <span>Regular</span>
-                          <span>Bueno</span>
-                          <span>Muy Bueno</span>
-                          <span>Excelente</span>
+                          <span>{translate('insufficient')}</span>
+                          <span>{translate('regular')}</span>
+                          <span>{translate('good')}</span>
+                          <span>{translate('veryGood')}</span>
+                          <span>{translate('excellent')}</span>
                         </div>
                       </div>
                     </div>
@@ -3581,7 +3581,7 @@ export default function TareasPage() {
                   {/* Campo de retroalimentación mejorado */}
                   <div>
                     <label htmlFor="feedbackInputNew" className="block text-sm font-medium mb-3">
-                      💬 Retroalimentación para el Estudiante
+                      💬 {translate('feedbackForStudent')}
                     </label>
                     <Textarea
                       id="feedbackInputNew"
@@ -3590,12 +3590,12 @@ export default function TareasPage() {
                         ...prev, 
                         feedback: e.target.value 
                       }))}
-                      placeholder="Escribe aquí tu retroalimentación para el estudiante..."
+                      placeholder={translate('feedbackPlaceholder')}
                       rows={4}
                       className="resize-none"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Este comentario será visible para el estudiante junto con su calificación.
+                      {translate('feedbackVisibleNote')}
                     </p>
                   </div>
 
@@ -3621,14 +3621,14 @@ export default function TareasPage() {
               onClick={() => setShowReviewDialog(false)}
               className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
             >
-              Cancelar
+              {translate('cancel')}
             </Button>
             <Button 
               onClick={saveReviewAndGrade}
               className="bg-orange-500 hover:bg-orange-600 text-white"
               disabled={!currentReview.grade || currentReview.grade < 0 || currentReview.grade > 100}
             >
-              {currentReview.isGraded ? 'Actualizar Calificación' : 'Guardar Calificación'}
+              {currentReview.isGraded ? translate('updateGrade') : translate('saveGrade')}
             </Button>
           </DialogFooter>
         </DialogContent>
