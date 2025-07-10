@@ -3334,8 +3334,8 @@ export default function TareasPage() {
                     <p><strong>{translate('dueDate')}:</strong> {formatDateOneLine(selectedTask.dueDate)}</p>
                     <div><strong>{translate('priority')}:</strong> 
                       <Badge className={`ml-1 ${getPriorityColor(selectedTask.priority)}`}>
-                        {selectedTask.priority === 'high' ? translate('high') : 
-                         selectedTask.priority === 'medium' ? translate('medium') : translate('low')}
+                        {selectedTask.priority === 'high' ? translate('priorityHigh') : 
+                         selectedTask.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                       </Badge>
                     </div>
                   </div>
