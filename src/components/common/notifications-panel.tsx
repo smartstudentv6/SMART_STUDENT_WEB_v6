@@ -218,6 +218,16 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     const handleNotificationSync = () => {
       if (user) {
         console.log('[NotificationsPanel] Notification sync event detected, reloading data...');
+        // Recargar notificaciones
+        if (user.role === 'teacher') {
+          loadStudentSubmissions();
+          loadTaskNotifications();
+          loadPendingGrading();
+        } else if (user.role === 'student') {
+          loadUnreadComments();
+          loadPendingTasks();
+          loadTaskNotifications();
+        }
         
         // Recargar datos después de sincronización
         setTimeout(() => {
@@ -233,10 +243,26 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         }, 1000); // Esperar 1 segundo para que la sincronización complete
       }
     };
+
+    // 🔥 NUEVO: Listener para actualizaciones de notificaciones específicas
+    const handleNotificationsUpdated = (event: CustomEvent) => {
+      console.log(`[NotificationsPanel] Notificaciones actualizadas:`, event.detail);
+      // Recargar notificaciones cuando se actualicen
+      handleNotificationSync();
+    };
     
-    // Agregar listener para eventos de sincronización
+    window.addEventListener('notificationSync', handleNotificationSync);
     window.addEventListener('notificationSyncCompleted', handleNotificationSync);
+    window.addEventListener('notificationsUpdated', handleNotificationsUpdated as EventListener);
     
+    return () => {
+      window.removeEventListener('notificationSync', handleNotificationSync);
+      window.removeEventListener('notificationSyncCompleted', handleNotificationSync);
+      window.removeEventListener('notificationsUpdated', handleNotificationsUpdated as EventListener);
+    };
+  }, [user]);
+
+  useEffect(() => {
     // Listener for storage events to update in real-time
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'password-reset-requests') {
@@ -287,7 +313,6 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('commentsUpdated', handleCommentsUpdated);
       window.removeEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
-      window.removeEventListener('notificationSyncCompleted', handleNotificationSync);
     };
   }, [user, open]); // Reload data when the panel is opened or user changes
 
@@ -926,7 +951,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     Nueva evaluación asignada por {notification.teacherName || notification.fromDisplayName}
                                   </p>
                                   <p className="text-xs font-medium mt-1">
-                                    {notification.course} • {notification.subject}
+                                    {TaskNotificationManager.getCourseNameById(notification.course)} • {notification.subject}
                                   </p>
                                   {createSafeTaskLink(notification.taskId, '', 'Ver Evaluación')}
                                 </div>
@@ -1001,7 +1026,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     Nueva tarea asignada por {notification.teacherName || notification.fromDisplayName}
                                   </p>
                                   <p className="text-xs font-medium mt-1">
-                                    {notification.course} • {notification.subject}
+                                    {TaskNotificationManager.getCourseNameById(notification.course)} • {notification.subject}
                                   </p>
                                   {createSafeTaskLink(notification.taskId, '', translate('viewTask'))}
                                 </div>
@@ -1102,7 +1127,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     }
                                   </p>
                                   <p className="text-xs font-medium mt-1">
-                                    {notification.course} • {notification.subject}
+                                    {TaskNotificationManager.getCourseNameById(notification.course)} • {notification.subject}
                                   </p>
                                   {createSafeTaskLink(notification.taskId, '', `Ver ${notification.type === 'grade_received' ? 'Calificación' : 'Comentario'}`)}
                                 </div>
@@ -1194,7 +1219,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <p className="font-medium text-sm">
-                                      {notif.fromDisplayName || `${notif.taskTitle} (${notif.course})`}
+                                      {notif.fromDisplayName || `${notif.taskTitle} (${TaskNotificationManager.getCourseNameById(notif.course)})`}
                                     </p>
                                     <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 flex flex-col items-center justify-center text-center leading-tight">
                                       {splitTextForBadge(notif.subject).map((line, index) => (
@@ -1325,7 +1350,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <p className="font-medium text-sm">
-                                      {notif.fromDisplayName || `${notif.taskTitle} (${notif.course})`}
+                                      {notif.fromDisplayName || `${notif.taskTitle} (${TaskNotificationManager.getCourseNameById(notif.course)})`}
                                     </p>
                                     <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
                                       {splitTextForBadge(notif.subject).map((line, index) => (
@@ -1335,6 +1360,50 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {translate('task') || 'Tarea'}
+                                  </p>
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      
+                      {/* Sección de tareas completadas por estudiantes - NUEVO */}
+                      {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 dark:border-green-500">
+                            <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                              {translate('tasksCompleted') || 'Tareas Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length})
+                            </h3>
+                          </div>
+                          {taskNotifications
+                            .filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment')
+                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                            .map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-green-50 dark:bg-green-700/30 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-green-700 dark:text-green-200" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.fromDisplayName || notif.fromUsername}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="text-xs border-green-200 dark:border-green-500 text-green-600 dark:text-green-400 flex flex-col items-center justify-center text-center leading-tight">
+                                        {splitTextForBadge(notif.subject).map((line, index) => (
+                                          <div key={index}>{line}</div>
+                                        ))}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {translate('studentCompletedTask') || 'Completó la tarea'}: {notif.taskTitle}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
                                   {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
                                 </div>
@@ -1370,7 +1439,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                    {translate('submittedTask')}: {submission.task?.title && submission.task?.course ? `${submission.task.title} (${submission.task.course})` : submission.task?.title || 'Tarea'}
+                                    {translate('submittedTask')}: {submission.task?.title && submission.task?.course ? `${submission.task.title} (${TaskNotificationManager.getCourseNameById(submission.task.course)})` : submission.task?.title || 'Tarea'}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(submission.timestamp)}
@@ -1412,7 +1481,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {comment.comment}
                                   </p>
                                   <p className="text-xs font-medium mt-1">
-                                    {translate('task') || 'Tarea'}: {comment.task?.title && comment.task?.course ? `${comment.task.title} (${comment.task.course})` : comment.task?.title || 'Tarea'}
+                                    {translate('task') || 'Tarea'}: {comment.task?.title && comment.task?.course ? `${comment.task.title} (${TaskNotificationManager.getCourseNameById(comment.task.course)})` : comment.task?.title || 'Tarea'}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(comment.timestamp)}

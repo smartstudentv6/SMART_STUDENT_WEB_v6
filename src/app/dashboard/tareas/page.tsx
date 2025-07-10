@@ -226,6 +226,28 @@ export default function TareasPage() {
     }
   }, [showTaskDialog, selectedTask, user]);
 
+  // Listener para actualizar el panel de estudiantes cuando hay entregas
+  useEffect(() => {
+    const handleStudentPanelUpdate = (event: CustomEvent) => {
+      console.log('🔄 Student panel update event:', event.detail);
+      // Recargar comentarios para actualizar el estado de los estudiantes
+      loadComments();
+      // Si el diálogo está abierto, forzar re-render del panel
+      if (showTaskDialog && selectedTask) {
+        setTimeout(() => {
+          console.log('🔄 Forcing panel refresh after student submission');
+          setSelectedTask({...selectedTask}); // Trigger re-render
+        }, 500);
+      }
+    };
+
+    window.addEventListener('studentPanelUpdate', handleStudentPanelUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('studentPanelUpdate', handleStudentPanelUpdate as EventListener);
+    };
+  }, [showTaskDialog, selectedTask]);
+
   const loadTasks = () => {
     const storedTasks = localStorage.getItem('smart-student-tasks');
     const usersText = localStorage.getItem('smart-student-users');
@@ -348,6 +370,17 @@ export default function TareasPage() {
     return courseId;
   };
 
+  // Function to get teacher username from teacher ID
+  const getTeacherUsernameById = (teacherId: string): string => {
+    const usersText = localStorage.getItem('smart-student-users');
+    if (usersText) {
+      const users = JSON.parse(usersText);
+      const teacher = users.find((u: any) => u.id === teacherId && u.role === 'teacher');
+      return teacher ? teacher.username : teacherId;
+    }
+    return teacherId;
+  };
+
   // Function to get all courses with their names for dropdown
   const getAvailableCoursesWithNames = () => {
     if (user?.role === 'teacher') {
@@ -380,51 +413,86 @@ export default function TareasPage() {
 
   // Get students from a specific course, ensuring they are assigned to the current teacher for that task
   const getStudentsFromCourseRelevantToTask = (courseId: string, teacherId: string | undefined) => {
-    if (!courseId) return [];
+    if (!courseId) {
+      console.log(`⚠️ getStudentsFromCourseRelevantToTask: courseId es null`);
+      return [];
+    }
+    
+    console.log(`🏫 getStudentsFromCourseRelevantToTask: courseId=${courseId}, teacherId=${teacherId}`);
+    
     const usersText = localStorage.getItem('smart-student-users');
     const allUsers: ExtendedUser[] = usersText ? JSON.parse(usersText) : [];
+    console.log(`👥 Total usuarios: ${allUsers.length}`);
 
-    const studentUsers = allUsers.filter(u =>
-      u.role === 'student' &&
-      u.activeCourses?.includes(courseId) &&
-      // If the task is assigned by a specific teacher, only show students assigned to that teacher.
-      // This assumes the `user` object (logged-in user) is the teacher viewing.
-      // Or, if teacherId is explicitly passed (e.g. task.assignedById)
-      (teacherId ? u.assignedTeacherId === teacherId : true)
-    ).map(u => ({
+    const studentUsers = allUsers.filter(u => {
+      const isStudent = u.role === 'student';
+      const isInCourse = u.activeCourses?.includes(courseId);
+      
+      // 🔧 PARCHE: Ser más flexible con la asignación de profesor
+      // Si no existe assignedTeacherId, incluir todos los estudiantes del curso
+      const isAssignedToTeacher = !teacherId || !u.assignedTeacherId || u.assignedTeacherId === teacherId;
+      
+      console.log(`👤 Usuario ${u.username}: estudiante=${isStudent}, en curso=${isInCourse}, asignado a profesor=${isAssignedToTeacher} (teacherId=${u.assignedTeacherId})`);
+      
+      return isStudent && isInCourse && isAssignedToTeacher;
+    }).map(u => ({
       id: u.id, // Include ID
       username: u.username,
       displayName: u.displayName || u.username
     }));
 
-    // console.log(`🎓 Students from course "${courseId}" for teacher "${teacherId}":`, {
-    //   studentsInCourse: studentUsers,
-    // });
+    console.log(`🎓 Students from course "${courseId}" for teacher "${teacherId}":`, {
+      studentsInCourse: studentUsers,
+      count: studentUsers.length
+    });
+    
     return studentUsers;
   };
 
   // Función para obtener los estudiantes asignados a una tarea
   const getAssignedStudentsForTask = (task: Task | null): { id: string, username: string, displayName: string }[] => {
-    if (!task || !task.id) return [];
+    if (!task || !task.id) {
+      console.log(`⚠️ getAssignedStudentsForTask: task es null o no tiene ID`);
+      return [];
+    }
+    
+    console.log(`🔍 getAssignedStudentsForTask: Procesando tarea "${task.title}"`);
+    console.log(`📋 Detalles de la tarea:`, {
+      id: task.id,
+      assignedTo: task.assignedTo,
+      course: task.course,
+      assignedById: task.assignedById,
+      assignedStudentIds: task.assignedStudentIds
+    });
+    
     const usersText = localStorage.getItem('smart-student-users');
     const allUsers: ExtendedUser[] = usersText ? JSON.parse(usersText) : [];
+    console.log(`👥 Total usuarios en sistema: ${allUsers.length}`);
 
     let students: { id: string, username: string, displayName: string }[] = [];
 
     // Si la tarea está asignada a estudiantes específicos
     if (task.assignedTo === 'student' && task.assignedStudentIds) {
+      console.log(`🎯 Tarea asignada a estudiantes específicos: ${task.assignedStudentIds.join(', ')}`);
       students = task.assignedStudentIds.map(studentId => {
         const userData = allUsers.find(u => u.id === studentId);
-        return {
+        const student = {
           id: studentId,
           username: userData?.username || `user-${studentId}`,
           displayName: userData?.displayName || `Estudiante ${studentId}`
         };
+        console.log(`👤 Estudiante mapeado: ${student.displayName} (${student.id})`);
+        return student;
       }).filter(s => s.id); // Filter out any potential nulls if a studentId wasn't found
     }
     // Si la tarea está asignada a todo un curso
     else if (task.assignedTo === 'course' && task.course) { // task.course is courseId
+      console.log(`🏫 Tarea asignada a curso completo: ${task.course}`);
       students = getStudentsFromCourseRelevantToTask(task.course, task.assignedById);
+      console.log(`👥 Estudiantes encontrados en curso: ${students.length}`);
+    }
+    else {
+      console.log(`⚠️ Configuración de asignación no reconocida`);
     }
 
     // Solo mostrar los estudiantes que están explícitamente asignados
@@ -747,46 +815,65 @@ export default function TareasPage() {
 
     // Si es una entrega, notificar al profesor inmediatamente
     if (isSubmission && user?.role === 'student') {
-      // Crear notificación para el profesor
-      const notification = {
-        id: `notif_${Date.now()}`,
-        type: 'task_submission',
-        taskId: selectedTask.id,
-        taskTitle: selectedTask.title,
-        studentName: user.displayName || user.username, // Keep for display
-        studentId: user.id, // Add studentId
-        teacherId: selectedTask.assignedById, // Use assignedById (teacher's ID)
-        message: `${user.displayName || user.username} ha entregado la tarea "${selectedTask.title}"`,
-        timestamp: new Date().toISOString(),
-        read: false,
-        course: selectedTask.course, // This is courseId
-        subject: selectedTask.subject
-      };
-
-      // Guardar notificación
-      const existingNotifications = JSON.parse(localStorage.getItem('smart-student-notifications') || '[]');
-      const updatedNotifications = [...existingNotifications, notification];
-      localStorage.setItem('smart-student-notifications', JSON.stringify(updatedNotifications));
+      console.log(`📝 Estudiante ${user.displayName} entregando tarea "${selectedTask.title}"`);
+      
+      // Crear notificación usando TaskNotificationManager
+      TaskNotificationManager.createTaskSubmissionNotification(
+        selectedTask.id,
+        selectedTask.title,
+        selectedTask.course,
+        selectedTask.subject,
+        user.username,
+        user.displayName || user.username,
+        getTeacherUsernameById(selectedTask.assignedById)
+      );
 
       toast({
         title: translate('taskSubmitted'),
         description: 'Tu tarea ha sido entregada y el profesor ha sido notificado.',
         variant: 'default'
       });
+      
+      // Disparar evento para actualizar notificaciones
+      window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+        detail: { type: 'task_submission', taskId: selectedTask.id, studentId: user.id }
+      }));
+      
+      // Forzar actualización del panel de estudiantes del profesor
+      window.dispatchEvent(new CustomEvent('studentPanelUpdate', {
+        detail: { taskId: selectedTask.id, studentId: user.id, submissionTime: new Date().toISOString() }
+      }));
     }
 
     // Update task status only if ALL students have submitted - UPDATED para estados mejorados
     if (isSubmission) {
       // Obtener todos los estudiantes asignados a la tarea
-      const assignedStudents = getAssignedStudentsForTask(selectedTask);
+      let assignedStudents = getAssignedStudentsForTask(selectedTask);
+      
+      console.log(`🔍 DEBUG: Verificando entregas para tarea "${selectedTask.title}"`);
+      console.log(`👥 Estudiantes asignados: ${assignedStudents.length}`);
+      console.log(`📋 Lista de estudiantes:`, assignedStudents);
+      console.log(`👤 Usuario actual: ${user?.id} (${user?.username})`);
       
       // Verificar si ahora todos los estudiantes han entregado la tarea
       // Incluimos el comentario actual en la verificación
+      console.log(`🔍 Verificando si todos los estudiantes han entregado...`);
+      console.log(`📋 Estudiantes asignados:`, assignedStudents);
+      
+      // 🔥 PARCHE: Si no hay estudiantes asignados, intentar obtenerlos directamente del curso
+      if (assignedStudents.length === 0 && selectedTask.course) {
+        console.log(`⚠️ No hay estudiantes asignados, obteniendo del curso: ${selectedTask.course}`);
+        const courseStudents = getStudentsFromCourseRelevantToTask(selectedTask.course, selectedTask.assignedById);
+        console.log(`👥 Estudiantes del curso encontrados: ${courseStudents.length}`, courseStudents);
+        assignedStudents = courseStudents;
+      }
+      
       const allStudentsSubmitted = assignedStudents.length > 0 && 
-        assignedStudents.every(student => 
-          student.id === user?.id || // Este estudiante acaba de entregar
-          hasStudentSubmitted(selectedTask.id, student.id) // Los otros ya entregaron antes
-        );
+        assignedStudents.every(student => {
+          const hasSubmitted = student.id === user?.id || hasStudentSubmitted(selectedTask.id, student.id);
+          console.log(`✅ Estudiante ${student.displayName} (${student.id}): ${hasSubmitted ? 'ENTREGADO' : 'PENDIENTE'}`);
+          return hasSubmitted;
+        });
       
       // 🔥 CORRECCIÓN: NO cambiar el estado cuando los estudiantes entregan
       // La tarea debe mantenerse en 'pending' hasta que el profesor califique TODAS las entregas
@@ -799,6 +886,37 @@ export default function TareasPage() {
       
       console.log(`📊 Entregas: ${submittedCount}/${assignedStudents.length} estudiantes han entregado la tarea "${selectedTask.title}"`);
       console.log(`⏳ Estado de la tarea mantiene: "pending" hasta que profesor califique todas las entregas`);
+      console.log(`🎯 Todos entregaron: ${allStudentsSubmitted ? 'SÍ' : 'NO'}`);
+      
+      // 🔥 NUEVO: Si todos los estudiantes entregaron, crear notificación de tarea completa
+      if (allStudentsSubmitted) {
+        console.log(`🚀 Creando notificación de tarea completa...`);
+        console.log(`📋 Detalles para notificación:`, {
+          taskId: selectedTask.id,
+          taskTitle: selectedTask.title,
+          course: selectedTask.course,
+          subject: selectedTask.subject,
+          assignedById: selectedTask.assignedById,
+          taskType: selectedTask.taskType
+        });
+        
+        TaskNotificationManager.createTaskCompletedNotification(
+          selectedTask.id,
+          selectedTask.title,
+          selectedTask.course,
+          selectedTask.subject,
+          selectedTask.assignedById, // ID del profesor
+          selectedTask.taskType === 'evaluacion' ? 'evaluation' : 'assignment'
+        );
+        
+        console.log(`✅ Tarea completa: Todos los estudiantes han entregado "${selectedTask.title}"`);
+        
+        // 🔥 FORZAR REFRESCO DE NOTIFICACIONES
+        // Disparar evento personalizado para actualizar el panel de notificaciones
+        window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+          detail: { type: 'task_completed', taskId: selectedTask.id }
+        }));
+      }
       
       // NO actualizar el estado aquí - se mantiene en 'pending' hasta calificación completa
     }
@@ -947,7 +1065,7 @@ export default function TareasPage() {
       case 'pending': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'delivered': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
       case 'submitted': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'reviewed': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'reviewed': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     }
   };
@@ -1060,12 +1178,16 @@ export default function TareasPage() {
 
   // Check if student has already submitted this task
   const hasStudentSubmitted = (taskId: string, studentId: string) => {
+    console.log(`🔍 hasStudentSubmitted: Verificando taskId=${taskId}, studentId=${studentId}`);
+    
     // Check if student has submitted using studentId
     let hasSubmission = comments.some(comment => 
       comment.taskId === taskId && 
       comment.studentId === studentId && 
       comment.isSubmission
     );
+    
+    console.log(`📝 Búsqueda por studentId: ${hasSubmission ? 'ENCONTRADO' : 'NO ENCONTRADO'}`);
     
     // If not found, try with studentName fallback (for legacy compatibility)
     if (!hasSubmission) {
@@ -1078,9 +1200,20 @@ export default function TareasPage() {
           (comment.studentName === studentData.displayName || comment.studentName === studentData.username) &&
           comment.isSubmission
         );
+        console.log(`📝 Búsqueda por studentName (${studentData.displayName}/${studentData.username}): ${hasSubmission ? 'ENCONTRADO' : 'NO ENCONTRADO'}`);
       }
     }
     
+    // Debug: mostrar todas las submissions para esta tarea
+    const taskSubmissions = comments.filter(c => c.taskId === taskId && c.isSubmission);
+    console.log(`📋 Todas las entregas para taskId=${taskId}:`, taskSubmissions.map(c => ({
+      id: c.id,
+      studentId: c.studentId,
+      studentName: c.studentName,
+      timestamp: c.timestamp
+    })));
+    
+    console.log(`🎯 Resultado final para studentId=${studentId}: ${hasSubmission ? 'TIENE ENTREGA' : 'NO TIENE ENTREGA'}`);
     return hasSubmission;
   };
 
@@ -1424,15 +1557,35 @@ export default function TareasPage() {
 
   // Función para abrir el diálogo de revisión mejorado
   const handleReviewSubmission = (studentId: string, taskId: string, tryDisplayName?: boolean) => {
+    console.log(`🔍 handleReviewSubmission called with studentId: "${studentId}", taskId: "${taskId}"`);
+    
     let submission = getStudentSubmission(taskId, studentId);
+    
     // Si no se encuentra, intentar con el displayName
     if (!submission && tryDisplayName) {
-      const student = getAssignedStudentsForTask(selectedTask).find(s => s.id === studentId);
+      const student = getAssignedStudentsForTask(selectedTask).find(s => s.id === studentId || s.username === studentId);
       if (student && student.displayName) {
+        console.log(`🔄 Trying with displayName: "${student.displayName}"`);
         submission = getStudentSubmission(taskId, student.displayName);
       }
+      
+      // Si aún no se encuentra, intentar buscar por studentName en los comentarios
+      if (!submission) {
+        console.log(`🔄 Trying with studentName search`);
+        submission = comments.find(c =>
+          c.taskId === taskId &&
+          c.isSubmission &&
+          (c.studentName === studentId || 
+           c.studentName === student?.displayName ||
+           c.studentId === studentId ||
+           c.studentUsername === studentId)
+        );
+      }
     }
+    
     if (!submission) {
+      console.log(`❌ No submission found for student: "${studentId}"`);
+      console.log(`Available submissions for task "${taskId}":`, comments.filter(c => c.taskId === taskId && c.isSubmission));
       toast({
         title: 'Error',
         description: 'No se encontró una entrega para este estudiante.',
@@ -1440,7 +1593,10 @@ export default function TareasPage() {
       });
       return;
     }
-    const student = getAssignedStudentsForTask(selectedTask).find(s => s.id === studentId);
+    
+    const student = getAssignedStudentsForTask(selectedTask).find(s => s.id === studentId || s.username === studentId);
+    console.log(`✅ Found submission for student: "${studentId}"`, submission);
+    
     setCurrentReview({
       studentId,
       studentDisplayName: student?.displayName || studentId,
@@ -2335,8 +2491,8 @@ export default function TareasPage() {
                           <tbody>
                             {getAssignedStudentsForTask(selectedTask).length > 0 ? (
                               getAssignedStudentsForTask(selectedTask).map((student, index) => {
-                                let submission = getStudentSubmission(selectedTask.id, student.username);
-                                let studentStatus = getStudentTaskStatus(selectedTask.id, student.username);
+                                let submission = getStudentSubmission(selectedTask.id, student.id);
+                                let studentStatus = getStudentTaskStatus(selectedTask.id, student.id);
                                 
                                 // NOTA: Parches temporales deshabilitados para comportamiento correcto
                                 // El botón "Revisar" solo debe aparecer cuando hay entrega real
@@ -2404,27 +2560,24 @@ export default function TareasPage() {
                                     <td className="py-2 px-3">{student.displayName}</td>
                                     <td className="py-2 px-3">
                                       <Badge className={
-                                        (studentStatus === 'pending' && !student.displayName.toLowerCase().includes('maria')) ? 'bg-gray-100 text-gray-800' :
-                                        studentStatus === 'delivered' || student.displayName.toLowerCase().includes('maria') ? 'bg-yellow-100 text-yellow-800' :
+                                        studentStatus === 'pending' ? 'bg-gray-100 text-gray-800' :
+                                        studentStatus === 'delivered' ? 'bg-yellow-100 text-yellow-800' :
                                         'bg-green-100 text-green-800'
                                       }>
-                                        {(studentStatus === 'pending' && !student.displayName.toLowerCase().includes('maria')) ? 'Pendiente' : 
-                                         studentStatus === 'delivered' || student.displayName.toLowerCase().includes('maria') ? 'En Revisión' : 
+                                        {studentStatus === 'pending' ? 'Pendiente' : 
+                                         studentStatus === 'delivered' ? 'En Revisión' : 
                                          'Finalizado'}
                                       </Badge>
                                     </td>
                                     <td className="py-2 px-3">
                                       {hasSubmission && submission && submission.grade !== undefined ? 
                                         <span className="font-medium">{submission.grade}/100</span> :
-                                        student.displayName.toLowerCase().includes('maria') ?
-                                          <span className="text-muted-foreground italic">Sin calificar</span> :
-                                          <span className="text-muted-foreground italic">{hasSubmission ? 'Sin calificar' : 'Sin entregar'}</span>
+                                        <span className="text-muted-foreground italic">{hasSubmission ? 'Sin calificar' : 'Sin entregar'}</span>
                                       }
                                     </td>
                                     <td className="py-2 px-3 date-cell">
                                       <span className="single-line-date font-medium">
-                                        {hasSubmission && submission ? formatDateOneLine(submission.timestamp) : 
-                                         student.displayName.toLowerCase().includes('maria') ? '06 jul 2025, 13:27' : '-'}
+                                        {hasSubmission && submission ? formatDateOneLine(submission.timestamp) : '-'}
                                       </span>
                                     </td>
                                     <td className="py-2 px-3">
@@ -2434,7 +2587,7 @@ export default function TareasPage() {
                                           <Button 
                                             size="sm" 
                                             className="h-7 bg-orange-500 hover:bg-orange-600 text-white"
-                                            onClick={() => handleReviewSubmission(student.username, selectedTask.id, true)}
+                                            onClick={() => handleReviewSubmission(student.id || student.username, selectedTask.id, true)}
                                           >
                                             {studentStatus === 'reviewed' ? 'Editar' : 'Revisar'}
                                           </Button>
@@ -3197,42 +3350,67 @@ export default function TareasPage() {
               <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200">
                 <h4 className="font-medium mb-3 text-green-800 dark:text-green-200 flex items-center">
                   <User className="w-5 h-5 mr-2" />
-                  Información del Estudiante
+                  Información del Estudiante y Entrega
                 </h4>
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <div>
                     <p><strong>Nombre:</strong> {currentReview.studentDisplayName}</p>
                     <p><strong>ID:</strong> {currentReview.studentId}</p>
+                    <p><strong>Hora de entrega:</strong> {formatDate(currentReview.submission.timestamp)}</p>
                   </div>
                   <div>
-                    <p><strong>Fecha de entrega:</strong> {formatDateOneLine(currentReview.submission.timestamp)}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <strong>Estado:</strong>
+                    <p><strong>Fecha completa:</strong> {new Date(currentReview.submission.timestamp).toLocaleString('es-ES', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit'
+                    })}</p>
+                    <p><strong>Tiempo transcurrido:</strong> {(() => {
+                      const now = new Date();
+                      const submissionTime = new Date(currentReview.submission.timestamp);
+                      const diffMs = now.getTime() - submissionTime.getTime();
+                      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                      const diffDays = Math.floor(diffHours / 24);
+                      
+                      if (diffDays > 0) {
+                        return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''} y ${diffHours % 24} hora${(diffHours % 24) > 1 ? 's' : ''}`;
+                      } else if (diffHours > 0) {
+                        return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+                      } else {
+                        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+                        return `Hace ${diffMinutes} minuto${diffMinutes > 1 ? 's' : ''}`;
+                      }
+                    })()}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <strong>Estado actual:</strong>
                       {/* Estado de la entrega del estudiante, igual que en la lista */}
                       {(() => {
                         if (!currentReview.submission) {
                           // No hay entrega: Pendiente
                           return (
-                            <Badge className={getStatusColor('pending')}>
-                              {translate('statusPending')}
+                            <Badge className="bg-gray-100 text-gray-800">
+                              Pendiente
                             </Badge>
                           );
                         } else if (currentReview.submission && (currentReview.submission.grade === undefined || currentReview.submission.grade === null)) {
                           // Entregada pero sin nota: En Revisión (amarillo)
                           return (
                             <Badge className="bg-yellow-100 text-yellow-800 font-bold">
-                              {translate('underReview')}
+                              En Revisión
                             </Badge>
                           );
                         } else if (currentReview.submission && typeof currentReview.submission.grade === 'number') {
                           // Finalizado: verde + badge porcentaje
                           return (
                             <>
-                              <Badge className={getStatusColor('submitted') + ' font-bold mr-1'}>
+                              <Badge className="bg-green-100 text-green-800 font-bold mr-1">
                                 Finalizado
                               </Badge>
                               <Badge className={currentReview.submission.grade >= 70 ? 'bg-green-100 text-green-700 font-bold ml-2' : 'bg-red-100 text-red-700 font-bold ml-2'}>
-                                {currentReview.submission.grade}%
+                                {currentReview.submission.grade}/100
                               </Badge>
                             </>
                           );
@@ -3257,21 +3435,28 @@ export default function TareasPage() {
               </div>
 
               {/* Archivos Adjuntos de la Entrega */}
-              {currentReview.submission.attachments && currentReview.submission.attachments.length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-3 flex items-center">
+              {currentReview.submission.attachments && currentReview.submission.attachments.length > 0 ? (
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200">
+                  <h4 className="font-medium mb-3 flex items-center text-purple-800 dark:text-purple-200">
                     <Paperclip className="w-5 h-5 mr-2" />
-                    Archivos de la Entrega ({currentReview.submission.attachments.length})
+                    Archivos Adjuntos de la Entrega ({currentReview.submission.attachments.length})
                   </h4>
-                  <div className="space-y-2">
-                    {currentReview.submission.attachments.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded border">
+                  <div className="space-y-3">
+                    {currentReview.submission.attachments.map((file, index) => (
+                      <div key={file.id} className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
                         <div className="flex items-center space-x-3 min-w-0 flex-1">
-                          <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                            <Paperclip className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          </div>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium" title={file.name}>{file.name}</p>
+                            <p className="font-medium text-sm truncate" title={file.name}>
+                              📎 {file.name}
+                            </p>
                             <p className="text-xs text-muted-foreground">
-                              {formatFileSize(file.size)} • Subido: {formatDate(file.uploadedAt)}
+                              Tamaño: {formatFileSize(file.size)} • Subido: {formatDate(file.uploadedAt)}
+                            </p>
+                            <p className="text-xs text-blue-600 dark:text-blue-400">
+                              Archivo #{index + 1} de {currentReview.submission.attachments.length}
                             </p>
                           </div>
                         </div>
@@ -3279,13 +3464,31 @@ export default function TareasPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => downloadFile(file)}
-                          className="flex-shrink-0 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-900/20 dark:hover:text-orange-400"
+                          className="flex-shrink-0 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 ml-3"
                         >
                           <Download className="w-4 h-4 mr-1" />
-                          Descargar
+                          Ver/Descargar
                         </Button>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      💡 <strong>Tip:</strong> Haz clic en "Ver/Descargar" para revisar cada archivo antes de calificar la entrega.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border border-gray-200">
+                  <h4 className="font-medium mb-3 flex items-center text-gray-600 dark:text-gray-400">
+                    <Paperclip className="w-5 h-5 mr-2" />
+                    Archivos Adjuntos
+                  </h4>
+                  <div className="text-center py-6">
+                    <Paperclip className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">
+                      El estudiante no adjuntó archivos con esta entrega
+                    </p>
                   </div>
                 </div>
               )}
@@ -3297,43 +3500,88 @@ export default function TareasPage() {
                   Calificación y Retroalimentación
                 </h4>
                 
-                <div className="space-y-4">
-                  {/* Campo de calificación */}
-                  <div>
-                    <label htmlFor="gradeInputNew" className="block text-sm font-medium mb-2">
-                      Calificación (0-100) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex items-center space-x-3">
-                      <Input
-                        id="gradeInputNew"
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={currentReview.grade || ''}
-                        onChange={(e) => setCurrentReview(prev => ({ 
-                          ...prev, 
-                          grade: parseInt(e.target.value) || 0 
-                        }))}
-                        placeholder="0"
-                        className="w-24"
-                      />
-                      <span className="text-sm text-muted-foreground">/ 100</span>
-                      {currentReview.grade > 0 && (
-                        <Badge variant="outline" className={
-                          currentReview.grade >= 70 
-                            ? 'bg-green-100 text-green-800 border-green-300' 
-                            : 'bg-red-100 text-red-800 border-red-300'
-                        }>
-                          {currentReview.grade >= 70 ? 'Aprobado' : 'Reprobado'}
-                        </Badge>
-                      )}
+                <div className="space-y-6">
+                  {/* Resumen de la Entrega */}
+                  <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border border-blue-200">
+                    <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">📋 Resumen de la Entrega</h5>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p><strong>Estudiante:</strong> {currentReview.studentDisplayName}</p>
+                        <p><strong>Entregado:</strong> {formatDate(currentReview.submission.timestamp)}</p>
+                      </div>
+                      <div>
+                        <p><strong>Archivos adjuntos:</strong> {currentReview.submission.attachments?.length || 0}</p>
+                        <p><strong>Comentarios:</strong> {currentReview.submission.comment ? 'Sí' : 'No'}</p>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Campo de retroalimentación */}
+                  {/* Campo de calificación mejorado */}
                   <div>
-                    <label htmlFor="feedbackInputNew" className="block text-sm font-medium mb-2">
-                      Retroalimentación para el Estudiante
+                    <label htmlFor="gradeInputNew" className="block text-sm font-medium mb-3">
+                      🎯 Calificación (0-100) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-4">
+                        <Input
+                          id="gradeInputNew"
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={currentReview.grade || ''}
+                          onChange={(e) => setCurrentReview(prev => ({ 
+                            ...prev, 
+                            grade: parseInt(e.target.value) || 0 
+                          }))}
+                          placeholder="0"
+                          className="w-32 text-lg text-center font-bold"
+                        />
+                        <span className="text-lg text-muted-foreground font-medium">/ 100</span>
+                        {currentReview.grade > 0 && (
+                          <Badge variant="outline" className={
+                            currentReview.grade >= 70 
+                              ? 'bg-green-100 text-green-800 border-green-300 text-sm font-bold' 
+                              : 'bg-red-100 text-red-800 border-red-300 text-sm font-bold'
+                          }>
+                            {currentReview.grade >= 70 ? '✅ Aprobado' : '❌ Reprobado'}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {/* Escala de calificación visual */}
+                      <div className="mt-2">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          <span>0</span>
+                          <span>25</span>
+                          <span>50</span>
+                          <span>70</span>
+                          <span>100</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                              currentReview.grade >= 70 ? 'bg-green-500' : 
+                              currentReview.grade >= 50 ? 'bg-yellow-500' : 
+                              'bg-red-500'
+                            }`}
+                            style={{ width: `${Math.min(currentReview.grade || 0, 100)}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-600 mt-1">
+                          <span>Insuficiente</span>
+                          <span>Regular</span>
+                          <span>Bueno</span>
+                          <span>Muy Bueno</span>
+                          <span>Excelente</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Campo de retroalimentación mejorado */}
+                  <div>
+                    <label htmlFor="feedbackInputNew" className="block text-sm font-medium mb-3">
+                      💬 Retroalimentación para el Estudiante
                     </label>
                     <Textarea
                       id="feedbackInputNew"

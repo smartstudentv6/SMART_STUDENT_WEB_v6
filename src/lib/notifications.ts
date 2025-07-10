@@ -291,9 +291,26 @@ export class TaskNotificationManager {
     taskTitle: string,
     course: string,
     subject: string,
-    teacherUsername: string
+    teacherUsername: string,
+    taskType: 'assignment' | 'evaluation' = 'assignment'
   ): void {
+    console.log(`🚀 createTaskCompletedNotification: Iniciando para taskId=${taskId}, teacher=${teacherUsername}`);
+    
     const notifications = this.getNotifications();
+    console.log(`📋 Notificaciones actuales: ${notifications.length}`);
+    
+    // Verificar si ya existe una notificación de tarea completa para esta tarea
+    const existingNotification = notifications.find(n => 
+      n.type === 'task_completed' && 
+      n.taskId === taskId &&
+      n.targetUsernames.includes(teacherUsername)
+    );
+    
+    if (existingNotification) {
+      console.log(`⚠️ Ya existe notificación de tarea completa para taskId: ${taskId}`);
+      console.log(`📋 Notificación existente:`, existingNotification);
+      return;
+    }
     
     const newNotification: TaskNotification = {
       id: `completed_${taskId}_${Date.now()}`,
@@ -303,16 +320,32 @@ export class TaskNotificationManager {
       targetUserRole: 'teacher',
       targetUsernames: [teacherUsername],
       fromUsername: 'system',
-      fromDisplayName: `${taskTitle} (${course})`, // ✅ CORRECCIÓN: Usar título de tarea y curso
+      fromDisplayName: 'Estudiante',
       course,
       subject,
       timestamp: new Date().toISOString(),
       read: false,
-      readBy: []
+      readBy: [],
+      taskType
     };
 
     notifications.push(newNotification);
     this.saveNotifications(notifications);
+    
+    console.log(`📢 Notificación de tarea completa creada para profesor: ${teacherUsername}`);
+    console.log(`🎯 Notificación creada:`, {
+      id: newNotification.id,
+      type: newNotification.type,
+      taskId: newNotification.taskId,
+      taskTitle: newNotification.taskTitle,
+      targetUsernames: newNotification.targetUsernames,
+      taskType: newNotification.taskType,
+      course: newNotification.course,
+      subject: newNotification.subject,
+      timestamp: newNotification.timestamp
+    });
+    
+    console.log(`✅ Proceso de creación de notificación completado exitosamente`);
   }
 
   // Verificar si todos los estudiantes de un curso han entregado una tarea específica
