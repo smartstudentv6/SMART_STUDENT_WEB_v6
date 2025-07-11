@@ -23,6 +23,7 @@ interface TaskComment {
   isSubmission: boolean;
   isNew?: boolean;
   readBy?: string[];
+  attachments?: TaskFile[]; // Files attached to this comment/submission
   grade?: {
     id: string;
     percentage: number;
@@ -31,6 +32,16 @@ interface TaskComment {
     gradedByName: string;
     gradedAt: string;
   };
+}
+
+interface TaskFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  uploadedBy: string;
+  uploadedAt: string;
 }
 
 interface Task {
@@ -142,8 +153,24 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     }
   };
 
+  // 🎨 NUEVA: Función para obtener el color del enlace según el tipo
+  const getLinkColorClass = (linkType: 'evaluation' | 'task' | 'comment' | 'grade'): string => {
+    switch (linkType) {
+      case 'evaluation':
+        return 'text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300';
+      case 'task':
+        return 'text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300';
+      case 'comment':
+        return 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300';
+      case 'grade':
+        return 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300';
+      default:
+        return 'text-primary hover:underline';
+    }
+  };
+
   // 🔧 NUEVA: Función para crear enlaces seguros a tareas
-  const createSafeTaskLink = (taskId: string, additionalParams: string = '', linkText: string = 'Ver tarea'): JSX.Element => {
+  const createSafeTaskLink = (taskId: string, additionalParams: string = '', linkText: string = 'Ver tarea', linkType: 'evaluation' | 'task' = 'task'): JSX.Element => {
     const taskExists = validateTaskExists(taskId);
     
     if (!taskExists) {
@@ -159,10 +186,12 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     }
     
     const href = `/dashboard/tareas?taskId=${taskId}${additionalParams}&highlight=true`;
+    const colorClass = getLinkColorClass(linkType);
+    
     return (
       <Link 
         href={href}
-        className="inline-block mt-2 text-xs text-primary hover:underline"
+        className={`inline-block mt-2 text-xs ${colorClass} hover:underline`}
       >
         {linkText}
       </Link>
@@ -186,10 +215,12 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     }
     
     const href = `/dashboard/tareas?taskId=${taskId}&commentId=${commentId}&highlight=true`;
+    const colorClass = getLinkColorClass('comment');
+    
     return (
       <Link 
         href={href}
-        className="inline-block mt-2 text-xs text-primary hover:underline"
+        className={`inline-block mt-2 text-xs ${colorClass} hover:underline`}
       >
         {linkText}
       </Link>
@@ -200,6 +231,64 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   useEffect(() => {
     setCount(propCount);
   }, [propCount]);
+
+  // ✅ NUEVO: Listener para sincronización del conteo
+  useEffect(() => {
+    const handleCountUpdate = (event: CustomEvent) => {
+      if (event.detail?.type === 'teacher_counters_updated') {
+        console.log(`[NotificationsPanel] Count update event received:`, event.detail);
+        // El conteo se actualiza desde el componente padre (dashboard)
+        // Solo necesitamos recargar los datos para mantener sincronización
+        if (user?.role === 'teacher') {
+          setTimeout(() => {
+            loadStudentSubmissions();
+            loadTaskNotifications();
+            loadPendingGrading();
+          }, 100);
+        }
+      }
+    };
+
+    // ✅ NUEVO: Listener para actualizaciones generales de notificaciones
+    const handleGeneralNotificationUpdate = (event: CustomEvent) => {
+      console.log(`[NotificationsPanel] General notification update:`, event.detail);
+      
+      // Recargar datos según el rol del usuario
+      if (user?.role === 'teacher') {
+        loadStudentSubmissions();
+        loadTaskNotifications();
+        loadPendingGrading();
+        
+        // Disparar evento para actualizar el conteo del dashboard
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('updateDashboardCounts', {
+            detail: { userRole: user.role }
+          }));
+        }, 200);
+      } else if (user?.role === 'student') {
+        loadUnreadComments();
+        loadPendingTasks();
+        loadTaskNotifications();
+        
+        // Disparar evento para actualizar el conteo del dashboard
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('updateDashboardCounts', {
+            detail: { userRole: user.role }
+          }));
+        }, 200);
+      }
+    };
+
+    window.addEventListener('notificationsUpdated', handleCountUpdate as EventListener);
+    window.addEventListener('commentsUpdated', handleGeneralNotificationUpdate as EventListener);
+    window.addEventListener('taskNotificationsUpdated', handleGeneralNotificationUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('notificationsUpdated', handleCountUpdate as EventListener);
+      window.removeEventListener('commentsUpdated', handleGeneralNotificationUpdate as EventListener);
+      window.removeEventListener('taskNotificationsUpdated', handleGeneralNotificationUpdate as EventListener);
+    };
+  }, [user]);
 
   useEffect(() => {
     // Load data based on user role
@@ -364,6 +453,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         const comments: TaskComment[] = JSON.parse(storedComments);
         const tasks: Task[] = JSON.parse(storedTasks);
         
+        console.log(`[loadUnreadComments] Processing ${comments.length} comments for student ${user?.username}`);
+        
         // Filter comments that are unread by the current user and not their own
         // Exclude submissions from other students (students should not see other students' submissions)
         const unread = comments.filter(comment => 
@@ -376,6 +467,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           return { ...comment, task };
         });
         
+        console.log(`[loadUnreadComments] Found ${unread.length} unread comments for student ${user?.username}`);
         setUnreadComments(unread);
         
         // Update unread comments state
@@ -469,6 +561,10 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   // Cargar entregas de estudiantes para profesores
   const loadStudentSubmissions = () => {
     try {
+      // Limpiar estado inicial para evitar datos residuales
+      setUnreadStudentComments([]);
+      setStudentSubmissions([]);
+      
       // Cargar comentarios (que incluyen entregas) y tareas
       const storedComments = localStorage.getItem('smart-student-task-comments');
       const storedTasks = localStorage.getItem('smart-student-tasks');
@@ -477,19 +573,32 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         const comments: TaskComment[] = JSON.parse(storedComments);
         const tasks: Task[] = JSON.parse(storedTasks);
         
+        console.log(`[loadStudentSubmissions] Processing ${comments.length} comments for teacher ${user.username}`);
+        console.log(`[loadStudentSubmissions] All tasks in system:`, tasks.map(t => ({ id: t.id, title: t.title, assignedBy: t.assignedBy })));
+        console.log(`[loadStudentSubmissions] Felipe comments:`, comments.filter(c => c.studentUsername === 'felipe').map(c => ({ id: c.id, taskId: c.taskId, isSubmission: c.isSubmission, comment: c.comment?.substring(0, 50) })));
+        
         // Filtrar tareas asignadas por este profesor
         const teacherTasks = tasks.filter(task => task.assignedBy === user.username);
         setClassTasks(teacherTasks);
         
+        console.log(`[loadStudentSubmissions] Teacher ${user.username} has ${teacherTasks.length} assigned tasks`);
+        console.log(`[loadStudentSubmissions] Teacher tasks:`, teacherTasks.map(t => ({ id: t.id, title: t.title, assignedBy: t.assignedBy })));
+        
         // Obtener IDs de tareas de este profesor
         const teacherTaskIds = teacherTasks.map(task => task.id);
+        console.log(`[loadStudentSubmissions] Teacher task IDs:`, teacherTaskIds);
+        
+        // 🔧 SOLUCIÓN TEMPORAL: También incluir tareas donde el profesor podría tener permisos
+        // Si no hay tareas asignadas por este profesor, incluir todas las tareas del sistema
+        const allTaskIds = teacherTaskIds.length > 0 ? teacherTaskIds : tasks.map(task => task.id);
+        console.log(`[loadStudentSubmissions] Using task IDs (${teacherTaskIds.length > 0 ? 'teacher-specific' : 'all-tasks'}):`, allTaskIds);
         
         // Filtrar entregas de los estudiantes para las tareas de este profesor
         // que no hayan sido revisadas (no tienen calificación) y que no sean propias
         const submissions = comments
           .filter(comment => 
             comment.isSubmission && 
-            teacherTaskIds.includes(comment.taskId) &&
+            allTaskIds.includes(comment.taskId) &&
             comment.studentUsername !== user.username && // Excluir entregas propias del profesor
             !comment.grade // Solo entregas sin calificar
           )
@@ -499,24 +608,94 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
             return { ...submission, task };
           });
         
+        console.log(`[loadStudentSubmissions] Found ${submissions.length} ungraded submissions for teacher ${user.username}`);
         setStudentSubmissions(submissions);
 
         // Cargar comentarios de estudiantes (NO entregas) para tareas de este profesor
         // que no hayan sido leídos por el profesor
+        // 🔄 CORRECCIÓN: Mejora para detectar comentarios de estudiantes aunque estén mal marcados
         const studentComments = comments
-          .filter(comment => 
-            !comment.isSubmission && // Solo comentarios, no entregas
-            teacherTaskIds.includes(comment.taskId) &&
-            comment.studentUsername !== user.username && // ✅ NUEVO: Excluir comentarios propios del profesor
-            (!comment.readBy?.includes(user.username)) // No leídos por el profesor
-          )
+          .filter(comment => {
+            // Verificar si es un comentario para este profesor
+            const esParaProfesor = allTaskIds.includes(comment.taskId);
+            
+            // Verificar si es del propio profesor
+            const esDelProfesor = comment.studentUsername === user.username;
+            
+            // Verificar si ya fue leído
+            const fueLeido = comment.readBy?.includes(user.username);
+            
+            // ✅ MEJORA: No incluir comentarios que ya están en las notificaciones del sistema
+            // Verificamos si hay una notificación de comentario para este usuario y tarea
+            const yaEstaEnNotificaciones = TaskNotificationManager.getNotifications().some(notif => 
+              notif.type === 'teacher_comment' && 
+              notif.taskId === comment.taskId &&
+              notif.fromUsername === comment.studentUsername &&
+              !notif.readBy.includes(user.username) &&
+              // Verificar que el timestamp sea similar (dentro de 1 minuto)
+              Math.abs(new Date(notif.timestamp).getTime() - new Date(comment.timestamp).getTime()) < 60000
+            );
+            
+            console.log(`[loadStudentSubmissions] Analyzing comment from ${comment.studentUsername}:`, {
+              taskId: comment.taskId,
+              isSubmission: comment.isSubmission,
+              belongsToTeacher: esParaProfesor,
+              isFromTeacher: esDelProfesor,
+              wasRead: fueLeido,
+              alreadyInNotifications: yaEstaEnNotificaciones,
+              hasAttachments: comment.attachments && comment.attachments.length > 0,
+              commentLength: comment.comment?.length || 0,
+              text: comment.comment?.substring(0, 50) + '...'
+            });
+            
+            // 🔧 MEJORA: Lógica mejorada para detectar si realmente es un comentario y no una entrega
+            // Y que no esté duplicado en las notificaciones
+            let esComentario = !comment.isSubmission;
+            
+            // 🔧 NUEVA LÓGICA: Detectar comentarios mal marcados como entregas
+            // Si está marcado como entrega pero parece ser un comentario normal
+            if (comment.isSubmission) {
+              // Casos donde puede ser un comentario mal marcado:
+              // 1. No tiene adjuntos (las entregas suelen tener archivos)
+              // 2. El texto es muy corto (comentarios vs entregas formales)
+              // 3. No tiene indicadores de entrega formal
+              const tieneAdjuntos = comment.attachments && comment.attachments.length > 0;
+              const textoCorto = comment.comment?.length < 500; // Menos de 500 caracteres
+              const noTieneIndicadoresEntrega = !comment.comment?.toLowerCase().includes('entrega') &&
+                                              !comment.comment?.toLowerCase().includes('adjunto') &&
+                                              !comment.comment?.toLowerCase().includes('archivo');
+              
+              // Si cumple estas condiciones, probablemente es un comentario
+              if (!tieneAdjuntos && textoCorto && noTieneIndicadoresEntrega) {
+                esComentario = true;
+                console.log(`📢 [NotificationsPanel] Detectado comentario de ${comment.studentUsername} marcado incorrectamente como entrega: "${comment.comment?.substring(0, 50)}..."`);
+              }
+            }
+            
+            // ✅ NUEVA CONDICIÓN: No incluir si ya está en notificaciones para evitar duplicados
+            const shouldInclude = esComentario && esParaProfesor && !esDelProfesor && !fueLeido && !yaEstaEnNotificaciones;
+            
+            if (shouldInclude) {
+              console.log(`✅ [loadStudentSubmissions] Including comment from ${comment.studentUsername} in notifications`);
+            } else {
+              console.log(`❌ [loadStudentSubmissions] Excluding comment from ${comment.studentUsername}: esComentario=${esComentario}, esParaProfesor=${esParaProfesor}, esDelProfesor=${esDelProfesor}, fueLeido=${fueLeido}, yaEstaEnNotificaciones=${yaEstaEnNotificaciones}`);
+            }
+            
+            // Incluir comentarios que no son del profesor, no han sido leídos, son para tareas de este profesor, y no están duplicados en notificaciones
+            return shouldInclude;
+          })
           .map(comment => {
             // Encontrar la tarea asociada para mostrar más información
             const task = tasks.find(t => t.id === comment.taskId);
             return { ...comment, task };
           });
         
+        console.log(`[loadStudentSubmissions] Found ${studentComments.length} student comments for teacher ${user.username}`);
         setUnreadStudentComments(studentComments);
+      } else {
+        // Asegurar que los estados estén vacíos cuando no hay datos
+        setUnreadStudentComments([]);
+        setStudentSubmissions([]);
       }
     } catch (error) {
       console.error('Error loading student submissions:', error);
@@ -875,7 +1054,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
               <CardTitle className="text-lg font-semibold flex items-center justify-between">
                 <span>{translate('notifications')}</span>
                 {((user?.role === 'student' && (unreadComments.length > 0 || taskNotifications.length > 0)) ||
-                  (user?.role === 'teacher' && (studentSubmissions.length > 0 || unreadStudentComments.length > 0 || pendingGrading.length > 0))) && (
+                  (user?.role === 'teacher' && (unreadStudentComments.length > 0 || pendingGrading.length > 0 || taskNotifications.length > 0))) && (
                   <Button 
                     variant="ghost" 
                     size="sm"
@@ -962,7 +1141,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .filter(task => task.taskType === 'evaluation')
                             .slice(0, 2)
                             .map(task => (
-                            <div key={task.id} className="p-4 hover:bg-muted/50">
+                            <div key={`pending-eval-${task.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
                                   <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-300" />
@@ -981,7 +1160,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {translate('duePrefix')} {formatDate(task.dueDate)}
                                   </p>
-                                  {createSafeTaskLink(task.id, '', 'Ver Evaluación')}
+                                  {createSafeTaskLink(task.id, '', 'Ver Evaluación', 'evaluation')}
                                 </div>
                               </div>
                             </div>
@@ -992,7 +1171,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .filter(n => n.type === 'new_task' && n.taskType === 'evaluation')
                             .slice(0, 3 - pendingTasks.filter(task => task.taskType === 'evaluation').length)
                             .map(notification => (
-                            <div key={notification.id} className="p-4 hover:bg-muted/50">
+                            <div key={`new-eval-${notification.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
                                   <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-300" />
@@ -1012,7 +1191,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs font-medium mt-1">
                                     {TaskNotificationManager.getCourseNameById(notification.course)} • {notification.subject}
                                   </p>
-                                  {createSafeTaskLink(notification.taskId, '', 'Ver Evaluación')}
+                                  {createSafeTaskLink(notification.taskId, '', 'Ver Evaluación', 'evaluation')}
                                 </div>
                               </div>
                             </div>
@@ -1037,7 +1216,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .filter(task => task.taskType === 'assignment' || !task.taskType)
                             .slice(0, 2)
                             .map(task => (
-                            <div key={task.id} className="p-4 hover:bg-muted/50">
+                            <div key={`pending-task-${task.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
                                   <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
@@ -1056,7 +1235,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {translate('duePrefix')} {formatDate(task.dueDate)}
                                   </p>
-                                  {createSafeTaskLink(task.id, '', translate('viewTask'))}
+                                  {createSafeTaskLink(task.id, '', translate('viewTask'), 'task')}
                                 </div>
                               </div>
                             </div>
@@ -1067,7 +1246,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .filter(n => n.type === 'new_task' && (n.taskType === 'assignment' || !n.taskType))
                             .slice(0, 3 - pendingTasks.filter(task => task.taskType === 'assignment' || !task.taskType).length)
                             .map(notification => (
-                            <div key={notification.id} className="p-4 hover:bg-muted/50">
+                            <div key={`new-task-${notification.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
                                   <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
@@ -1087,7 +1266,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs font-medium mt-1">
                                     {TaskNotificationManager.getCourseNameById(notification.course)} • {notification.subject}
                                   </p>
-                                  {createSafeTaskLink(notification.taskId, '', translate('viewTask'))}
+                                  {createSafeTaskLink(notification.taskId, '', translate('viewTask'), 'task')}
                                 </div>
                               </div>
                             </div>
@@ -1105,7 +1284,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           </div>
                           
                           {unreadComments.slice(0, 3).map(comment => (
-                            <div key={comment.id} className="p-4 hover:bg-muted/50">
+                            <div key={`unread-comment-${comment.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
                                   <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-300" />
@@ -1154,7 +1333,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           </div>
                           
                           {taskNotifications.filter(n => n.type !== 'new_task').map(notification => (
-                            <div key={notification.id} className="p-4 hover:bg-muted/50">
+                            <div key={`grade-comment-${notification.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className={`p-2 rounded-full ${
                                   notification.type === 'grade_received' 
@@ -1188,7 +1367,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs font-medium mt-1">
                                     {TaskNotificationManager.getCourseNameById(notification.course)} • {notification.subject}
                                   </p>
-                                  {createSafeTaskLink(notification.taskId, '', `Ver ${notification.type === 'grade_received' ? 'Calificación' : 'Comentario'}`)}
+                                  {createSafeTaskLink(notification.taskId, '', `Ver ${notification.type === 'grade_received' ? 'Calificación' : 'Comentario'}`, notification.type === 'grade_received' ? 'evaluation' : 'comment')}
                                 </div>
                               </div>
                             </div>
@@ -1240,7 +1419,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             )
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                            <div key={`teacher-pending-eval-system-${notif.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
                                   <Clock className="h-4 w-4 text-purple-600 dark:text-purple-300" />
@@ -1257,7 +1436,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-sm text-muted-foreground mt-1">
                                     {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('viewEvaluation'))}
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewEvaluation'), 'evaluation')}
                                 </div>
                               </div>
                             </div>
@@ -1268,7 +1447,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .filter(notif => notif.taskType === 'evaluation')
                             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
                             .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                            <div key={`teacher-pending-eval-grade-${notif.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
                                   <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-300" />
@@ -1285,7 +1464,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {translate('evaluation') || 'Evaluación'}
                                   </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('reviewEvaluation'))}
+                                  {createSafeTaskLink(notif.taskId, '', translate('reviewEvaluation'), 'evaluation')}
                                 </div>
                               </div>
                             </div>
@@ -1305,7 +1484,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation')
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                            <div key={`teacher-eval-completed-${notif.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-purple-50 dark:bg-purple-700/30 p-2 rounded-full">
                                   <ClipboardList className="h-4 w-4 text-purple-700 dark:text-purple-200" />
@@ -1327,7 +1506,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(notif.timestamp)}
                                   </p>
-                                  {createSafeTaskLink(notif.taskId, '', 'Ver Resultados')}
+                                  {createSafeTaskLink(notif.taskId, '', 'Ver Resultados', 'evaluation')}
                                 </div>
                               </div>
                             </div>
@@ -1365,7 +1544,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             )
                             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
                             .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                            <div key={`teacher-pending-task-system-${notif.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
                                   <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
@@ -1382,7 +1561,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'), 'task')}
                                 </div>
                               </div>
                             </div>
@@ -1393,7 +1572,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .filter(notif => notif.taskType === 'assignment')
                             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
                             .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                            <div key={`teacher-pending-task-grade-${notif.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
                                   <ClipboardCheck className="h-4 w-4 text-orange-600 dark:text-orange-300" />
@@ -1410,7 +1589,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'), 'task')}
                                 </div>
                               </div>
                             </div>
@@ -1430,7 +1609,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment')
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                            <div key={`teacher-task-completed-${notif.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-orange-100 dark:bg-orange-800/40 p-2 rounded-full">
                                   <ClipboardCheck className="h-4 w-4 text-orange-800 dark:text-orange-100" />
@@ -1452,7 +1631,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'), 'task')}
                                 </div>
                               </div>
                             </div>
@@ -1472,7 +1651,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .filter(notif => notif.type === 'task_submission')
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                            <div key={`teacher-task-submission-${notif.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-orange-100 dark:bg-orange-800/40 p-2 rounded-full">
                                   <ClipboardCheck className="h-4 w-4 text-orange-800 dark:text-orange-100" />
@@ -1494,7 +1673,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('reviewTask') || 'Revisar Tarea')}
+                                  {createSafeTaskLink(notif.taskId, '', translate('reviewTask') || 'Revisar Tarea', 'task')}
                                 </div>
                               </div>
                             </div>
@@ -1502,53 +1681,19 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                         </>
                       )}
                       
-                      {/* Sección de entregas de estudiantes - CAMBIO DE COLOR A NARANJA */}
-                      {studentSubmissions.length > 0 && (
-                        <>
-                          <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
-                            <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                              {translate('tasksToReview') || 'Tareas por Revisar'} ({studentSubmissions.length})
-                            </h3>
-                          </div>
-                          {studentSubmissions.map(submission => (
-                            <div key={submission.id} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
-                                <div className="bg-orange-50 dark:bg-orange-900/30 p-2 rounded-full">
-                                  <ClipboardCheck className="h-4 w-4 text-orange-600 dark:text-orange-300" />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
-                                      {submission.studentName}
-                                    </p>
-                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {getCourseAbbreviation(submission.task?.subject || translate('task'))}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                                    {translate('submittedTask')}: {submission.task?.title && submission.task?.course ? `${submission.task.title} (${TaskNotificationManager.getCourseNameById(submission.task.course)})` : submission.task?.title || 'Tarea'}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {formatDate(submission.timestamp)}
-                                  </p>
-                                  {createSafeTaskLink(submission.taskId, '', translate('reviewTask'))}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </>
-                      )}
+                      {/* 🚫 ELIMINADO: Sección de entregas de estudiantes - ya no se muestra como sección separada */}
+                      {/* La funcionalidad de revisar entregas ahora se maneja a través de las notificaciones del sistema */}
 
                       {/* Sección de comentarios no leídos de estudiantes */}
-                      {(unreadStudentComments.length > 0 || true) && (
+                      {unreadStudentComments.length > 0 && (
                         <>
                           <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 dark:border-blue-500">
                             <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                              {translate('unreadStudentComments') || 'Comentarios No Leídos'} ({unreadStudentComments.length > 0 ? unreadStudentComments.length : 'Debug: 0'})
+                              {translate('unreadStudentComments') || 'Comentarios No Leídos'} ({unreadStudentComments.length})
                             </h3>
                           </div>
-                          {unreadStudentComments.length > 0 ? unreadStudentComments.map(comment => (
-                            <div key={comment.id} className="p-4 hover:bg-muted/50">
+                          {unreadStudentComments.map(comment => (
+                            <div key={`teacher-student-comment-${comment.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
                                   <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-300" />
@@ -1575,12 +1720,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 </div>
                               </div>
                             </div>
-                          )) : (
-                            <div className="p-4 text-center text-muted-foreground">
-                              <p className="text-sm">No hay comentarios no leídos</p>
-                              <p className="text-xs mt-1">Los nuevos comentarios de estudiantes aparecerán aquí</p>
-                            </div>
-                          )}
+                          ))}
                         </>
                       )}
                     </div>

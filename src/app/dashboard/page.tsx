@@ -282,12 +282,27 @@ export default function DashboardHomePage() {
 
           // Cargar comentarios de estudiantes (NO entregas) para tareas de este profesor
           // que no hayan sido leídos por el profesor y que no sean propios
-          const studentComments = comments.filter((comment: any) => 
-            !comment.isSubmission && // Solo comentarios, no entregas
-            teacherTaskIds.includes(comment.taskId) &&
-            comment.studentUsername !== user.username && // Excluir comentarios propios del profesor
-            (!comment.readBy?.includes(user.username)) // No leídos por el profesor
-          );
+          // ✅ MEJORA: Evitar duplicados con notificaciones del sistema
+          const studentComments = comments.filter((comment: any) => {
+            if (comment.isSubmission || // Solo comentarios, no entregas
+                !teacherTaskIds.includes(comment.taskId) || // Solo para tareas del profesor
+                comment.studentUsername === user.username || // Excluir comentarios propios
+                comment.readBy?.includes(user.username)) { // Ya leídos
+              return false;
+            }
+            
+            // ✅ NUEVA VALIDACIÓN: No incluir comentarios que ya están en las notificaciones del sistema
+            const alreadyInNotifications = TaskNotificationManager.getNotifications().some((notif: any) => 
+              notif.type === 'teacher_comment' && 
+              notif.taskId === comment.taskId &&
+              notif.fromUsername === comment.studentUsername &&
+              !notif.readBy.includes(user.username) &&
+              // Verificar que el timestamp sea similar (dentro de 1 minuto)
+              Math.abs(new Date(notif.timestamp).getTime() - new Date(comment.timestamp).getTime()) < 60000
+            );
+            
+            return !alreadyInNotifications;
+          });
           
           console.log(`[Dashboard] Teacher ${user.username} analysis:`);
           console.log(`- Total tasks assigned: ${teacherTasks.length}`);
@@ -314,6 +329,16 @@ export default function DashboardHomePage() {
           
           setPendingTaskSubmissionsCount(pendingSubmissions.length);
           setUnreadStudentCommentsCount(studentComments.length);
+          
+          // ✅ MEJORA: Disparar eventos para sincronizar el panel de notificaciones
+          console.log(`[Dashboard] Triggering notification sync events for updated counts`);
+          window.dispatchEvent(new CustomEvent('notificationsUpdated', { 
+            detail: { 
+              type: 'teacher_counters_updated',
+              unreadStudentCommentsCount: studentComments.length,
+              pendingTaskSubmissionsCount: pendingSubmissions.length
+            } 
+          }));
         } else {
           console.log(`[Dashboard] No stored data found for teacher ${user.username}`);
           setPendingTaskSubmissionsCount(0);
@@ -513,15 +538,55 @@ export default function DashboardHomePage() {
         loadPendingTeacherTasks();
       }
     };
+
+    // ✅ NUEVO: Listener para actualizaciones de conteo desde el panel de notificaciones
+    const handleDashboardCountsUpdate = (event: CustomEvent) => {
+      console.log(`[Dashboard] Received count update request from notifications panel:`, event.detail);
+      
+      // Recargar todos los contadores según el rol
+      if (user?.role === 'teacher') {
+        loadPendingTaskSubmissions();
+        loadTaskNotifications();
+        loadPendingTeacherTasks();
+      } else if (user?.role === 'student') {
+        // Recargar comentarios no leídos
+        const storedComments = localStorage.getItem('smart-student-task-comments');
+        if (storedComments) {
+          const comments = JSON.parse(storedComments);
+          let unread = comments.filter((comment: any) => 
+            comment.studentUsername !== user.username && 
+            (!comment.readBy?.includes(user.username)) &&
+            !comment.isSubmission
+          );
+
+          unread = unread.filter((comment: any, idx: number, arr: any[]) =>
+            arr.findIndex((c: any) =>
+              c.taskId === comment.taskId &&
+              c.comment === comment.comment &&
+              c.timestamp === comment.timestamp &&
+              c.studentUsername === comment.studentUsername
+            ) === idx
+          );
+          setUnreadCommentsCount(unread.length);
+        }
+        
+        loadPendingTasks();
+        loadTaskNotifications();
+      } else if (user?.role === 'admin') {
+        loadPendingPasswordRequests();
+      }
+    };
     
     window.addEventListener('storage', handleStorageChange);
     document.addEventListener('commentsUpdated', handleCommentsUpdated);
     window.addEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
+    window.addEventListener('updateDashboardCounts', handleDashboardCountsUpdate as EventListener);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('commentsUpdated', handleCommentsUpdated);
       window.removeEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
+      window.removeEventListener('updateDashboardCounts', handleDashboardCountsUpdate as EventListener);
     };
   }, [user]);
 
@@ -601,10 +666,10 @@ export default function DashboardHomePage() {
                   const totalCount = user.role === 'admin' 
                     ? pendingPasswordRequestsCount
                     : user.role === 'teacher'
-                      ? pendingTaskSubmissionsCount + unreadStudentCommentsCount + taskNotificationsCount // Para profesores: entregas pendientes + comentarios no leídos + notificaciones (incluye tareas pendientes)
+                    ? unreadStudentCommentsCount + taskNotificationsCount // Para profesores: solo comentarios no leídos + notificaciones (eliminamos entregas pendientes)
                       : pendingTasksCount + unreadCommentsCount + taskNotificationsCount; // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones de tareas (calificaciones, etc.)
                   
-                  console.log(`[Dashboard] Total count for ${user.username} (${user.role}): ${totalCount} (pending tasks: ${pendingTasksCount}, submissions: ${pendingTaskSubmissionsCount}, student comments: ${unreadStudentCommentsCount}, comments: ${unreadCommentsCount}, task notifications: ${taskNotificationsCount})`);
+                  console.log(`[Dashboard] Total count for ${user.username} (${user.role}): ${totalCount} (pending tasks: ${pendingTasksCount}, student comments: ${unreadStudentCommentsCount}, comments: ${unreadCommentsCount}, task notifications: ${taskNotificationsCount})`);
                   
                   return totalCount;
                 })()
@@ -622,7 +687,7 @@ export default function DashboardHomePage() {
                 (() => {
                   const totalTaskCount = user?.role === 'student' 
                     ? pendingTasksCount + unreadCommentsCount + taskNotificationsCount // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones (calificaciones)
-                    : pendingTaskSubmissionsCount + unreadStudentCommentsCount + taskNotificationsCount; // Para profesores: entregas pendientes + comentarios no leídos + notificaciones (incluye tareas pendientes)
+                    : unreadStudentCommentsCount + taskNotificationsCount; // Para profesores: solo comentarios no leídos + notificaciones (eliminamos entregas pendientes)
 
                   return totalTaskCount > 0 && (
                     user?.role === 'student' ? (
