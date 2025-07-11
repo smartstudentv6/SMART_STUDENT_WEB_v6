@@ -614,7 +614,7 @@
     "feedbackVisibleNote": "This comment will be visible to the student along with their grade.",
     "currentStatus": "Current status",
     "approved": "Approved",
-    "updateGrade": "Update Grade"
+    "updateGrade": "Update Grade",
+    "completedTask": "Completed Task",
+    "completedTasks": "Completed Tasks"
 }
-
-

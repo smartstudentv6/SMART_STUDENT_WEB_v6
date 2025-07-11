@@ -1151,7 +1151,138 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
-                      {/* Sección de evaluaciones pendientes de calificar - PRIMERO */}
+                      {/* 1. TAREAS PENDIENTES DE CALIFICAR - PRIMER LUGAR */}
+                      {(pendingGrading.filter(notif => notif.taskType === 'assignment').length > 0 || 
+                        taskNotifications.filter(notif => 
+                          notif.type === 'pending_grading' && 
+                          notif.fromUsername === 'system' &&
+                          notif.taskType === 'assignment'
+                        ).length > 0) && (
+                        <>
+                          <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
+                            <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                              {translate('pendingTasks') || 'Tareas Pendientes'} ({
+                                pendingGrading.filter(notif => notif.taskType === 'assignment').length +
+                                taskNotifications.filter(notif => 
+                                  notif.type === 'pending_grading' && 
+                                  notif.fromUsername === 'system' &&
+                                  notif.taskType === 'assignment'
+                                ).length
+                              })
+                            </h3>
+                          </div>
+                          
+                          {/* Tareas pendientes del sistema (recién creadas) */}
+                          {taskNotifications
+                            .filter(notif => 
+                              notif.type === 'pending_grading' && 
+                              notif.fromUsername === 'system' &&
+                              notif.taskType === 'assignment'
+                            )
+                            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
+                            .map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
+                                  <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.taskTitle}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(notif.subject).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {translate('task') || 'Tarea'}
+                                  </p>
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Tareas pendientes de calificar (entregas de estudiantes) */}
+                          {pendingGrading
+                            .filter(notif => notif.taskType === 'assignment')
+                            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
+                            .map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-orange-600 dark:text-orange-300" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.fromDisplayName || `${notif.taskTitle} (${TaskNotificationManager.getCourseNameById(notif.course)})`}
+                                    </p>
+                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
+                                      {splitTextForBadge(notif.subject).map((line, index) => (
+                                        <div key={index}>{line}</div>
+                                      ))}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {translate('task') || 'Tarea'}
+                                  </p>
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      
+                      {/* 2. TAREAS COMPLETADAS POR ESTUDIANTES - SEGUNDO LUGAR */}
+                      {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 dark:border-green-500">
+                            <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                              {translate('completedTasks') || 'Tareas Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length})
+                            </h3>
+                          </div>
+                          {taskNotifications
+                            .filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment')
+                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                            .map(notif => (
+                            <div key={notif.id} className="p-4 hover:bg-muted/50">
+                              <div className="flex items-start gap-2">
+                                <div className="bg-green-50 dark:bg-green-700/30 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-green-700 dark:text-green-200" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {notif.fromDisplayName || notif.fromUsername}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="text-xs border-green-200 dark:border-green-500 text-green-600 dark:text-green-400 flex flex-col items-center justify-center text-center leading-tight">
+                                        {splitTextForBadge(notif.subject).map((line, index) => (
+                                          <div key={index}>{line}</div>
+                                        ))}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {translate('completedTask') || 'Completó la tarea'}: {notif.taskTitle}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
+                                  </p>
+                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* 3. EVALUACIONES PENDIENTES DE CALIFICAR */}
                       {(pendingGrading.filter(notif => notif.taskType === 'evaluation').length > 0 ||
                         taskNotifications.filter(notif => 
                           notif.type === 'pending_grading' && 
@@ -1282,109 +1413,22 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                         </>
                       )}
 
-                      {/* Sección de tareas pendientes de calificar */}
-                      {(pendingGrading.filter(notif => notif.taskType === 'assignment').length > 0 || 
-                        taskNotifications.filter(notif => 
-                          notif.type === 'pending_grading' && 
-                          notif.fromUsername === 'system' &&
-                          notif.taskType === 'assignment'
-                        ).length > 0) && (
+                      {/* 5. ENTREGAS INDIVIDUALES DE ESTUDIANTES */}
+                      {taskNotifications.filter(notif => notif.type === 'task_submission').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
-                            <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                              {translate('pendingTasks') || 'Tareas Pendientes'} ({
-                                pendingGrading.filter(notif => notif.taskType === 'assignment').length +
-                                taskNotifications.filter(notif => 
-                                  notif.type === 'pending_grading' && 
-                                  notif.fromUsername === 'system' &&
-                                  notif.taskType === 'assignment'
-                                ).length
-                              })
+                          <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 dark:border-blue-500">
+                            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                              {translate('completedTasks') || 'Tareas Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_submission').length})
                             </h3>
                           </div>
-                          
-                          {/* Tareas pendientes del sistema (recién creadas) */}
                           {taskNotifications
-                            .filter(notif => 
-                              notif.type === 'pending_grading' && 
-                              notif.fromUsername === 'system' &&
-                              notif.taskType === 'assignment'
-                            )
+                            .filter(notif => notif.type === 'task_submission')
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
                             <div key={notif.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
-                                <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
-                                  <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
-                                      {notif.taskTitle}
-                                    </p>
-                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(notif.subject).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
-                                  </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {/* Tareas pendientes de calificar (entregas de estudiantes) */}
-                          {pendingGrading
-                            .filter(notif => notif.taskType === 'assignment')
-                            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
-                            .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
-                                <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
-                                  <ClipboardCheck className="h-4 w-4 text-orange-600 dark:text-orange-300" />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
-                                      {notif.fromDisplayName || `${notif.taskTitle} (${TaskNotificationManager.getCourseNameById(notif.course)})`}
-                                    </p>
-                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(notif.subject).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {translate('task') || 'Tarea'}
-                                  </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </>
-                      )}
-                      
-                      {/* Sección de tareas completadas por estudiantes - NUEVO */}
-                      {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length > 0 && (
-                        <>
-                          <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 dark:border-green-500">
-                            <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
-                              {translate('tasksCompleted') || 'Tareas Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length})
-                            </h3>
-                          </div>
-                          {taskNotifications
-                            .filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment')
-                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                            .map(notif => (
-                            <div key={notif.id} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
-                                <div className="bg-green-50 dark:bg-green-700/30 p-2 rounded-full">
-                                  <ClipboardCheck className="h-4 w-4 text-green-700 dark:text-green-200" />
+                                <div className="bg-blue-50 dark:bg-blue-700/30 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-blue-700 dark:text-blue-200" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
@@ -1392,7 +1436,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {notif.fromDisplayName || notif.fromUsername}
                                     </p>
                                     <div className="flex items-center gap-2">
-                                      <Badge variant="outline" className="text-xs border-green-200 dark:border-green-500 text-green-600 dark:text-green-400 flex flex-col items-center justify-center text-center leading-tight">
+                                      <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-500 text-blue-600 dark:text-blue-400 flex flex-col items-center justify-center text-center leading-tight">
                                         {splitTextForBadge(notif.subject).map((line, index) => (
                                           <div key={index}>{line}</div>
                                         ))}
@@ -1400,12 +1444,12 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     </div>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1">
-                                    {translate('studentCompletedTask') || 'Completó la tarea'}: {notif.taskTitle}
+                                    {translate('submittedTask') || 'Entregó la tarea'}: {notif.taskTitle}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
+                                  {createSafeTaskLink(notif.taskId, '', translate('reviewTask') || 'Revisar Tarea')}
                                 </div>
                               </div>
                             </div>

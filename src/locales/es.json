@@ -610,5 +610,7 @@
     "feedbackVisibleNote": "Este comentario será visible para el estudiante junto con su calificación.",
     "currentStatus": "Estado actual",
     "approved": "Aprobado",
-    "updateGrade": "Actualizar Calificación"
+    "updateGrade": "Actualizar Calificación",
+    "completedTask": "Tarea Completada",
+    "completedTasks": "Tareas Completadas"
 }
