@@ -101,6 +101,27 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     return firstLine && secondLine ? [firstLine, secondLine] : [text];
   };
 
+  // Función para obtener abreviatura del curso
+  const getCourseAbbreviation = (subject: string): string => {
+    const abbreviations: { [key: string]: string } = {
+      'Matemáticas': 'MAT',
+      'Lenguaje': 'LEN', 
+      'Historia': 'HIS',
+      'Ciencias Naturales': 'CNT',
+      'Inglés': 'ING',
+      'Educación Física': 'EDF',
+      'Artes': 'ART',
+      'Música': 'MUS',
+      'Tecnología': 'TEC',
+      'Filosofía': 'FIL',
+      'Química': 'QUI',
+      'Física': 'FIS',
+      'Biología': 'BIO'
+    };
+    
+    return abbreviations[subject] || subject.substring(0, 3).toUpperCase();
+  };
+
   // 🔧 NUEVA: Función para validar si una tarea existe
   const validateTaskExists = (taskId: string): boolean => {
     try {
@@ -188,6 +209,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       // 🔧 MIGRACIÓN: Actualizar notificaciones que muestran "Sistema"
       TaskNotificationManager.migrateSystemNotifications();
       
+      // 🧹 NUEVO: Ejecutar limpieza automática al cargar
+      TaskNotificationManager.cleanupFinalizedTaskNotifications();
+      
       // Clear all states first to avoid residual data when switching users/roles
       setUnreadComments([]);
       setPendingTasks([]);
@@ -265,6 +289,16 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   useEffect(() => {
     // Listener for storage events to update in real-time
     const handleStorageChange = (e: StorageEvent) => {
+      // 🧹 NUEVO: Ejecutar limpieza automática en cambios de storage para profesores
+      if (user?.role === 'teacher' && (
+        e.key === 'smart-student-task-notifications' ||
+        e.key === 'smart-student-tasks' ||
+        e.key === 'smart-student-task-comments'
+      )) {
+        console.log('🧹 [STORAGE_CHANGE] Ejecutando limpieza automática...');
+        TaskNotificationManager.cleanupFinalizedTaskNotifications();
+      }
+      
       if (e.key === 'password-reset-requests') {
         if (user?.role === 'admin') {
           loadPasswordRequests();
@@ -305,6 +339,10 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     const handleTaskNotificationsUpdated = () => {
       // 🔧 MEJORA: Ejecutar migración antes de recargar
       TaskNotificationManager.migrateSystemNotifications();
+      
+      // 🧹 NUEVO: Ejecutar limpieza automática
+      TaskNotificationManager.cleanupFinalizedTaskNotifications();
+      
       loadTaskNotifications();
     };
     window.addEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
@@ -513,6 +551,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     
     try {
       console.log(`[NotificationsPanel] Loading task notifications for user: ${user.username} (role: ${user.role})`);
+      
+      // 🧹 NUEVO: Ejecutar limpieza automática antes de cargar notificaciones
+      TaskNotificationManager.cleanupFinalizedTaskNotifications();
       
       const notifications = TaskNotificationManager.getUnreadNotificationsForUser(
         user.username, 
@@ -761,6 +802,10 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           );
           setTaskNotifications(filteredTaskNotifications);
           
+          // 🧹 NUEVO: Ejecutar limpieza automática después de marcar como leído
+          console.log('🧹 [MARK_ALL_READ] Ejecutando limpieza automática...');
+          TaskNotificationManager.cleanupFinalizedTaskNotifications();
+          
           // Restablecer el estado del botón después de un breve retraso
           setTimeout(() => setIsMarking(false), 500);
           
@@ -784,7 +829,21 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   // Retorna el componente del panel de notificaciones
   return (
     <div className="relative">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={(newOpen) => {
+        setOpen(newOpen);
+        // 🧹 NUEVO: Ejecutar limpieza automática cada vez que se abre el panel
+        if (newOpen && user?.role === 'teacher') {
+          console.log('🧹 [PANEL_OPEN] Ejecutando limpieza automática de notificaciones...');
+          TaskNotificationManager.cleanupFinalizedTaskNotifications();
+          // Pequeño delay para que la limpieza termine antes de recargar
+          setTimeout(() => {
+            loadTaskNotifications();
+            loadStudentSubmissions();
+            loadPendingGrading();
+            loadUnreadComments();
+          }, 100);
+        }
+      }}>
         <PopoverTrigger asChild>
           <Button 
             variant="ghost" 
@@ -1192,13 +1251,11 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {notif.taskTitle}
                                     </p>
                                     <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(notif.subject).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
+                                      {getCourseAbbreviation(notif.subject)}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {translate('task') || 'Tarea'}
+                                    {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
                                   {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
                                 </div>
@@ -1222,13 +1279,11 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {notif.fromDisplayName || `${notif.taskTitle} (${TaskNotificationManager.getCourseNameById(notif.course)})`}
                                     </p>
                                     <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(notif.subject).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
+                                      {getCourseAbbreviation(notif.subject)}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {translate('task') || 'Tarea'}
+                                    {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
                                   {createSafeTaskLink(notif.taskId, '', translate('viewTask'))}
                                 </div>
@@ -1241,8 +1296,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {/* 2. TAREAS COMPLETADAS POR ESTUDIANTES - SEGUNDO LUGAR */}
                       {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 dark:border-green-500">
-                            <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                          <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
+                            <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
                               {translate('completedTasks') || 'Tareas Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length})
                             </h3>
                           </div>
@@ -1252,8 +1307,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .map(notif => (
                             <div key={notif.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
-                                <div className="bg-green-50 dark:bg-green-700/30 p-2 rounded-full">
-                                  <ClipboardCheck className="h-4 w-4 text-green-700 dark:text-green-200" />
+                                <div className="bg-orange-100 dark:bg-orange-800/40 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-orange-800 dark:text-orange-100" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
@@ -1261,10 +1316,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {notif.fromDisplayName || notif.fromUsername}
                                     </p>
                                     <div className="flex items-center gap-2">
-                                      <Badge variant="outline" className="text-xs border-green-200 dark:border-green-500 text-green-600 dark:text-green-400 flex flex-col items-center justify-center text-center leading-tight">
-                                        {splitTextForBadge(notif.subject).map((line, index) => (
-                                          <div key={index}>{line}</div>
-                                        ))}
+                                      <Badge variant="outline" className="text-xs border-orange-300 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
+                                        {getCourseAbbreviation(notif.subject)}
                                       </Badge>
                                     </div>
                                   </div>
@@ -1323,9 +1376,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {notif.taskTitle}
                                     </p>
                                     <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(notif.subject).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
+                                      {getCourseAbbreviation(notif.subject)}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1">
@@ -1353,9 +1404,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {notif.fromDisplayName || `${notif.taskTitle} (${TaskNotificationManager.getCourseNameById(notif.course)})`}
                                     </p>
                                     <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(notif.subject).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
+                                      {getCourseAbbreviation(notif.subject)}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
@@ -1393,9 +1442,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     </p>
                                     <div className="flex items-center gap-2">
                                       <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-500 text-purple-600 dark:text-purple-400 flex flex-col items-center justify-center text-center leading-tight">
-                                        {splitTextForBadge(notif.subject).map((line, index) => (
-                                          <div key={index}>{line}</div>
-                                        ))}
+                                        {getCourseAbbreviation(notif.subject)}
                                       </Badge>
                                     </div>
                                   </div>
@@ -1416,8 +1463,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {/* 5. ENTREGAS INDIVIDUALES DE ESTUDIANTES */}
                       {taskNotifications.filter(notif => notif.type === 'task_submission').length > 0 && (
                         <>
-                          <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 dark:border-blue-500">
-                            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                          <div className="px-4 py-2 bg-orange-100 dark:bg-orange-900/30 border-l-4 border-orange-500 dark:border-orange-600">
+                            <h3 className="text-sm font-medium text-orange-900 dark:text-orange-100">
                               {translate('completedTasks') || 'Tareas Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_submission').length})
                             </h3>
                           </div>
@@ -1427,8 +1474,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .map(notif => (
                             <div key={notif.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
-                                <div className="bg-blue-50 dark:bg-blue-700/30 p-2 rounded-full">
-                                  <ClipboardCheck className="h-4 w-4 text-blue-700 dark:text-blue-200" />
+                                <div className="bg-orange-100 dark:bg-orange-800/40 p-2 rounded-full">
+                                  <ClipboardCheck className="h-4 w-4 text-orange-800 dark:text-orange-100" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
@@ -1436,10 +1483,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {notif.fromDisplayName || notif.fromUsername}
                                     </p>
                                     <div className="flex items-center gap-2">
-                                      <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-500 text-blue-600 dark:text-blue-400 flex flex-col items-center justify-center text-center leading-tight">
-                                        {splitTextForBadge(notif.subject).map((line, index) => (
-                                          <div key={index}>{line}</div>
-                                        ))}
+                                      <Badge variant="outline" className="text-xs border-orange-300 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
+                                        {getCourseAbbreviation(notif.subject)}
                                       </Badge>
                                     </div>
                                   </div>
@@ -1477,9 +1522,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {submission.studentName}
                                     </p>
                                     <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(submission.task?.subject || translate('task')).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
+                                      {getCourseAbbreviation(submission.task?.subject || translate('task'))}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
@@ -1497,14 +1540,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       )}
 
                       {/* Sección de comentarios no leídos de estudiantes */}
-                      {unreadStudentComments.length > 0 && (
+                      {(unreadStudentComments.length > 0 || true) && (
                         <>
-                          <div className="px-4 py-2 bg-gray-100 dark:bg-gray-900/20 border-l-4 border-blue-400 dark:border-blue-500">
+                          <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 dark:border-blue-500">
                             <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                              {translate('unreadStudentComments') || 'Comentarios No Leídos'} ({unreadStudentComments.length})
+                              {translate('unreadStudentComments') || 'Comentarios No Leídos'} ({unreadStudentComments.length > 0 ? unreadStudentComments.length : 'Debug: 0'})
                             </h3>
                           </div>
-                          {unreadStudentComments.map(comment => (
+                          {unreadStudentComments.length > 0 ? unreadStudentComments.map(comment => (
                             <div key={comment.id} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
@@ -1516,9 +1559,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {comment.studentName}
                                     </p>
                                     <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(comment.task?.subject || translate('task')).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
+                                      {getCourseAbbreviation(comment.task?.subject || translate('task'))}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
@@ -1530,11 +1571,16 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(comment.timestamp)}
                                   </p>
-                                  {createSafeCommentLink(comment.taskId, comment.id, translate('viewComment'))}
+                                  {createSafeCommentLink(comment.taskId, comment.id, translate('viewComment') || 'Ver Comentario')}
                                 </div>
                               </div>
                             </div>
-                          ))}
+                          )) : (
+                            <div className="p-4 text-center text-muted-foreground">
+                              <p className="text-sm">No hay comentarios no leídos</p>
+                              <p className="text-xs mt-1">Los nuevos comentarios de estudiantes aparecerán aquí</p>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

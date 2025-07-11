@@ -193,6 +193,55 @@ export default function TareasPage() {
           setSelectedTask(task);
           setShowTaskDialog(true);
           
+          // 🔥 ESCENARIO 2: Eliminar notificaciones de comentarios cuando el profesor abre la tarea
+          if (user?.role === 'teacher' && user?.username) {
+            console.log('🔔 [ESCENARIO 2] Profesor abrió la tarea, eliminando notificaciones de comentarios...');
+            
+            // Obtener comentarios de esta tarea
+            const storedComments = localStorage.getItem('smart-student-task-comments');
+            if (storedComments) {
+              const allComments: TaskComment[] = JSON.parse(storedComments);
+              let hasChanges = false;
+              
+              // Marcar como leídos todos los comentarios de estudiantes para esta tarea
+              const updatedComments = allComments.map(comment => {
+                if (comment.taskId === taskIdParam && 
+                    !comment.isSubmission && 
+                    comment.studentUsername !== user.username &&
+                    !comment.readBy?.includes(user.username)) {
+                  
+                  console.log(`📖 [ESCENARIO 2] Marcando como leído comentario de ${comment.studentName}: ${comment.comment?.substring(0, 30)}...`);
+                  hasChanges = true;
+                  
+                  return {
+                    ...comment,
+                    readBy: [...(comment.readBy || []), user.username]
+                  };
+                }
+                return comment;
+              });
+              
+              // Guardar cambios si hubo modificaciones
+              if (hasChanges) {
+                localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
+                
+                // Eliminar notificaciones de comentarios para esta tarea
+                TaskNotificationManager.removeCommentNotifications(taskIdParam, user.username);
+                
+                // Disparar evento para actualizar notificaciones
+                window.dispatchEvent(new CustomEvent('taskNotificationsUpdated', {
+                  detail: { 
+                    type: 'task_opened',
+                    taskId: taskIdParam,
+                    action: 'remove_comment_notifications'
+                  }
+                }));
+                
+                console.log('✅ [ESCENARIO 2] Comentarios marcados como leídos y notificaciones eliminadas');
+              }
+            }
+          }
+          
           // Si hay un ID de comentario para destacar
           if (commentIdParam && highlightParam === 'true') {
             setHighlightedCommentId(commentIdParam);
@@ -1369,9 +1418,20 @@ export default function TareasPage() {
           user?.id || ''
         );
         
+        // 🧹 NUEVO: Eliminar todas las notificaciones de esta tarea al finalizar completamente
+        TaskNotificationManager.removeNotificationsForTask(selectedTask.id, [
+          'pending_grading', 
+          'task_submission', 
+          'task_completed'
+        ]);
+        
         console.log('✅ Task marked as FINALIZED - all students have delivered AND been graded');
+        console.log('🧹 All task notifications cleaned up for finalized task');
       } else {
         console.log('⏳ Task remains PENDING - not all students have delivered or been graded');
+        
+        // 🧹 NUEVO: Eliminar notificaciones específicas del estudiante recién calificado
+        TaskNotificationManager.removeNotificationsForTask(selectedTask.id, ['task_submission']);
       }
     }
 

@@ -263,7 +263,11 @@ export class TaskNotificationManager {
     studentDisplayName: string,
     teacherUsername: string
   ): void {
+    console.log('🔔 createTaskSubmissionNotification - Iniciando creación de notificación de entrega');
+    console.log('📝 Datos:', { taskId, taskTitle, studentUsername, teacherUsername });
+    
     const notifications = this.getNotifications();
+    console.log('📋 Notificaciones actuales antes de agregar:', notifications.length);
     
     const newNotification: TaskNotification = {
       id: `submission_${taskId}_${studentUsername}_${Date.now()}`,
@@ -283,6 +287,22 @@ export class TaskNotificationManager {
 
     notifications.push(newNotification);
     this.saveNotifications(notifications);
+    
+    console.log('✅ Notificación de entrega creada:', newNotification.id);
+    console.log('📋 Total notificaciones después:', notifications.length);
+    
+    // 🔥 NUEVO: Disparar evento para actualizar notificaciones en tiempo real
+    window.dispatchEvent(new CustomEvent('taskNotificationsUpdated', {
+      detail: { 
+        type: 'task_submission',
+        taskId,
+        studentUsername,
+        teacherUsername,
+        timestamp: newNotification.timestamp
+      }
+    }));
+    
+    console.log('🚀 Evento taskNotificationsUpdated disparado para actualizar la campana del profesor');
   }
 
   // Crear notificación cuando una tarea se completa (todos los estudiantes entregaron)
@@ -490,15 +510,16 @@ export class TaskNotificationManager {
     
     // Para profesores, contar todas las notificaciones incluyendo pending_grading y task_completed
     if (userRole === 'teacher') {
-      // Asegurar que se incluyen las notificaciones de tipo pending_grading y task_completed
+      // 🔥 CORRECCIÓN: Incluir notificaciones de entregas de estudiantes (task_submission)
       const notificationCount = unreadNotifications.filter(n => 
         n.type === 'pending_grading' || 
         n.type === 'task_completed' || 
+        n.type === 'task_submission' ||  // 🔥 NUEVO: Incluir entregas de estudiantes
         n.type === 'teacher_comment' ||
         (n.type === 'new_task' && n.fromUsername === username) // Notificaciones de tareas creadas por este profesor
       ).length;
       
-      console.log(`[TaskNotificationManager] Teacher ${username} has ${notificationCount} notifications (including ${unreadNotifications.filter(n => n.type === 'pending_grading').length} pending_grading and ${unreadNotifications.filter(n => n.type === 'task_completed').length} task_completed)`);
+      console.log(`[TaskNotificationManager] Teacher ${username} has ${notificationCount} notifications (including ${unreadNotifications.filter(n => n.type === 'pending_grading').length} pending_grading, ${unreadNotifications.filter(n => n.type === 'task_completed').length} task_completed, and ${unreadNotifications.filter(n => n.type === 'task_submission').length} task_submission)`);
       
       return notificationCount;
     }
@@ -1147,6 +1168,147 @@ export class TaskNotificationManager {
       case 'delivered': return 'En Revisión';
       case 'reviewed': return 'Finalizada';
       default: return 'Pendiente';
+    }
+  }
+
+  // 🔥 NUEVA: Función para limpiar notificaciones de tareas finalizadas
+  static cleanupFinalizedTaskNotifications(): void {
+    try {
+      console.log('🧹 [CLEANUP] Iniciando limpieza de notificaciones de tareas finalizadas...');
+      
+      // Obtener tareas del localStorage
+      const storedTasks = localStorage.getItem('smart-student-tasks');
+      if (!storedTasks) {
+        console.log('⚠️ [CLEANUP] No se encontraron tareas en localStorage');
+        return;
+      }
+
+      const tasks = JSON.parse(storedTasks);
+      const notifications = this.getNotifications();
+      
+      console.log(`📊 [CLEANUP] Total tareas: ${tasks.length}, Total notificaciones: ${notifications.length}`);
+      
+      // Encontrar tareas finalizadas (status: 'Finalizada' o 'reviewed')
+      const finalizedTasks = tasks.filter((task: any) => 
+        task.status === 'Finalizada' || task.status === 'reviewed'
+      );
+      const finalizedTaskIds = finalizedTasks.map((task: any) => task.id);
+      
+      console.log(`✅ [CLEANUP] Tareas finalizadas encontradas: ${finalizedTaskIds.length}`);
+      finalizedTasks.forEach((task: any) => {
+        console.log(`   - ${task.title} (ID: ${task.id}) - Status: ${task.status}`);
+      });
+      
+      // Filtrar notificaciones que NO sean de tareas finalizadas
+      // Eliminamos TODAS las notificaciones relacionadas con tareas finalizadas
+      const filteredNotifications = notifications.filter(notification => {
+        const isFromFinalizedTask = finalizedTaskIds.includes(notification.taskId);
+        const shouldRemove = isFromFinalizedTask && 
+          (notification.type === 'pending_grading' || 
+           notification.type === 'task_submission' ||
+           notification.type === 'new_task' ||
+           notification.type === 'task_completed' ||
+           notification.type === 'teacher_comment');
+        
+        if (shouldRemove) {
+          console.log(`❌ [CLEANUP] Eliminando notificación: ${notification.type} para tarea "${notification.taskTitle}" (${notification.taskId})`);
+        }
+        
+        return !shouldRemove;
+      });
+      
+      const removedCount = notifications.length - filteredNotifications.length;
+      console.log(`\n📈 [CLEANUP] Resumen:`);
+      console.log(`   - Notificaciones eliminadas: ${removedCount}`);
+      console.log(`   - Notificaciones restantes: ${filteredNotifications.length}`);
+      
+      // Guardar notificaciones filtradas si hubo cambios
+      if (removedCount > 0) {
+        this.saveNotifications(filteredNotifications);
+        console.log('✅ [CLEANUP] Limpieza completada y guardada');
+        
+        // Disparar evento para actualizar la UI
+        window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+          detail: { type: 'cleanup', removedCount }
+        }));
+      } else {
+        console.log('ℹ️ [CLEANUP] No hay notificaciones para limpiar');
+      }
+      
+    } catch (error) {
+      console.error('❌ [CLEANUP] Error durante la limpieza de notificaciones:', error);
+    }
+  }
+
+  // 🔥 NUEVA: Función para limpiar notificaciones específicas de una tarea
+  static removeNotificationsForTask(taskId: string, notificationTypes?: string[]): void {
+    try {
+      console.log(`🗑️ [REMOVE] Eliminando notificaciones para tarea: ${taskId}`);
+      
+      const notifications = this.getNotifications();
+      const typesToRemove = notificationTypes || ['pending_grading', 'task_submission', 'new_task'];
+      
+      const filteredNotifications = notifications.filter(notification => {
+        const shouldRemove = notification.taskId === taskId && 
+          typesToRemove.includes(notification.type);
+        
+        if (shouldRemove) {
+          console.log(`❌ [REMOVE] Eliminando: ${notification.type} - ${notification.taskTitle}`);
+        }
+        
+        return !shouldRemove;
+      });
+      
+      const removedCount = notifications.length - filteredNotifications.length;
+      
+      if (removedCount > 0) {
+        this.saveNotifications(filteredNotifications);
+        console.log(`✅ [REMOVE] ${removedCount} notificaciones eliminadas para tarea ${taskId}`);
+        
+        // Disparar evento para actualizar la UI
+        window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+          detail: { type: 'taskRemoval', taskId, removedCount }
+        }));
+      }
+      
+    } catch (error) {
+      console.error(`❌ [REMOVE] Error eliminando notificaciones para tarea ${taskId}:`, error);
+    }
+  }
+
+  // 🔥 NUEVA: Función para eliminar notificaciones de comentarios específicos
+  static removeCommentNotifications(taskId: string, teacherUsername: string): void {
+    try {
+      console.log(`💬 [REMOVE_COMMENTS] Eliminando notificaciones de comentarios para tarea: ${taskId}`);
+      
+      const notifications = this.getNotifications();
+      
+      const filteredNotifications = notifications.filter(notification => {
+        const shouldRemove = notification.taskId === taskId && 
+          notification.type === 'teacher_comment' &&
+          notification.targetUsernames.includes(teacherUsername);
+        
+        if (shouldRemove) {
+          console.log(`❌ [REMOVE_COMMENTS] Eliminando comentario: ${notification.fromDisplayName}`);
+        }
+        
+        return !shouldRemove;
+      });
+      
+      const removedCount = notifications.length - filteredNotifications.length;
+      
+      if (removedCount > 0) {
+        this.saveNotifications(filteredNotifications);
+        console.log(`✅ [REMOVE_COMMENTS] ${removedCount} notificaciones de comentarios eliminadas`);
+        
+        // Disparar evento para actualizar la UI
+        window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+          detail: { type: 'commentRemoval', taskId, removedCount }
+        }));
+      }
+      
+    } catch (error) {
+      console.error(`❌ [REMOVE_COMMENTS] Error eliminando notificaciones de comentarios:`, error);
     }
   }
 }
