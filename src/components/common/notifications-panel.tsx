@@ -85,6 +85,10 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   const [count, setCount] = useState(propCount);
   const [isMarking, setIsMarking] = useState(false);
 
+  // ✅ LOG DE DEBUG: Verificar qué count está recibiendo el componente
+  console.log(`🔔 [NotificationsPanel] Received count: ${propCount} for user: ${user?.username} (${user?.role})`);
+  console.log(`🔔 [NotificationsPanel] Internal count state: ${count}`);
+
   // Función para dividir texto en dos líneas para badges
   const splitTextForBadge = (text: string, maxLength: number = 8): string[] => {
     if (text.length <= maxLength) return [text];
@@ -908,6 +912,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           // Restablecer el estado del botón después de un breve retraso
           setTimeout(() => setIsMarking(false), 500);
           
+          // ✅ NUEVA MEJORA: Disparar evento específico para actualizar contadores del dashboard
+          console.log('🔄 [MARK_ALL_READ] Disparando evento para actualizar contadores del dashboard...');
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('updateDashboardCounts', {
+              detail: { userRole: user.role, action: 'mark_all_read' }
+            }));
+          }, 100);
+          
           // Trigger events for other components to update
           document.dispatchEvent(new Event('commentsUpdated'));
           window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
@@ -990,6 +1002,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           
           // Note: studentSubmissions are NOT cleared here because they represent
           // actual student work that needs to be reviewed and graded by the teacher
+          
+          // ✅ NUEVA MEJORA: Disparar evento específico para actualizar contadores del dashboard
+          console.log('🔄 [MARK_ALL_READ] Disparando evento para actualizar contadores del dashboard...');
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('updateDashboardCounts', {
+              detail: { userRole: user.role, action: 'mark_all_read' }
+            }));
+          }, 100);
           
           // Trigger events for other components to update
           document.dispatchEvent(new Event('commentsUpdated'));

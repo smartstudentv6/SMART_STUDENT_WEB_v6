@@ -51,6 +51,7 @@ interface TaskComment {
   id: string;
   taskId: string;
   studentId: string; // Changed from studentUsername
+  studentUsername: string; // ✅ NUEVO: Necesario para filtros de notificaciones
   studentName: string; // Can be kept for convenience or fetched using studentId
   comment: string;
   timestamp: string;
@@ -59,6 +60,7 @@ interface TaskComment {
   grade?: number; // Calificación del profesor (opcional)
   teacherComment?: string; // Comentario del profesor (opcional)
   reviewedAt?: string; // Fecha de revisión (opcional)
+  readBy?: string[]; // ✅ NUEVO: Lista de usernames que han leído este comentario
 }
 
 interface TaskFile {
@@ -235,6 +237,11 @@ export default function TareasPage() {
                     taskId: taskIdParam,
                     action: 'remove_comment_notifications'
                   }
+                }));
+                
+                // ✅ NUEVA MEJORA: También disparar evento para actualizar contadores del dashboard
+                window.dispatchEvent(new CustomEvent('updateDashboardCounts', {
+                  detail: { userRole: user.role, action: 'task_opened', taskId: taskIdParam }
                 }));
                 
                 console.log('✅ [ESCENARIO 2] Comentarios marcados como leídos y notificaciones eliminadas');
@@ -840,11 +847,13 @@ export default function TareasPage() {
       id: `comment_${Date.now()}`,
       taskId: selectedTask.id,
       studentId: user?.id || '', // Use user.id
+      studentUsername: user?.username || '', // ✅ NUEVO: Agregar studentUsername para las notificaciones
       studentName: user?.displayName || user?.username || '', // Keep displayName
       comment: newComment,
       timestamp: new Date().toISOString(),
       isSubmission: isSubmission,
-      attachments: attachmentsToSave // Usar la copia de archivos adjuntos
+      attachments: attachmentsToSave, // Usar la copia de archivos adjuntos
+      readBy: [] // ✅ NUEVO: Inicializar como array vacío para tracking de lectura
     };
 
     const updatedComments = [...comments, comment];
@@ -1797,7 +1806,7 @@ export default function TareasPage() {
                 <SelectContent className="select-orange-hover">
                   <SelectItem value="all" className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{translate('allCourses')}</SelectItem>
                   {getAvailableCoursesWithNames().map(course => (
-                    <SelectItem key={course.id} value={course.id} className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{course.name}</SelectItem>
+                    <SelectItem key={`main-header-course-filter-${course.id}`} value={course.id} className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{course.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1869,7 +1878,7 @@ export default function TareasPage() {
                   <CardContent>
                     <div className="space-y-3">
                       {courseTasks.map(task => (
-                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div key={`pending-task-${task.id}`} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
                               <h4 className="font-medium">{task.title}</h4>
@@ -1963,7 +1972,7 @@ export default function TareasPage() {
                   : task.status;
                 
                 return (
-                <Card key={task.id} className="card-orange-shadow hover:shadow-md transition-shadow">
+                <Card key={`active-task-${task.id}`} className="card-orange-shadow hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -2133,7 +2142,7 @@ export default function TareasPage() {
                 </SelectTrigger>
                 <SelectContent className={formData.taskType === 'evaluacion' ? 'select-purple-hover' : 'select-orange-hover'}>
                   {getAvailableCoursesWithNames().map(course => (
-                    <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                    <SelectItem key={`edit-task-course-${course.id}`} value={course.id}>{course.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -2316,7 +2325,7 @@ export default function TareasPage() {
                 {taskAttachments.length > 0 && (
                   <div className="space-y-2 max-h-32 overflow-y-auto">
                     {taskAttachments.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
+                      <div key={`new-task-file-${file.id}`} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
                         <div className="flex items-center space-x-2 min-w-0 flex-1">
                           <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                           <span className="truncate" title={file.name}>{file.name}</span>
@@ -2437,7 +2446,7 @@ export default function TareasPage() {
                   <h4 className="font-medium mb-2">{translate('attachments')}</h4>
                   <div className="space-y-2">
                     {selectedTask.attachments.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
+                      <div key={`selected-task-file-${file.id}`} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
                         <div className="flex items-center space-x-2 min-w-0 flex-1">
                           <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                           <span className="truncate" title={file.name}>{file.name}</span>
@@ -2763,7 +2772,7 @@ export default function TareasPage() {
                     })
                     .map(comment => (
                       <div
-                        key={comment.id}
+                        key={`task-comment-${comment.id}`}
                         id={`comment-${comment.id}`}
                         className={`bg-muted p-4 rounded-lg transition-all duration-300 ${
                           highlightedCommentId === comment.id
@@ -2818,7 +2827,7 @@ export default function TareasPage() {
                         {comment.attachments && comment.attachments.length > 0 && (
                           <div className="mt-1 space-y-1">
                             {comment.attachments.map((file) => (
-                              <div key={file.id} className="flex items-center gap-2 text-xs">
+                              <div key={`comment-file-${file.id}`} className="flex items-center gap-2 text-xs">
                                 <Paperclip className="w-3 h-3 text-muted-foreground" />
                                 <span className="truncate" title={file.name}>{file.name}</span>
                                 <Button
@@ -2898,7 +2907,7 @@ export default function TareasPage() {
                     {commentAttachments.length > 0 && (
                       <div className="space-y-2 max-h-24 overflow-y-auto">
                         {commentAttachments.map((file) => (
-                          <div key={file.id} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
+                          <div key={`comment-attachment-${file.id}`} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
                             <div className="flex items-center space-x-2 min-w-0 flex-1">
                               <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                               <span className="truncate" title={file.name}>{file.name}</span>
@@ -3001,7 +3010,7 @@ export default function TareasPage() {
                 </SelectTrigger>
                 <SelectContent className="select-orange-hover">
                   {getAvailableCoursesWithNames().map(course => (
-                    <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                    <SelectItem key={`comment-course-${course.id}`} value={course.id}>{course.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -3243,7 +3252,7 @@ export default function TareasPage() {
                   <h4 className="font-medium mb-3">Archivos de la Entrega</h4>
                   <div className="space-y-2">
                     {submissionToGrade.attachments.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded border">
+                      <div key={`submission-file-${file.id}`} className="flex items-center justify-between p-3 bg-muted rounded border">
                         <div className="flex items-center space-x-2 min-w-0 flex-1">
                           <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                           <span className="truncate font-medium" title={file.name}>{file.name}</span>
@@ -3270,7 +3279,7 @@ export default function TareasPage() {
                   <h4 className="font-medium mb-3">Archivos de la Tarea Original</h4>
                   <div className="space-y-2">
                     {selectedTask.attachments.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
+                      <div key={`task-file-${file.id}`} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
                         <div className="flex items-center space-x-2 min-w-0 flex-1">
                           <Paperclip className="w-4 h-4 text-blue-600 flex-shrink-0" />
                           <span className="truncate" title={file.name}>{file.name}</span>
@@ -3503,7 +3512,7 @@ export default function TareasPage() {
                   </h4>
                   <div className="space-y-3">
                     {currentReview.submission.attachments.map((file, index) => (
-                      <div key={file.id} className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
+                      <div key={`review-submission-file-${file.id}`} className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
                         <div className="flex items-center space-x-3 min-w-0 flex-1">
                           <div className="flex-shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                             <Paperclip className="w-5 h-5 text-blue-600 dark:text-blue-400" />

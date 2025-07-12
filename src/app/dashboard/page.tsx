@@ -151,12 +151,68 @@ export default function DashboardHomePage() {
   // Función para cargar notificaciones de tareas
   const loadTaskNotifications = () => {
     if (user) {
-      const count = TaskNotificationManager.getUnreadCountForUser(
-        user.username, 
-        user.role as 'student' | 'teacher'
-      );
-      console.log(`[Dashboard] User ${user.username} (${user.role}) has ${count} unread task notifications`);
-      setTaskNotificationsCount(count);
+      // 🔥 CORRECCIÓN DIRECTA: Calcular desde localStorage para profesores como fallback
+      if (user.role === 'teacher') {
+        try {
+          const notifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
+          
+          // Filtrar notificaciones no leídas para este profesor usando la misma lógica que funcionó en el debug
+          const teacherNotifications = notifications.filter((notif: any) => 
+            notif.targetUserRole === 'teacher' &&
+            notif.targetUsernames?.includes(user.username) &&
+            !notif.readBy?.includes(user.username)
+          );
+          
+          console.log(`� [Dashboard] DIRECT localStorage calculation for ${user.username}:`);
+          console.log(`📋 Total notifications in localStorage: ${notifications.length}`);
+          console.log(`📋 Teacher notifications (filtered): ${teacherNotifications.length}`);
+          
+          // Filtrar por tipos específicos para profesores
+          const taskSubmissions = teacherNotifications.filter((n: any) => n.type === 'task_submission');
+          const pendingGrading = teacherNotifications.filter((n: any) => n.type === 'pending_grading');
+          const taskCompleted = teacherNotifications.filter((n: any) => n.type === 'task_completed');
+          const teacherComments = teacherNotifications.filter((n: any) => n.type === 'teacher_comment');
+          
+          const directCount = teacherNotifications.length;
+          
+          console.log(`🔍 [Dashboard] DIRECT Breakdown:`, {
+            'task_submission (Tareas Completadas)': taskSubmissions.length,
+            'pending_grading': pendingGrading.length,
+            'task_completed': taskCompleted.length, 
+            'teacher_comment': teacherComments.length,
+            'DIRECT TOTAL': directCount
+          });
+          
+          // También intentar el TaskNotificationManager para comparar
+          let managerCount = 0;
+          try {
+            managerCount = TaskNotificationManager.getUnreadCountForUser(user.username, 'teacher');
+            console.log(`🔍 [Dashboard] TaskNotificationManager returned: ${managerCount}`);
+          } catch (error) {
+            console.warn(`⚠️ [Dashboard] TaskNotificationManager failed:`, error);
+          }
+          
+          // Usar el conteo directo si el TaskNotificationManager falla
+          const finalCount = directCount > 0 ? directCount : managerCount;
+          console.log(`🎯 [Dashboard] Using final count: ${finalCount} (direct: ${directCount}, manager: ${managerCount})`);
+          
+          setTaskNotificationsCount(finalCount);
+          
+        } catch (error) {
+          console.error('Error in direct notification calculation:', error);
+          // Fallback al TaskNotificationManager original
+          const count = TaskNotificationManager.getUnreadCountForUser(user.username, 'teacher');
+          setTaskNotificationsCount(count);
+        }
+      } else {
+        // Para estudiantes, usar TaskNotificationManager normal
+        const count = TaskNotificationManager.getUnreadCountForUser(
+          user.username, 
+          user.role as 'student' | 'teacher'
+        );
+        console.log(`🔔 [Dashboard] TaskNotifications - User ${user.username} (${user.role}) has ${count} unread task notifications`);
+        setTaskNotificationsCount(count);
+      }
     }
   };
 
@@ -245,9 +301,35 @@ export default function DashboardHomePage() {
           const comments = JSON.parse(storedComments);
           const tasks = JSON.parse(storedTasks);
           
-          // Filtrar tareas asignadas por este profesor
-          const teacherTasks = tasks.filter((task: any) => task.assignedBy === user.username);
+          // Filtrar tareas asignadas por este profesor - usar múltiples criterios
+          const teacherTasks = tasks.filter((task: any) => 
+            task.assignedBy === user.username || 
+            task.assignedById === user.id ||
+            task.assignedBy === user.id ||
+            task.assignedById === user.username
+          );
           const teacherTaskIds = teacherTasks.map((task: any) => task.id);
+          
+          console.log(`[Dashboard] Teacher ${user.username} task filtering:`);
+          console.log(`- Total tasks in localStorage: ${tasks.length}`);
+          console.log(`- Tasks assigned by this teacher: ${teacherTasks.length}`);
+          console.log(`- Teacher task IDs: [${teacherTaskIds.join(', ')}]`);
+          
+          if (teacherTasks.length > 0) {
+            console.log('- Found teacher tasks:');
+            teacherTasks.forEach((task: any, index: number) => {
+              console.log(`  ${index + 1}. "${task.title}" (ID: ${task.id})`);
+              console.log(`     - assignedBy: "${task.assignedBy}"`);
+              console.log(`     - assignedById: "${task.assignedById}"`);
+            });
+          } else {
+            console.warn(`⚠️ [Dashboard] No tasks found for teacher ${user.username}. Checking all tasks:`);
+            tasks.forEach((task: any, index: number) => {
+              console.log(`  Task ${index + 1}: "${task.title}"`);
+              console.log(`    - assignedBy: "${task.assignedBy}"`);
+              console.log(`    - assignedById: "${task.assignedById}"`);
+            });
+          }
           
           // Filtrar entregas sin calificar - ser más estricto con la validación
           // También excluir entregas propias del profesor
@@ -414,9 +496,12 @@ export default function DashboardHomePage() {
         if (storedTasks) {
           const tasks = JSON.parse(storedTasks);
           
-          // Filtrar tareas creadas por este profesor que están en estado 'pending'
+          // Filtrar tareas creadas por este profesor que están en estado 'pending' - usar múltiples criterios
           const pendingTasks = tasks.filter((task: any) => 
-            task.assignedById === user.id && 
+            (task.assignedById === user.id || 
+             task.assignedBy === user.username ||
+             task.assignedById === user.username ||
+             task.assignedBy === user.id) &&
             task.status === 'pending'
           );
           
@@ -666,10 +751,22 @@ export default function DashboardHomePage() {
                   const totalCount = user.role === 'admin' 
                     ? pendingPasswordRequestsCount
                     : user.role === 'teacher'
-                    ? unreadStudentCommentsCount + taskNotificationsCount // Para profesores: solo comentarios no leídos + notificaciones (eliminamos entregas pendientes)
+                    ? pendingTaskSubmissionsCount + unreadStudentCommentsCount + pendingTasksCount // Para profesores: entregas pendientes + comentarios no leídos + tareas pendientes
                       : pendingTasksCount + unreadCommentsCount + taskNotificationsCount; // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones de tareas (calificaciones, etc.)
                   
-                  console.log(`[Dashboard] Total count for ${user.username} (${user.role}): ${totalCount} (pending tasks: ${pendingTasksCount}, student comments: ${unreadStudentCommentsCount}, comments: ${unreadCommentsCount}, task notifications: ${taskNotificationsCount})`);
+                  // ✅ LOGS DE DEBUG MEJORADOS
+                  console.log(`🔔 [Dashboard] CALCULATION FOR ${user.username} (${user.role}):`);
+                  console.log(`  • pendingTaskSubmissionsCount: ${pendingTaskSubmissionsCount}`);
+                  console.log(`  • unreadStudentCommentsCount: ${unreadStudentCommentsCount}`);
+                  console.log(`  • taskNotificationsCount: ${taskNotificationsCount}`);
+                  console.log(`  • pendingTasksCount: ${pendingTasksCount}`);
+                  console.log(`  • unreadCommentsCount: ${unreadCommentsCount}`);
+                  console.log(`  🎯 TOTAL COUNT: ${totalCount}`);
+                  
+                  // ✅ VERIFICACIÓN ADICIONAL
+                  if (totalCount === 0 && user.role === 'teacher') {
+                    console.warn(`⚠️ [Dashboard] WARNING: Teacher has 0 notifications. This might be incorrect.`);
+                  }
                   
                   return totalCount;
                 })()
@@ -687,7 +784,16 @@ export default function DashboardHomePage() {
                 (() => {
                   const totalTaskCount = user?.role === 'student' 
                     ? pendingTasksCount + unreadCommentsCount + taskNotificationsCount // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones (calificaciones)
-                    : unreadStudentCommentsCount + taskNotificationsCount; // Para profesores: solo comentarios no leídos + notificaciones (eliminamos entregas pendientes)
+                    : pendingTaskSubmissionsCount + unreadStudentCommentsCount + pendingTasksCount; // Para profesores: entregas pendientes + comentarios no leídos + tareas pendientes
+
+                  // ✅ LOGS DE DEBUG PARA TARJETA DE TAREAS
+                  console.log(`📋 [Dashboard] TASK CARD CALCULATION FOR ${user?.username} (${user?.role}):`);
+                  console.log(`  • pendingTaskSubmissionsCount: ${pendingTaskSubmissionsCount}`);
+                  console.log(`  • unreadStudentCommentsCount: ${unreadStudentCommentsCount}`);
+                  console.log(`  • taskNotificationsCount: ${taskNotificationsCount}`);
+                  console.log(`  • pendingTasksCount: ${pendingTasksCount}`);
+                  console.log(`  • unreadCommentsCount: ${unreadCommentsCount}`);
+                  console.log(`  🎯 TOTAL TASK CARD COUNT: ${totalTaskCount}`);
 
                   return totalTaskCount > 0 && (
                     user?.role === 'student' ? (

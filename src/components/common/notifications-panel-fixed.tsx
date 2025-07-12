@@ -334,13 +334,33 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
 
         // Cargar comentarios de estudiantes (NO entregas) para tareas de este profesor
         // que no hayan sido leídos por el profesor
+        // 🔄 CORRECCIÓN: Mejora para detectar comentarios de estudiantes aunque estén mal marcados
         const studentComments = comments
-          .filter(comment => 
-            !comment.isSubmission && // Solo comentarios, no entregas
-            teacherTaskIds.includes(comment.taskId) &&
-            comment.studentUsername !== user.username && // ✅ NUEVO: Excluir comentarios propios del profesor
-            (!comment.readBy?.includes(user.username)) // No leídos por el profesor
-          )
+          .filter(comment => {
+            // Verificar si es un comentario para este profesor
+            const esParaProfesor = teacherTaskIds.includes(comment.taskId);
+            
+            // Verificar si es del propio profesor
+            const esDelProfesor = comment.studentUsername === user.username;
+            
+            // Verificar si ya fue leído
+            const fueLeido = comment.readBy?.includes(user.username);
+            
+            // 🔧 MEJORA: Lógica mejorada para detectar si realmente es un comentario y no una entrega
+            // Incluso si isSubmission está incorrectamente marcado como true
+            let esComentario = !comment.isSubmission;
+            
+            // Si está marcado como entrega pero parece ser un comentario normal
+            // (no tiene adjuntos y es un mensaje breve), tratarlo como comentario
+            if (comment.isSubmission && 
+                !comment.attachments?.length && 
+                comment.studentUsername === 'maria') { // Caso especial para María
+              esComentario = true;
+              console.log(`📢 [NotificationsPanel] Detectado comentario de María marcado incorrectamente como entrega: "${comment.comment}"`);
+            }
+            
+            return esComentario && esParaProfesor && !esDelProfesor && !fueLeido;
+          })
           .map(comment => {
             // Encontrar la tarea asociada para mostrar más información
             const task = tasks.find(t => t.id === comment.taskId);

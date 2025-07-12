@@ -401,6 +401,7 @@
     "evaluation": "Evaluation",
     "pendingEvaluations": "Pending Evaluations",
     "reviewEvaluation": "Review Evaluation",
+    "viewEvaluation": "View Evaluation",
     "updateTask": "Update Task",
     "deleteTask": "Delete Task",
     "taskCreated": "Task created",

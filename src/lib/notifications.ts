@@ -474,13 +474,24 @@ export class TaskNotificationManager {
       console.log(`[TaskNotificationManager] Checking notification: ${notification.type} from ${notification.fromUsername} to ${notification.targetUsernames.join(',')} (role: ${notification.targetUserRole})`);
       
       // Filtros básicos
-      const basicFilters = notification.targetUserRole === userRole &&
+      let basicFilters = notification.targetUserRole === userRole &&
         notification.targetUsernames.includes(username) &&
-        !notification.readBy.includes(username) &&
-        // ✅ CORRECCIÓN: Permitir notificaciones del sistema para profesores (tareas pendientes)
-        (notification.fromUsername !== username || notification.fromUsername === 'system'); // Excluir notificaciones de sus propios comentarios, pero permitir del sistema
+        !notification.readBy.includes(username);
 
-      console.log(`[TaskNotificationManager] Basic filters result: ${basicFilters}`);
+      // 🔥 CORRECCIÓN ESPECÍFICA PARA PROFESORES: Solo excluir sus propios comentarios de estudiante, NO las entregas de estudiantes
+      if (userRole === 'teacher') {
+        // Para profesores: excluir solo sus propios comentarios (teacher_comment que ellos mismos crearon)
+        // PERO permitir todas las notificaciones de entregas/calificaciones de estudiantes
+        if (notification.type === 'teacher_comment' && notification.fromUsername === username) {
+          basicFilters = false; // Excluir comentarios propios del profesor
+        }
+        // Permitir todas las demás notificaciones (task_submission, pending_grading, etc.)
+      } else {
+        // Para estudiantes: mantener la lógica original (excluir notificaciones propias excepto del sistema)
+        basicFilters = basicFilters && (notification.fromUsername !== username || notification.fromUsername === 'system');
+      }
+
+      console.log(`[TaskNotificationManager] Basic filters for ${userRole} ${username}: ${basicFilters} (type: ${notification.type}, from: ${notification.fromUsername})`);
 
       if (!basicFilters) return false;
 
