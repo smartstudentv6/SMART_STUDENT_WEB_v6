@@ -706,29 +706,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
               text: comment.comment?.substring(0, 50) + '...'
             });
             
-            // 🔧 MEJORA: Lógica mejorada para detectar si realmente es un comentario y no una entrega
-            // Y que no esté duplicado en las notificaciones
-            let esComentario = !comment.isSubmission;
-            
-            // 🔧 NUEVA LÓGICA: Detectar comentarios mal marcados como entregas
-            // Si está marcado como entrega pero parece ser un comentario normal
-            if (comment.isSubmission) {
-              // Casos donde puede ser un comentario mal marcado:
-              // 1. No tiene adjuntos (las entregas suelen tener archivos)
-              // 2. El texto es muy corto (comentarios vs entregas formales)
-              // 3. No tiene indicadores de entrega formal
-              const tieneAdjuntos = comment.attachments && comment.attachments.length > 0;
-              const textoCorto = comment.comment?.length < 500; // Menos de 500 caracteres
-              const noTieneIndicadoresEntrega = !comment.comment?.toLowerCase().includes('entrega') &&
-                                              !comment.comment?.toLowerCase().includes('adjunto') &&
-                                              !comment.comment?.toLowerCase().includes('archivo');
-              
-              // Si cumple estas condiciones, probablemente es un comentario
-              if (!tieneAdjuntos && textoCorto && noTieneIndicadoresEntrega) {
-                esComentario = true;
-                console.log(`📢 [NotificationsPanel] Detectado comentario de ${comment.studentUsername} marcado incorrectamente como entrega: "${comment.comment?.substring(0, 50)}..."`);
-              }
-            }
+            // ✅ CORRECCIÓN: Solo incluir comentarios reales (NO entregas) en la sección "Comentarios No Leídos"
+            // Las entregas deben aparecer solo en la sección de entregas pendientes
+            const esComentario = !comment.isSubmission;
             
             // ✅ NUEVA CONDICIÓN: No incluir si ya está en notificaciones para evitar duplicados
             const shouldInclude = esComentario && esParaProfesor && !esDelProfesor && !fueLeido && !yaEstaEnNotificaciones;
@@ -1377,19 +1357,19 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                                 </div>
                                 <div className="flex-1">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className="font-medium text-sm text-foreground">
-                                      {comment.studentName}
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-medium text-sm">
+                                      {comment.task?.title || 'Sin título'}
                                     </p>
-                                    <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300">
-                                      {comment.task?.subject ? getCourseAbbreviation(comment.task.subject) : 'CNT'}
-                                    </Badge>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDate(comment.timestamp)}
+                                    </p>
                                   </div>
-                                  <p className="text-sm text-muted-foreground mb-1">
+                                  <p className="text-sm text-muted-foreground mt-1">
                                     {comment.comment}
                                   </p>
-                                  <p className="text-xs font-medium text-foreground mb-2">
-                                    {comment.task?.title || 'Tarea'}
+                                  <p className="text-xs font-medium mt-1">
+                                    {comment.task?.course ? TaskNotificationManager.getCourseNameById(comment.task.course) : 'Sin curso'} • {comment.task?.subject || 'Sin materia'}
                                   </p>
                                   {createSafeCommentLink(comment.taskId, comment.id, translate('viewComment'))}
                                 </div>
