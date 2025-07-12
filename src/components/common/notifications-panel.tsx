@@ -1187,7 +1187,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                 <div>
                   {unreadComments.length === 0 && pendingTasks.length === 0 && taskNotifications.length === 0 ? (
                     <div className="py-6 text-center text-muted-foreground">
-                      {translate('noNotifications')}
+                      {translate('noNotificationsStudent')}
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
@@ -1434,7 +1434,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <p className="text-xs font-medium mt-1">
                                     {TaskNotificationManager.getCourseNameById(notification.course)} • {notification.subject}
                                   </p>
-                                  {createSafeTaskLink(notification.taskId, '', `Ver ${notification.type === 'grade_received' ? 'Calificación' : 'Comentario'}`, notification.type === 'grade_received' ? 'evaluation' : 'comment')}
+                                  {createSafeTaskLink(notification.taskId, '', `Ver ${notification.type === 'grade_received' ? 'Calificación' : 'Comentario'}`, notification.type === 'grade_received' ? 'evaluation' : 'task')}
                                 </div>
                               </div>
                             </div>
@@ -1761,27 +1761,24 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           </div>
                           {unreadStudentComments.map(comment => (
                             <div key={`teacher-student-comment-${comment.id}`} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
+                              <div className="flex items-start gap-3">
                                 <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
                                   <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <p className="font-medium text-sm">
-                                      {comment.studentName}
+                                      {comment.task?.title || 'Sin título'}
                                     </p>
-                                    <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {getCourseAbbreviation(comment.task?.subject || translate('task'))}
-                                    </Badge>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDate(comment.timestamp)}
+                                    </p>
                                   </div>
-                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                  <p className="text-sm text-muted-foreground mt-1">
                                     {comment.comment}
                                   </p>
                                   <p className="text-xs font-medium mt-1">
-                                    {translate('task') || 'Tarea'}: {comment.task?.title && comment.task?.course ? `${comment.task.title} (${TaskNotificationManager.getCourseNameById(comment.task.course)})` : comment.task?.title || 'Tarea'}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {formatDate(comment.timestamp)}
+                                    {comment.task?.course ? TaskNotificationManager.getCourseNameById(comment.task.course) : 'Sin curso'} • {comment.task?.subject || 'Sin materia'}
                                   </p>
                                   {createSafeCommentLink(comment.taskId, comment.id, translate('viewComment') || 'Ver Comentario')}
                                 </div>

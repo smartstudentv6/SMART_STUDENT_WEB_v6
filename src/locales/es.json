@@ -545,6 +545,7 @@
     "noSubmissionsToReview": "¡Todo al día! Disfruta de un momento de paz mientras tus estudiantes preparan nuevas entregas ✨",
     "notifications": "Notificaciones",
     "noNotifications": "No tienes notificaciones pendientes",
+    "noNotificationsStudent": "¡Excelente! No tienes notificaciones pendientes. Disfruta de este momento de tranquilidad 🌟",
     "unreadComments": "Comentarios No Leídos",
     "newTaskNotification": "Nueva Tarea Asignada",
     "newTaskNotificationDesc": "{{teacherName}} te ha asignado una nueva tarea: {{title}}",

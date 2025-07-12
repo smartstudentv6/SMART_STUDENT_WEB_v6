@@ -546,6 +546,7 @@
     "noSubmissionsToReview": "All caught up! Enjoy a moment of peace while your students prepare new submissions ✨",
     "notifications": "Notifications",
     "noNotifications": "You have no pending notifications",
+    "noNotificationsStudent": "Excellent! You have no pending notifications. Enjoy this moment of tranquility 🌟",
     "unreadComments": "Unread Comments",
     "newTaskNotification": "New Task Assigned",
     "newTaskNotificationDesc": "{{teacherName}} has assigned you a new task: {{title}}",
