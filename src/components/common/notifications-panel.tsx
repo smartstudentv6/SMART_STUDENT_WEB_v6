@@ -1197,8 +1197,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                         <>
                           <div className="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-400 dark:border-purple-500">
                             <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200">
-                              {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} 
-                              ({pendingTasks.filter(task => task.taskType === 'evaluation').length + 
+                              {translate('pendingEvaluations') || 'Evaluaciones Pendientes'} ({pendingTasks.filter(task => task.taskType === 'evaluation').length + 
                                 taskNotifications.filter(n => n.type === 'new_task' && n.taskType === 'evaluation').length})
                             </h3>
                           </div>
@@ -1209,25 +1208,25 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .slice(0, 2)
                             .map(task => (
                             <div key={`pending-eval-${task.id}`} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
+                              <div className="flex items-start gap-3">
                                 <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
                                   <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-300" />
                                 </div>
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
+                                    <p className="font-medium text-sm text-purple-800 dark:text-purple-200">
                                       {task.title}
                                     </p>
-                                    <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(task.subject).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
+                                    <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 font-medium">
+                                      {getCourseAbbreviation(task.subject)}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {translate('duePrefix')} {formatDate(task.dueDate)}
+                                    {TaskNotificationManager.getCourseNameById(task.course)} • {formatDate(task.dueDate)}
                                   </p>
-                                  {createSafeTaskLink(task.id, '', 'Ver Evaluación', 'evaluation')}
+                                  <div className="mt-2">
+                                    {createSafeTaskLink(task.id, '', 'Ver Evaluación', 'evaluation')}
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1239,26 +1238,25 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .slice(0, 3 - pendingTasks.filter(task => task.taskType === 'evaluation').length)
                             .map(notification => (
                             <div key={`new-eval-${notification.id}`} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
+                              <div className="flex items-start gap-3">
                                 <div className="bg-purple-100 dark:bg-purple-800 p-2 rounded-full">
                                   <ClipboardList className="h-4 w-4 text-purple-600 dark:text-purple-300" />
                                 </div>
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
+                                    <p className="font-medium text-sm text-purple-800 dark:text-purple-200">
                                       {notification.taskTitle}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {formatDate(notification.timestamp)}
-                                    </p>
+                                    <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 font-medium">
+                                      {getCourseAbbreviation(notification.subject)}
+                                    </Badge>
                                   </div>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    Nueva evaluación asignada por {notification.teacherName || notification.fromDisplayName}
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {TaskNotificationManager.getCourseNameById(notification.course)} • {formatDate(notification.timestamp)}
                                   </p>
-                                  <p className="text-xs font-medium mt-1">
-                                    {TaskNotificationManager.getCourseNameById(notification.course)} • {notification.subject}
-                                  </p>
-                                  {createSafeTaskLink(notification.taskId, '', 'Ver Evaluación', 'evaluation')}
+                                  <div className="mt-2">
+                                    {createSafeTaskLink(notification.taskId, '', 'Ver Evaluación', 'evaluation')}
+                                  </div>
                                 </div>
                               </div>
                             </div>

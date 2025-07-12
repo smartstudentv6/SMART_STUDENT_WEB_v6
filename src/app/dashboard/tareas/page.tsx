@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload, Star, Lock } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload, Star, Lock, ClipboardCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 // Extended User interface with teacher assignment
@@ -2571,27 +2571,63 @@ export default function TareasPage() {
 
               {/* Evaluation specific information */}
               {selectedTask.taskType === 'evaluacion' && (
-                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
-                  <h4 className="font-medium mb-2 text-purple-800 dark:text-purple-200">Información de la Evaluación</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    {selectedTask.topic && (
-                      <div>
-                        <strong className="text-purple-700 dark:text-purple-300">Tema:</strong>
-                        <p className="text-purple-600 dark:text-purple-400">{selectedTask.topic}</p>
-                      </div>
-                    )}
-                    {selectedTask.numQuestions && selectedTask.numQuestions > 0 && (
-                      <div>
-                        <strong className="text-purple-700 dark:text-purple-300">Preguntas:</strong>
-                        <p className="text-purple-600 dark:text-purple-400">{selectedTask.numQuestions}</p>
-                      </div>
-                    )}
-                    {selectedTask.timeLimit && selectedTask.timeLimit > 0 && (
-                      <div>
-                        <strong className="text-purple-700 dark:text-purple-300">Tiempo:</strong>
-                        <p className="text-purple-600 dark:text-purple-400">{selectedTask.timeLimit} minutos</p>
-                      </div>
-                    )}
+                <div className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 p-3 rounded-lg border border-purple-200 dark:border-purple-700 shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <tbody>
+                        <tr className="align-middle">
+                          <td className="py-1 pr-3">
+                            <div className="flex items-center gap-2">
+                              <ClipboardCheck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                              <span className="text-purple-800 dark:text-purple-200 font-medium text-sm">Evaluación</span>
+                            </div>
+                          </td>
+                          
+                          {selectedTask.topic && (
+                            <td className="py-1 px-3 border-l border-purple-200 dark:border-purple-600">
+                              <div className="text-center">
+                                <div className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-0.5">TEMA</div>
+                                <div className="text-sm text-purple-800 dark:text-purple-200 font-medium">{selectedTask.topic}</div>
+                              </div>
+                            </td>
+                          )}
+                          
+                          {selectedTask.numQuestions && selectedTask.numQuestions > 0 && (
+                            <td className="py-1 px-3 border-l border-purple-200 dark:border-purple-600">
+                              <div className="text-center">
+                                <div className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-0.5">PREGUNTAS</div>
+                                <div className="text-sm text-purple-800 dark:text-purple-200 font-medium">{selectedTask.numQuestions}</div>
+                              </div>
+                            </td>
+                          )}
+                          
+                          {selectedTask.timeLimit && selectedTask.timeLimit > 0 && (
+                            <td className="py-1 px-3 border-l border-purple-200 dark:border-purple-600">
+                              <div className="text-center">
+                                <div className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-0.5">TIEMPO</div>
+                                <div className="text-sm text-purple-800 dark:text-purple-200 font-medium">{selectedTask.timeLimit} min</div>
+                              </div>
+                            </td>
+                          )}
+                          
+                          {/* Botón alineado a la derecha */}
+                          {user?.role === 'student' && (
+                            <td className="py-1 pl-3 text-right">
+                              <Button 
+                                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-md hover:shadow-lg transition-all duration-200 px-3 py-1.5 rounded-md font-medium text-sm"
+                                onClick={() => {
+                                  console.log('Realizar evaluación:', selectedTask.id);
+                                  // TODO: Implementar navegación a la evaluación
+                                }}
+                              >
+                                <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" />
+                                Realizar Evaluación
+                              </Button>
+                            </td>
+                          )}
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -2942,28 +2978,31 @@ export default function TareasPage() {
                   
                   {/* File Upload for Comments */}
                   <div className="mt-3 space-y-2">
-                    <div>
-                      <Input
-                        type="file"
-                        multiple
-                        onChange={(e) => handleFileUpload(e.target.files, false)}
-                        className="hidden"
-                        id="comment-file-upload"
-                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip,.rar"
-                      />
-                      <Button
-                        type="button"
-                        onClick={() => document.getElementById('comment-file-upload')?.click()}
-                        className={`w-full ${selectedTask?.taskType === 'evaluacion'
-                          ? 'bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700'
-                          : 'bg-orange-100 hover:bg-orange-500 hover:text-white text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-600 dark:hover:text-white dark:text-orange-400 dark:border-orange-700'
-                        }`}
-                        size="sm"
-                      >
-                        <Paperclip className="w-4 h-4 mr-2" />
-                        {translate('attachFile')}
-                      </Button>
-                    </div>
+                    {/* Hide attach file button for evaluations */}
+                    {selectedTask?.taskType !== 'evaluacion' && (
+                      <div>
+                        <Input
+                          type="file"
+                          multiple
+                          onChange={(e) => handleFileUpload(e.target.files, false)}
+                          className="hidden"
+                          id="comment-file-upload"
+                          accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip,.rar"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => document.getElementById('comment-file-upload')?.click()}
+                          className={`w-full ${selectedTask?.taskType === 'evaluacion'
+                            ? 'bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700'
+                            : 'bg-orange-100 hover:bg-orange-500 hover:text-white text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-600 dark:hover:text-white dark:text-orange-400 dark:border-orange-700'
+                          }`}
+                          size="sm"
+                        >
+                          <Paperclip className="w-4 h-4 mr-2" />
+                          {translate('attachFile')}
+                        </Button>
+                      </div>
+                    )}
                     
                     {/* Display uploaded files for comment */}
                     {commentAttachments.length > 0 && (
@@ -2991,7 +3030,7 @@ export default function TareasPage() {
                   </div>
                   
                   <div className="flex justify-between items-center mt-3">
-                    {user?.role === 'student' && (
+                    {user?.role === 'student' && selectedTask?.taskType !== 'evaluacion' && (
                       <div className="flex items-center space-x-2">
                         <input
                           type="checkbox"
@@ -3005,7 +3044,7 @@ export default function TareasPage() {
                         </Label>
                       </div>
                     )}
-                    {user?.role === 'teacher' && (
+                    {(user?.role === 'teacher' || (user?.role === 'student' && selectedTask?.taskType === 'evaluacion')) && (
                       <div>{/* Espacio vacío para mantener la alineación */}</div>
                     )}
                     <Button 
