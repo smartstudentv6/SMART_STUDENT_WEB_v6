@@ -661,20 +661,17 @@ export default function TareasPage() {
   // Función para obtener el resultado de una evaluación de un estudiante
   const getStudentEvaluationResult = (taskId: string, studentId: string) => { // Changed studentUsername to studentId
     // En un entorno real, esta información vendría de una tabla específica en la base de datos
-    // Aquí simulamos que algunos estudiantes han completado la evaluación
-    const hasCompleted = Math.random() > 0.4;
+    // Por ahora, para propósitos de demostración, no devolvemos nada ya que no hay evaluaciones completadas
     
-    if (!hasCompleted) return undefined;
+    // Buscar si existe algún resultado de evaluación guardado en localStorage
+    const storedResults = localStorage.getItem('smart-student-evaluation-results');
+    if (storedResults) {
+      const results = JSON.parse(storedResults);
+      return results.find((result: any) => result.taskId === taskId && result.studentId === studentId);
+    }
     
-    // Simulamos resultados de evaluación
-    return {
-      taskId,
-      studentId,
-      score: Math.floor(Math.random() * 10) + 1, // Entre 1 y 10 respuestas correctas
-      totalQuestions: 10,
-      completionPercentage: Math.floor(Math.random() * 50) + 50, // Entre 50% y 100%
-      completedAt: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString() // En los últimos 7 días
-    };
+    // Si no hay resultados guardados, el estudiante no ha completado la evaluación
+    return undefined;
   };
 
   // Filter tasks based on user role
@@ -2358,57 +2355,59 @@ export default function TareasPage() {
               </>
             )}
 
-            {/* File Upload Section for Create Task */}
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">{translate('attachments')}</Label>
-              <div className="col-span-3 space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Input
-                    type="file"
-                    multiple
-                    onChange={(e) => handleFileUpload(e.target.files, true)}
-                    className="hidden"
-                    id="task-file-upload"
-                    accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip,.rar"
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => document.getElementById('task-file-upload')?.click()}
-                    className={`w-full ${formData.taskType === 'evaluacion' 
-                      ? 'bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700'
-                      : 'bg-orange-100 hover:bg-orange-500 hover:text-white text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-600 dark:hover:text-white dark:text-orange-400 dark:border-orange-700'
-                    }`}
-                  >
-                    <Paperclip className="w-4 h-4 mr-2" />
-                    {translate('attachFile')}
-                  </Button>
-                </div>
-                
-                {/* Display uploaded files */}
-                {taskAttachments.length > 0 && (
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {taskAttachments.map((file) => (
-                      <div key={`new-task-file-${file.id}`} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
-                        <div className="flex items-center space-x-2 min-w-0 flex-1">
-                          <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                          <span className="truncate" title={file.name}>{file.name}</span>
-                          <span className="text-muted-foreground text-xs">({formatFileSize(file.size)})</span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(file.id, true)}
-                          className="flex-shrink-0 h-6 w-6 p-0 hover:bg-orange-50 hover:text-orange-500 dark:hover:bg-orange-900/20 dark:hover:text-orange-400"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
+            {/* File Upload Section for Create Task - Only for regular tasks, not evaluations */}
+            {formData.taskType !== 'evaluacion' && (
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right pt-2">{translate('attachments')}</Label>
+                <div className="col-span-3 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="file"
+                      multiple
+                      onChange={(e) => handleFileUpload(e.target.files, true)}
+                      className="hidden"
+                      id="task-file-upload"
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.zip,.rar"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => document.getElementById('task-file-upload')?.click()}
+                      className={`w-full ${formData.taskType === 'evaluacion' 
+                        ? 'bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700'
+                        : 'bg-orange-100 hover:bg-orange-500 hover:text-white text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-600 dark:hover:text-white dark:text-orange-400 dark:border-orange-700'
+                      }`}
+                    >
+                      <Paperclip className="w-4 h-4 mr-2" />
+                      {translate('attachFile')}
+                    </Button>
                   </div>
-                )}
+                  
+                  {/* Display uploaded files */}
+                  {taskAttachments.length > 0 && (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {taskAttachments.map((file) => (
+                        <div key={`new-task-file-${file.id}`} className="flex items-center justify-between p-2 bg-muted rounded text-sm">
+                          <div className="flex items-center space-x-2 min-w-0 flex-1">
+                            <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate" title={file.name}>{file.name}</span>
+                            <span className="text-muted-foreground text-xs">({formatFileSize(file.size)})</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(file.id, true)}
+                            className="flex-shrink-0 h-6 w-6 p-0 hover:bg-orange-50 hover:text-orange-500 dark:hover:bg-orange-900/20 dark:hover:text-orange-400"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
           
           <DialogFooter>
@@ -2492,7 +2491,7 @@ export default function TareasPage() {
               </Badge>
             </DialogTitle>
             <DialogDescription>
-              {selectedTask?.assignedByName} • {selectedTask?.course} • {selectedTask?.subject}
+              {selectedTask?.assignedByName} • {getCourseNameById(selectedTask?.course || '')} • {selectedTask?.subject}
             </DialogDescription>
           </DialogHeader>
           
@@ -2768,7 +2767,7 @@ export default function TareasPage() {
                                   <tr key={student.username} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
                                     <td className="py-2 px-3">{student.displayName}</td>
                                     <td className="py-2 px-3">
-                                      <Badge className={hasCompleted ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'}>
+                                      <Badge className={hasCompleted ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}>
                                         {hasCompleted ? translate('statusCompleted') : translate('statusPending')}
                                       </Badge>
                                     </td>
