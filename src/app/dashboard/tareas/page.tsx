@@ -269,15 +269,78 @@ export default function TareasPage() {
   useEffect(() => {
     if (!showTaskDialog) {
       setHighlightedCommentId(null);
+      
+      // 🔥 NUEVA MEJORA: Disparar evento cuando se cierra el diálogo para actualizar el dashboard
+      if (user?.role === 'student') {
+        console.log('🔔 [TaskDialog] Closed - dispatching dashboard update event');
+        window.dispatchEvent(new CustomEvent('taskDialogClosed', { 
+          detail: { 
+            userRole: user.role,
+            username: user.username,
+            action: 'task_dialog_closed'
+          } 
+        }));
+      }
     } else {
       // Recargar comentarios cuando se abre el diálogo para tener datos frescos
       console.log('🔄 Reloading comments because task dialog opened');
       loadComments();
       
-      // Si el usuario es estudiante y hay una tarea seleccionada, marcar los comentarios como leídos
-      if (user?.role === 'student' && selectedTask && user.id) {
-        console.log('🔔 Marking comments as read for task', selectedTask.id);
-        TaskNotificationManager.markCommentsAsReadForTask(selectedTask.id, user.id); // Pass user.id
+      // Si el usuario es estudiante y hay una tarea seleccionada, marcar TODOS los comentarios como leídos
+      if (user?.role === 'student' && selectedTask && user.username) {
+        console.log('🔔 Marking ALL comments as read for task', selectedTask.id);
+        
+        // Usar setTimeout para asegurar que los comentarios se cargan primero
+        setTimeout(() => {
+          // Marcar directamente en localStorage todos los comentarios de la tarea como leídos
+          const storedComments = localStorage.getItem('smart-student-task-comments');
+          if (storedComments) {
+            const comments = JSON.parse(storedComments);
+            let updated = false;
+            
+            const updatedComments = comments.map((comment: any) => {
+              if (
+                comment.taskId === selectedTask.id && 
+                comment.studentUsername !== user.username && // No marcar comentarios propios
+                (!comment.readBy?.includes(user.username))
+              ) {
+                updated = true;
+                console.log(`🔔 Marking comment ${comment.id} as read`);
+                return {
+                  ...comment,
+                  isNew: false,
+                  readBy: [...(comment.readBy || []), user.username]
+                };
+              }
+              return comment;
+            });
+            
+            if (updated) {
+              localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
+              console.log(`🔔 ✅ Marked all comments for task ${selectedTask.id} as read`);
+              
+              // Disparar eventos para actualizar la UI
+              document.dispatchEvent(new Event('commentsUpdated'));
+              window.dispatchEvent(new CustomEvent('studentCommentsUpdated', { 
+                detail: { 
+                  username: user.username,
+                  taskId: selectedTask.id,
+                  action: 'marked_as_read_bulk'
+                } 
+              }));
+              
+              // Disparar evento para actualizar dashboard
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('updateDashboardCounts', {
+                  detail: { userRole: 'student', action: 'task_opened' }
+                }));
+              }, 100);
+            }
+          }
+        }, 200);
+        
+        // También usar la función del TaskNotificationManager como respaldo
+        TaskNotificationManager.markCommentsAsReadForTask(selectedTask.id, user.username);
       }
     }
   }, [showTaskDialog, selectedTask, user]);

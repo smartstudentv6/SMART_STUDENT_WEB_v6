@@ -221,10 +221,64 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     const href = `/dashboard/tareas?taskId=${taskId}&commentId=${commentId}&highlight=true`;
     const colorClass = getLinkColorClass('comment');
     
+    // 🔥 NUEVA MEJORA: Función para manejar el clic en "Ver Comentario"
+    const handleCommentClick = (e: React.MouseEvent) => {
+      console.log('🔔 [NotificationsPanel] Comment link clicked:', { taskId, commentId });
+      
+      // Marcar el comentario específico como leído antes de navegar
+      if (user?.role === 'student') {
+        const storedComments = localStorage.getItem('smart-student-task-comments');
+        if (storedComments) {
+          const comments = JSON.parse(storedComments);
+          let hasUpdates = false;
+          
+          const updatedComments = comments.map((comment: any) => {
+            if (comment.id === commentId && !comment.readBy?.includes(user.username)) {
+              hasUpdates = true;
+              console.log(`🔔 [NotificationsPanel] Marking comment as read: ${comment.comment}`);
+              return {
+                ...comment,
+                isNew: false,
+                readBy: [...(comment.readBy || []), user.username]
+              };
+            }
+            return comment;
+          });
+          
+          if (hasUpdates) {
+            localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
+            
+            // ✅ NUEVA MEJORA: Disparar eventos específicos para actualizar dashboard (IGUAL QUE PROFESOR)
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('updateDashboardCounts', {
+                detail: { userRole: user.role, action: 'single_comment_read' }
+              }));
+            }, 100);
+            
+            // Disparar evento para actualizar el dashboard
+            window.dispatchEvent(new CustomEvent('studentCommentsUpdated', { 
+              detail: { 
+                username: user.username,
+                taskId: taskId,
+                commentId: commentId,
+                action: 'single_comment_viewed'
+              } 
+            }));
+            
+            // Disparar eventos adicionales
+            document.dispatchEvent(new Event('commentsUpdated'));
+            
+            console.log('🔔 [NotificationsPanel] Comment marked as read and dashboard events dispatched');
+          }
+        }
+      }
+    };
+    
     return (
       <Link 
         href={href}
         className={`inline-block mt-2 text-xs ${colorClass} hover:underline`}
+        onClick={handleCommentClick}
       >
         {linkText}
       </Link>
@@ -912,13 +966,26 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           // Restablecer el estado del botón después de un breve retraso
           setTimeout(() => setIsMarking(false), 500);
           
-          // ✅ NUEVA MEJORA: Disparar evento específico para actualizar contadores del dashboard
-          console.log('🔄 [MARK_ALL_READ] Disparando evento para actualizar contadores del dashboard...');
+          // ✅ NUEVA MEJORA: Disparar eventos específicos para actualizar contadores del dashboard
+          console.log('🔄 [MARK_ALL_READ] Disparando eventos para actualizar contadores del dashboard...');
+          
+          // Restablecer el estado del botón después de un breve retraso
+          setTimeout(() => setIsMarking(false), 500);
+          
+          // ✅ NUEVA MEJORA: Disparar evento específico para actualizar contadores del dashboard (IGUAL QUE PROFESOR)
           setTimeout(() => {
             window.dispatchEvent(new CustomEvent('updateDashboardCounts', {
               detail: { userRole: user.role, action: 'mark_all_read' }
             }));
           }, 100);
+          
+          // Disparar evento específico para estudiantes
+          window.dispatchEvent(new CustomEvent('studentCommentsUpdated', { 
+            detail: { 
+              username: user.username,
+              action: 'mark_all_read'
+            } 
+          }));
           
           // Trigger events for other components to update
           document.dispatchEvent(new Event('commentsUpdated'));
@@ -1305,24 +1372,24 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           
                           {unreadComments.slice(0, 3).map(comment => (
                             <div key={`unread-comment-${comment.id}`} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
+                              <div className="flex items-start gap-3">
                                 <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
                                   <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                                 </div>
                                 <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="font-medium text-sm text-foreground">
                                       {comment.studentName}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {formatDate(comment.timestamp)}
-                                    </p>
+                                    <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300">
+                                      {comment.task?.subject ? getCourseAbbreviation(comment.task.subject) : 'CNT'}
+                                    </Badge>
                                   </div>
-                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                  <p className="text-sm text-muted-foreground mb-1">
                                     {comment.comment}
                                   </p>
-                                  <p className="text-xs font-medium mt-1">
-                                    {comment.task?.title}
+                                  <p className="text-xs font-medium text-foreground mb-2">
+                                    {comment.task?.title || 'Tarea'}
                                   </p>
                                   {createSafeCommentLink(comment.taskId, comment.id, translate('viewComment'))}
                                 </div>

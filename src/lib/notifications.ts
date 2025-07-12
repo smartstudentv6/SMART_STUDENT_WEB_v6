@@ -675,15 +675,17 @@ export class TaskNotificationManager {
       const comments = JSON.parse(storedComments);
       let updated = false;
       
-      // Marcar solo comentarios de la tarea específica como leídos
+      console.log(`[TaskNotificationManager] Marking comments for task ${taskId} as read for ${username}`);
+      
+      // Marcar TODOS los comentarios de la tarea específica como leídos (no solo los no-submission)
       const updatedComments = comments.map((comment: any) => {
         if (
           comment.taskId === taskId && 
-          !comment.isSubmission &&  // No marcar entregas, solo comentarios
           comment.studentUsername !== username && // No marcar comentarios propios
           (!comment.readBy?.includes(username))
         ) {
           updated = true;
+          console.log(`[TaskNotificationManager] Marking comment ${comment.id} as read for ${username}`);
           return {
             ...comment,
             isNew: false,
@@ -695,7 +697,7 @@ export class TaskNotificationManager {
       
       if (updated) {
         localStorage.setItem('smart-student-task-comments', JSON.stringify(updatedComments));
-        console.log(`[TaskNotificationManager] Marked comments for task ${taskId} as read for ${username}`);
+        console.log(`[TaskNotificationManager] ✅ Marked all comments for task ${taskId} as read for ${username}`);
         
         // Ahora también marcamos las notificaciones relacionadas como leídas
         const notifications = this.getNotifications();
@@ -711,6 +713,7 @@ export class TaskNotificationManager {
             !notification.readBy.includes(username)
           ) {
             notificationsUpdated = true;
+            console.log(`[TaskNotificationManager] Marking notification ${notification.id} as read`);
             return {
               ...notification,
               readBy: [...notification.readBy, username],
@@ -722,11 +725,29 @@ export class TaskNotificationManager {
         
         if (notificationsUpdated) {
           this.saveNotifications(updatedNotifications);
-          console.log(`[TaskNotificationManager] Marked all comment notifications for task ${taskId} as read by ${username}`);
+          console.log(`[TaskNotificationManager] ✅ Marked all comment notifications for task ${taskId} as read by ${username}`);
         }
         
-        // Disparar evento para actualizar la UI
+        // Disparar eventos para actualizar la UI
         document.dispatchEvent(new Event('commentsUpdated'));
+        
+        // 🔥 NUEVA MEJORA: También disparar evento específico para estudiantes
+        if (username) {
+          window.dispatchEvent(new CustomEvent('studentCommentsUpdated', { 
+            detail: { 
+              username: username,
+              taskId: taskId,
+              action: 'marked_as_read_bulk'
+            } 
+          }));
+          
+          // 🔥 NUEVA MEJORA: Disparar evento para actualizar dashboard
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('updateDashboardCounts', {
+              detail: { userRole: 'student', action: 'task_opened' }
+            }));
+          }, 100);
+        }
       }
     } catch (error) {
       console.error('Error marking task comments as read:', error);

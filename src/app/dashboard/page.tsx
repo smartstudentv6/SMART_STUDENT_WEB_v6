@@ -582,6 +582,8 @@ export default function DashboardHomePage() {
     
     // Función para manejar el evento personalizado cuando se marcan comentarios como leídos
     const handleCommentsUpdated = () => {
+      console.log('🔄 [Dashboard] handleCommentsUpdated triggered');
+      
       if (user?.role === 'student') {
         // Recargar comentarios no leídos para estudiantes
         const storedComments = localStorage.getItem('smart-student-task-comments');
@@ -602,7 +604,19 @@ export default function DashboardHomePage() {
               c.studentUsername === comment.studentUsername
             ) === idx
           );
-          setUnreadCommentsCount(unread.length);
+          
+          const newCount = unread.length;
+          console.log(`🔔 [Dashboard] Student ${user.username} - updating unread comments count from ${unreadCommentsCount} to ${newCount}`);
+          setUnreadCommentsCount(newCount);
+          
+          // 🔥 NUEVA MEJORA: Disparar evento para actualizar el panel de notificaciones
+          window.dispatchEvent(new CustomEvent('updateDashboardCounts', { 
+            detail: { 
+              type: 'student_comments_updated',
+              newCount: newCount,
+              oldCount: unreadCommentsCount
+            } 
+          }));
         }
         // También actualizar tareas pendientes cuando hay cambios en comentarios
         loadPendingTasks();
@@ -667,11 +681,101 @@ export default function DashboardHomePage() {
     window.addEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
     window.addEventListener('updateDashboardCounts', handleDashboardCountsUpdate as EventListener);
     
+    // 🔥 NUEVA MEJORA: Listener específico para actualizaciones de comentarios de estudiantes
+    const handleStudentCommentsUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log('🔄 [Dashboard] handleStudentCommentsUpdated triggered:', customEvent.detail);
+      
+      if (user?.role === 'student' && customEvent.detail.username === user.username) {
+        // Forzar recarga inmediata del conteo de comentarios
+        setTimeout(() => {
+          const storedComments = localStorage.getItem('smart-student-task-comments');
+          if (storedComments) {
+            const comments = JSON.parse(storedComments);
+            let unread = comments.filter((comment: any) => 
+              comment.studentUsername !== user.username && 
+              (!comment.readBy?.includes(user.username)) &&
+              !comment.isSubmission
+            );
+
+            // Eliminar duplicados
+            unread = unread.filter((comment: any, idx: number, arr: any[]) =>
+              arr.findIndex((c: any) =>
+                c.taskId === comment.taskId &&
+                c.comment === comment.comment &&
+                c.timestamp === comment.timestamp &&
+                c.studentUsername === comment.studentUsername
+              ) === idx
+            );
+            
+            const newCount = unread.length;
+            console.log(`🔔 [Dashboard] Force updating student comments count to ${newCount}`);
+            setUnreadCommentsCount(newCount);
+          }
+        }, 100); // Pequeño delay para asegurar que localStorage se haya actualizado
+      }
+    };
+
+    // 🔥 NUEVA MEJORA: Listener para cuando se cierra el diálogo de tareas
+    const handleTaskDialogClosed = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log('🔄 [Dashboard] handleTaskDialogClosed triggered:', customEvent.detail);
+      
+      if (user?.role === 'student' && customEvent.detail.username === user.username) {
+        console.log('🔔 [Dashboard] Student closed task dialog - forcing comment count update');
+        
+        // Forzar recarga inmediata del conteo de comentarios después de cerrar el diálogo
+        setTimeout(() => {
+          const storedComments = localStorage.getItem('smart-student-task-comments');
+          if (storedComments) {
+            const comments = JSON.parse(storedComments);
+            let unread = comments.filter((comment: any) => 
+              comment.studentUsername !== user.username && 
+              (!comment.readBy?.includes(user.username)) &&
+              !comment.isSubmission
+            );
+
+            // Eliminar duplicados
+            unread = unread.filter((comment: any, idx: number, arr: any[]) =>
+              arr.findIndex((c: any) =>
+                c.taskId === comment.taskId &&
+                c.comment === comment.comment &&
+                c.timestamp === comment.timestamp &&
+                c.studentUsername === comment.studentUsername
+              ) === idx
+            );
+            
+            const newCount = unread.length;
+            console.log(`🔔 [Dashboard] Updating student comments count after dialog close: ${newCount}`);
+            setUnreadCommentsCount(newCount);
+            
+            // Disparar evento para actualizar el panel de notificaciones
+            window.dispatchEvent(new CustomEvent('updateDashboardCounts', { 
+              detail: { 
+                type: 'student_comments_updated_dialog_closed',
+                newCount: newCount,
+                action: 'task_dialog_closed'
+              } 
+            }));
+          }
+        }, 200); // Delay más largo para asegurar que localStorage se haya actualizado
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    document.addEventListener('commentsUpdated', handleCommentsUpdated);
+    window.addEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
+    window.addEventListener('updateDashboardCounts', handleDashboardCountsUpdate as EventListener);
+    window.addEventListener('studentCommentsUpdated', handleStudentCommentsUpdated as EventListener);
+    window.addEventListener('taskDialogClosed', handleTaskDialogClosed as EventListener);
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('commentsUpdated', handleCommentsUpdated);
       window.removeEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
       window.removeEventListener('updateDashboardCounts', handleDashboardCountsUpdate as EventListener);
+      window.removeEventListener('studentCommentsUpdated', handleStudentCommentsUpdated as EventListener);
+      window.removeEventListener('taskDialogClosed', handleTaskDialogClosed as EventListener);
     };
   }, [user]);
 
