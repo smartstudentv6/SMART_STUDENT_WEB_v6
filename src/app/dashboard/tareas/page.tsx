@@ -3013,7 +3013,7 @@ export default function TareasPage() {
                       onClick={handleAddComment} 
                       disabled={!newComment.trim() && commentAttachments.length === 0}
                       className={`${
-                        user?.role === 'teacher' 
+                        selectedTask?.taskType === 'evaluacion' 
                           ? 'bg-purple-500 hover:bg-purple-600' 
                           : 'bg-orange-500 hover:bg-orange-600'
                       } text-white disabled:bg-gray-300 disabled:text-gray-500`}
