@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload, Star, Lock } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload, Star, Lock, ClipboardCheck, Timer, ChevronRight, Award } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 // Extended User interface with teacher assignment
@@ -162,10 +162,90 @@ export default function TareasPage() {
     timeLimit: 0
   });
 
+  // Estados para evaluación mejorada
+  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
+  const [showLoadingDialog, setShowLoadingDialog] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStatus, setLoadingStatus] = useState('');
+  const [currentEvaluation, setCurrentEvaluation] = useState<{
+    task: Task | null;
+    questions: any[];
+    startTime: Date | null;
+    answers: { [key: string]: any };
+    timeRemaining: number;
+    currentQuestionIndex: number;
+  }>({
+    task: null,
+    questions: [],
+    startTime: null,
+    answers: {},
+    timeRemaining: 0,
+    currentQuestionIndex: 0
+  });
+
+  // Estado para resultados de evaluación
+  const [evaluationResults, setEvaluationResults] = useState<{[taskId: string]: any}>({});
+
+  // Estado para revisión de evaluación
+  const [showReviewEvaluationDialog, setShowReviewEvaluationDialog] = useState(false);
+  const [currentEvaluationReview, setCurrentEvaluationReview] = useState<any>(null);
+
+
+
+  // Cargar resultados de evaluaciones existentes
+  useEffect(() => {
+    loadEvaluationResults();
+  }, [user]);
+
+  // Function to get task status for current user, considering evaluations
+  const getTaskStatusForCurrentUser = (task: Task) => {
+    if (task.taskType === 'evaluacion' && user?.role === 'student') {
+      const evaluationResult = evaluationResults[task.id];
+      if (evaluationResult) {
+        return {
+          status: 'reviewed',
+          statusText: `Finalizado (${evaluationResult.percentage}%)`,
+          statusClass: 'bg-green-500 hover:bg-green-600 text-white'
+        };
+      } else {
+        return {
+          status: 'pending',
+          statusText: translate('statusPending'),
+          statusClass: getStatusColor('pending')
+        };
+      }
+    }
+
+    // Para tareas normales, usar el estado original
+    return {
+      status: task.status,
+      statusText: task.status === 'pending' ? translate('statusPending') : 
+                  task.status === 'delivered' ? translate('underReview') :
+                  task.status === 'submitted' ? translate('underReview') : translate('statusFinished'),
+      statusClass: getStatusColor(task.status)
+    };
+  };
+
+  const loadEvaluationResults = () => {
+    if (user) {
+      const storedResults = localStorage.getItem('smart-student-evaluation-results');
+      if (storedResults) {
+        const results = JSON.parse(storedResults);
+        const userResults = results.filter((result: any) => result.studentId === user.id);
+        const resultsMap: {[taskId: string]: any} = {};
+        userResults.forEach((result: any) => {
+          resultsMap[result.taskId] = result;
+        });
+        setEvaluationResults(resultsMap);
+      }
+    }
+  };
+
   // Load tasks and comments
   useEffect(() => {
     loadTasks();
     loadComments();
+    loadEvaluationResults();
     // Forzar refresco de tareas para asegurar que el panel de estudiantes se actualice con las entregas
     loadTasks && loadTasks();
     // Si hay un selectedTask, forzar su recarga desde localStorage para obtener la versión más reciente
@@ -789,6 +869,36 @@ export default function TareasPage() {
       });
       return;
     }
+
+    // Validación específica para evaluaciones
+    if (formData.taskType === 'evaluacion') {
+      if (!formData.topic || !formData.numQuestions || !formData.timeLimit) {
+        toast({
+          title: 'Error',
+          description: 'Para las evaluaciones debe especificar: Tema, Cantidad de Preguntas y Tiempo límite',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      if (formData.numQuestions < 1 || formData.numQuestions > 50) {
+        toast({
+          title: 'Error', 
+          description: 'La cantidad de preguntas debe estar entre 1 y 50',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      if (formData.timeLimit < 1 || formData.timeLimit > 180) {
+        toast({
+          title: 'Error',
+          description: 'El tiempo límite debe estar entre 1 y 180 minutos',
+          variant: 'destructive'
+        });
+        return;
+      }
+    }
     
     // Validar que la fecha límite sea en el futuro
     const dueDate = new Date(formData.dueDate);
@@ -1054,6 +1164,306 @@ export default function TareasPage() {
     }
   };
 
+  // Funciones para la evaluación mejorada
+  const generateEvaluationQuestions = (topic: string, numQuestions: number) => {
+    const questionTemplates = {
+      'sistema respiratorio': [
+        {
+          question: "¿Cuál es la función principal del sistema respiratorio?",
+          options: ["Bombear sangre", "Intercambio de gases", "Filtrar toxinas", "Producir hormonas"],
+          correct: 1
+        },
+        {
+          question: "¿Qué órgano es el principal del sistema respiratorio?",
+          options: ["Corazón", "Hígado", "Pulmones", "Riñones"],
+          correct: 2
+        },
+        {
+          question: "¿Cuál de estas estructuras NO forma parte del sistema respiratorio?",
+          options: ["Tráquea", "Bronquios", "Estómago", "Alvéolos"],
+          correct: 2
+        },
+        {
+          question: "¿Qué gas se elimina durante la exhalación?",
+          options: ["Oxígeno", "Dióxido de carbono", "Nitrógeno", "Hidrógeno"],
+          correct: 1
+        },
+        {
+          question: "¿Dónde ocurre el intercambio gaseoso en los pulmones?",
+          options: ["Bronquios", "Tráquea", "Alvéolos", "Laringe"],
+          correct: 2
+        }
+      ],
+      'matemáticas': [
+        {
+          question: "¿Cuánto es 2 + 2?",
+          options: ["3", "4", "5", "6"],
+          correct: 1
+        },
+        {
+          question: "¿Cuál es la raíz cuadrada de 16?",
+          options: ["2", "4", "6", "8"],
+          correct: 1
+        },
+        {
+          question: "¿Cuánto es 5 × 7?",
+          options: ["30", "35", "40", "45"],
+          correct: 1
+        },
+        {
+          question: "¿Cuál es el resultado de 100 ÷ 4?",
+          options: ["20", "25", "30", "35"],
+          correct: 1
+        },
+        {
+          question: "¿Cuánto es 3³ (3 elevado al cubo)?",
+          options: ["9", "18", "27", "36"],
+          correct: 2
+        }
+      ],
+      'ciencias': [
+        {
+          question: "¿Cuál es el planeta más cercano al Sol?",
+          options: ["Venus", "Mercurio", "Tierra", "Marte"],
+          correct: 1
+        },
+        {
+          question: "¿Qué elemento químico tiene el símbolo 'O'?",
+          options: ["Oro", "Osmio", "Oxígeno", "Ozono"],
+          correct: 2
+        }
+      ]
+    };
+
+    const topicKey = topic.toLowerCase();
+    const templates = questionTemplates[topicKey as keyof typeof questionTemplates] || questionTemplates['matemáticas'];
+    
+    // Mezclar preguntas y tomar solo las necesarias
+    const shuffled = [...templates].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, Math.min(numQuestions, shuffled.length));
+  };
+
+  const handleStartEvaluation = (task: Task) => {
+    // Verificar si ya completó la evaluación
+    if (evaluationResults[task.id]) {
+      toast({
+        title: "Evaluación completada",
+        description: "Ya has completado esta evaluación.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validar criterios configurados por el profesor
+    const topic = task.topic || 'Tema general';
+    const numQuestions = task.numQuestions && task.numQuestions > 0 ? task.numQuestions : 5;
+    const timeLimit = task.timeLimit && task.timeLimit > 0 ? task.timeLimit : 10;
+
+    // Mostrar advertencia si algunos criterios no están configurados
+    if (!task.topic || !task.numQuestions || !task.timeLimit) {
+      console.warn('⚠️ Algunos criterios de evaluación no están configurados por el profesor:', {
+        topic: task.topic,
+        numQuestions: task.numQuestions, 
+        timeLimit: task.timeLimit
+      });
+    }
+
+    setShowLoadingDialog(true);
+    setLoadingProgress(0);
+    setLoadingStatus('Inicializando evaluación...');
+
+    // Simular proceso de carga con diferentes etapas usando criterios del profesor
+    const loadingSteps = [
+      { progress: 15, status: 'Verificando configuración del profesor...' },
+      { progress: 30, status: `Cargando preguntas sobre: ${topic}` },
+      { progress: 50, status: `Preparando ${numQuestions} preguntas...` },
+      { progress: 70, status: `Configurando tiempo límite: ${timeLimit} minutos` },
+      { progress: 85, status: 'Generando evaluación personalizada...' },
+      { progress: 100, status: `Evaluación lista: ${topic} | ${numQuestions} preguntas | ${timeLimit} min` }
+    ];
+
+    let stepIndex = 0;
+    const interval = setInterval(() => {
+      if (stepIndex < loadingSteps.length) {
+        const step = loadingSteps[stepIndex];
+        setLoadingProgress(step.progress);
+        setLoadingStatus(step.status);
+        stepIndex++;
+      } else {
+        clearInterval(interval);
+        
+        setTimeout(() => {
+          setShowLoadingDialog(false);
+          
+          // Generar preguntas usando criterios del profesor
+          const questions = generateEvaluationQuestions(topic, numQuestions);
+          const timeInSeconds = timeLimit * 60;
+          
+          setCurrentEvaluation({
+            task,
+            questions,
+            startTime: new Date(),
+            answers: {},
+            timeRemaining: timeInSeconds,
+            currentQuestionIndex: 0
+          });
+          
+          setShowEvaluationDialog(true);
+          
+          // Iniciar countdown del timer
+          startEvaluationTimer(timeInSeconds);
+        }, 500);
+      }
+    }, 800);
+  };
+
+  const startEvaluationTimer = (initialTime: number) => {
+    const timer = setInterval(() => {
+      setCurrentEvaluation(prev => {
+        const newTime = prev.timeRemaining - 1;
+        
+        if (newTime <= 0) {
+          clearInterval(timer);
+          // Auto-completar evaluación cuando se acabe el tiempo
+          setTimeout(() => handleCompleteEvaluation(true), 100);
+          return { ...prev, timeRemaining: 0 };
+        }
+        
+        return { ...prev, timeRemaining: newTime };
+      });
+    }, 1000);
+  };
+
+  const handleReviewEvaluation = (task: Task) => {
+    const evaluationResult = evaluationResults[task.id];
+    if (evaluationResult) {
+      setCurrentEvaluationReview(evaluationResult);
+      setShowReviewEvaluationDialog(true);
+    }
+  };
+
+  const handleCompleteEvaluation = (timeExpired: boolean = false) => {
+    if (!currentEvaluation.task) return;
+
+    let correctAnswers = 0;
+    const totalQuestions = currentEvaluation.questions.length;
+
+    // Calcular respuestas correctas
+    currentEvaluation.questions.forEach((question, index) => {
+      if (currentEvaluation.answers[index] === question.correct) {
+        correctAnswers++;
+      }
+    });
+
+    const percentage = Math.round((correctAnswers / totalQuestions) * 100);
+    const timeUsed = (currentEvaluation.task.timeLimit || 10) * 60 - currentEvaluation.timeRemaining;
+
+    // Crear resultado de evaluación
+    const evaluationResult = {
+      taskId: currentEvaluation.task.id,
+      studentId: user?.id,
+      studentUsername: user?.username,
+      studentName: user?.displayName,
+      answers: currentEvaluation.answers,
+      correctAnswers,
+      totalQuestions,
+      percentage,
+      completedAt: new Date().toISOString(),
+      timeUsed,
+      timeExpired,
+      task: {
+        title: currentEvaluation.task.title,
+        topic: currentEvaluation.task.topic,
+        timeLimit: currentEvaluation.task.timeLimit,
+        numQuestions: currentEvaluation.task.numQuestions
+      }
+    };
+
+    // Guardar en localStorage
+    const existingResults = JSON.parse(localStorage.getItem('smart-student-evaluation-results') || '[]');
+    existingResults.push(evaluationResult);
+    localStorage.setItem('smart-student-evaluation-results', JSON.stringify(existingResults));
+
+    // Actualizar estado de la tarea a finalizado
+    const storedTasks = localStorage.getItem('smart-student-tasks');
+    if (storedTasks) {
+      const tasks = JSON.parse(storedTasks);
+      const taskIndex = tasks.findIndex((t: any) => t.id === currentEvaluation.task!.id);
+      if (taskIndex !== -1) {
+        tasks[taskIndex] = {
+          ...tasks[taskIndex],
+          status: 'reviewed', // Cambiar estado a finalizado
+          evaluationResult: {
+            completed: true,
+            percentage: percentage,
+            completedAt: evaluationResult.completedAt,
+            correctAnswers: correctAnswers,
+            totalQuestions: totalQuestions
+          }
+        };
+        localStorage.setItem('smart-student-tasks', JSON.stringify(tasks));
+      }
+    }
+
+    // Actualizar estado local
+    setEvaluationResults(prev => ({
+      ...prev,
+      [currentEvaluation.task!.id]: evaluationResult
+    }));
+
+    // Crear notificación en tiempo real para el profesor
+    const notification = {
+      id: `eval_completed_${Date.now()}`,
+      type: 'evaluation_completed',
+      taskId: currentEvaluation.task.id,
+      fromUsername: user?.username,
+      fromName: user?.displayName,
+      targetUserRole: 'teacher',
+      targetUsernames: [currentEvaluation.task.assignedById || ''],
+      message: `${user?.displayName} completó la evaluación "${currentEvaluation.task.title}" - Nota: ${correctAnswers}/${totalQuestions} (${percentage}%)`,
+      timestamp: new Date().toISOString(),
+      readBy: [],
+      data: evaluationResult // Incluir datos completos de la evaluación
+    };
+
+    // Agregar a notificaciones
+    const existingNotifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
+    existingNotifications.push(notification);
+    localStorage.setItem('smart-student-task-notifications', JSON.stringify(existingNotifications));
+
+    // Disparar evento para actualizar notificaciones en tiempo real
+    window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+
+    // Limpiar estado y cerrar
+    setShowEvaluationDialog(false);
+    setCurrentEvaluation({
+      task: null,
+      questions: [],
+      startTime: null,
+      answers: {},
+      timeRemaining: 0,
+      currentQuestionIndex: 0
+    });
+
+    // Mostrar mensaje de éxito
+    const resultMessage = timeExpired 
+      ? `Tiempo agotado. Tu calificación es ${correctAnswers}/${totalQuestions} (${percentage}%)`
+      : `¡Evaluación completada! Tu calificación es ${correctAnswers}/${totalQuestions} (${percentage}%)`;
+      
+    toast({
+      title: timeExpired ? "Tiempo Agotado" : "Evaluación Completada",
+      description: resultMessage,
+    });
+
+    // Recargar tareas para reflejar cambios
+    loadTasks();
+    loadEvaluationResults(); // Recargar resultados de evaluaciones
+  };
+
+
+
+
+
   const handleEditTask = (task: Task) => {
     setSelectedTask(task);
     setFormData({
@@ -1081,6 +1491,36 @@ export default function TareasPage() {
         variant: 'destructive'
       });
       return;
+    }
+
+    // Validación específica para evaluaciones
+    if (formData.taskType === 'evaluacion') {
+      if (!formData.topic || !formData.numQuestions || !formData.timeLimit) {
+        toast({
+          title: 'Error',
+          description: 'Para las evaluaciones debe especificar: Tema, Cantidad de Preguntas y Tiempo límite',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      if (formData.numQuestions < 1 || formData.numQuestions > 50) {
+        toast({
+          title: 'Error', 
+          description: 'La cantidad de preguntas debe estar entre 1 y 50',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      if (formData.timeLimit < 1 || formData.timeLimit > 180) {
+        toast({
+          title: 'Error',
+          description: 'El tiempo límite debe estar entre 1 y 180 minutos',
+          variant: 'destructive'
+        });
+        return;
+      }
     }
     
     // Validar que la fecha límite sea en el futuro
@@ -1949,10 +2389,8 @@ export default function TareasPage() {
                                 {task.priority === 'high' ? translate('priorityHigh') : 
                                  task.priority === 'medium' ? translate('priorityMedium') : translate('priorityLow')}
                               </Badge>
-                              <Badge className={getStatusColor(task.status)}>
-                                {task.status === 'pending' ? translate('statusPending') : 
-                                 task.status === 'delivered' ? translate('underReview') :
-                                 task.status === 'submitted' ? translate('underReview') : translate('statusFinished')}
+                              <Badge className={getTaskStatusForCurrentUser(task).statusClass}>
+                                {getTaskStatusForCurrentUser(task).statusText}
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
@@ -2047,7 +2485,30 @@ export default function TareasPage() {
                           </Badge>
                           {/* Badge de estado y badge de porcentaje en burbujas separadas para estudiante */}
                           {user?.role === 'student' ? (() => {
-                            // Buscar la entrega del estudiante
+                            // Verificar si es evaluación y está completada
+                            if (task.taskType === 'evaluacion') {
+                              const evaluationResult = evaluationResults[task.id];
+                              if (evaluationResult) {
+                                return (
+                                  <>
+                                    <Badge className={getStatusColor('submitted') + ' font-bold mr-1'}>
+                                      Finalizado
+                                    </Badge>
+                                    <Badge className={evaluationResult.percentage >= 70 ? 'bg-green-100 text-green-700 font-bold ml-2' : 'bg-red-100 text-red-700 font-bold ml-2'}>
+                                      {evaluationResult.percentage}%
+                                    </Badge>
+                                  </>
+                                );
+                              } else {
+                                return (
+                                  <Badge className={getStatusColor('pending')}>
+                                    {translate('statusPending')}
+                                  </Badge>
+                                );
+                              }
+                            }
+                            
+                            // Para tareas normales, lógica original
                             const mySubmission = comments.find(c => c.taskId === task.id && c.studentId === user.id && c.isSubmission);
                             if (!mySubmission) {
                               // Pendiente: igual que en la vista detalle
@@ -2224,7 +2685,7 @@ export default function TareasPage() {
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">{translate('assignTo')}</Label>
-              <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value, assignedStudents: [] }))}>
+              <Select value={formData.assignedTo} onValueChange={(value: 'course' | 'student') => setFormData(prev => ({ ...prev, assignedTo: value, assignedStudentIds: [] }))}>
                 <SelectTrigger className={`${formData.taskType === 'evaluacion' ? 'select-purple-hover-trigger' : 'select-orange-hover-trigger'} col-span-3`}>
                   <SelectValue />
                 </SelectTrigger>
@@ -2240,22 +2701,22 @@ export default function TareasPage() {
                 <Label className="text-right">{translate('assignToStudents')}</Label>
                 <div className="col-span-3">
                   <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
-                    {getStudentsFromCourse(formData.course).length > 0 ? (
-                      getStudentsFromCourse(formData.course).map(student => (
+                    {getStudentsForCourse(formData.course).length > 0 ? (
+                      getStudentsForCourse(formData.course).map((student: { id: string, username: string, displayName: string }) => (
                         <div key={student.username} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`student-${student.username}`}
-                            checked={formData.assignedStudents?.includes(student.username)}
+                            id={`create-student-${student.username}`}
+                            checked={formData.assignedStudentIds?.includes(student.id)}
                             onCheckedChange={(checked) => {
                               if (checked) {
                                 setFormData(prev => ({
                                   ...prev,
-                                  assignedStudents: [...(prev.assignedStudents || []), student.username]
+                                  assignedStudentIds: [...(prev.assignedStudentIds || []), student.id]
                                 }));
                               } else {
                                 setFormData(prev => ({
                                   ...prev,
-                                  assignedStudents: prev.assignedStudents?.filter(s => s !== student.username) || []
+                                  assignedStudentIds: prev.assignedStudentIds?.filter((s: string) => s !== student.id) || []
                                 }));
                               }
                             }}
@@ -2317,18 +2778,19 @@ export default function TareasPage() {
             {formData.taskType === 'evaluacion' && (
               <>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="topic" className="text-right">Tema</Label>
+                  <Label htmlFor="topic" className="text-right">Tema <span className="text-red-500">*</span></Label>
                   <Input
                     id="topic"
                     value={formData.topic}
                     onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
                     className="col-span-3"
                     placeholder="Introduce el tema de la evaluación"
+                    required
                   />
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="numQuestions" className="text-right">Cantidad de Preguntas</Label>
+                  <Label htmlFor="numQuestions" className="text-right">Cantidad de Preguntas <span className="text-red-500">*</span></Label>
                   <Input
                     id="numQuestions"
                     type="number"
@@ -2337,11 +2799,13 @@ export default function TareasPage() {
                     className="col-span-3"
                     placeholder="Ej: 15"
                     min="1"
+                    max="50"
+                    required
                   />
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="timeLimit" className="text-right">Tiempo (minutos)</Label>
+                  <Label htmlFor="timeLimit" className="text-right">Tiempo (minutos) <span className="text-red-500">*</span></Label>
                   <Input
                     id="timeLimit"
                     type="number"
@@ -2350,6 +2814,8 @@ export default function TareasPage() {
                     className="col-span-3"
                     placeholder="Ej: 45"
                     min="1"
+                    max="180"
+                    required
                   />
                 </div>
               </>
@@ -2372,7 +2838,7 @@ export default function TareasPage() {
                     <Button
                       type="button"
                       onClick={() => document.getElementById('task-file-upload')?.click()}
-                      className={`w-full ${formData.taskType === 'evaluacion' 
+                      className={`w-full ${(formData.taskType as string) === 'evaluacion' 
                         ? 'bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700'
                         : 'bg-orange-100 hover:bg-orange-500 hover:text-white text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-600 dark:hover:text-white dark:text-orange-400 dark:border-orange-700'
                       }`}
@@ -2536,7 +3002,30 @@ export default function TareasPage() {
                 <span>
                   <strong>{translate('taskStatusLabel')}</strong>
                   {user?.role === 'student' ? (() => {
-                    // Lógica UNIFICADA: buscar la entrega igual que en la lista
+                    // Verificar si es evaluación y está completada
+                    if (selectedTask.taskType === 'evaluacion') {
+                      const evaluationResult = evaluationResults[selectedTask.id];
+                      if (evaluationResult) {
+                        return (
+                          <>
+                            <Badge className={getStatusColor('submitted') + ' font-bold ml-1'}>
+                              Finalizado
+                            </Badge>
+                            <Badge className={`ml-2 ${evaluationResult.percentage >= 70 ? 'bg-green-100 text-green-700 font-bold' : 'bg-red-100 text-red-700 font-bold'}`}>
+                              {evaluationResult.percentage}%
+                            </Badge>
+                          </>
+                        );
+                      } else {
+                        return (
+                          <Badge className={getStatusColor('pending') + ' ml-1'}>
+                            {translate('statusPending')}
+                          </Badge>
+                        );
+                      }
+                    }
+                    
+                    // Para tareas normales, lógica original
                     const mySubmission = comments.find(c => c.taskId === selectedTask.id && c.studentId === user.id && c.isSubmission);
                     if (!mySubmission) {
                       // Pendiente
@@ -2570,53 +3059,111 @@ export default function TareasPage() {
               </div>
 
               {/* Evaluation specific information */}
-              {selectedTask.taskType === 'evaluacion' && (
+              {selectedTask.taskType === 'evaluacion' && user?.role === 'student' && (
                 <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
-                  <h4 className="font-medium mb-4 text-purple-800 dark:text-purple-200">Información de la Evaluación</h4>
-                  <div className="flex justify-between items-center">
-                    <div className="flex-1">
-                      <table className="w-full text-sm border-collapse border border-purple-200 dark:border-purple-700 rounded-lg overflow-hidden bg-white dark:bg-purple-900/10">
-                        <tbody>
-                          <tr>
-                            {selectedTask.topic && (
-                              <td className="py-4 px-4 border-r border-purple-200 dark:border-purple-700 w-1/3 text-center">
-                                <div className="flex flex-col items-center">
-                                  <span className="font-semibold text-purple-700 dark:text-purple-300 text-xs uppercase tracking-wider mb-2 block">Tema</span>
-                                  <span className="text-purple-600 dark:text-purple-400 font-medium text-center leading-tight">{selectedTask.topic}</span>
-                                </div>
-                              </td>
+                  <h4 className="font-medium mb-3 text-purple-800 dark:text-purple-200">Información de la Evaluación</h4>
+                  
+                  {/* Tabla horizontal de información de evaluación - Sin scroll horizontal */}
+                  <div className="border border-purple-200 dark:border-purple-700 rounded-lg">
+                    <table className="w-full table-fixed">
+                      <thead className="bg-purple-100 dark:bg-purple-900/40">
+                        <tr>
+                          <th className="w-1/6 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Tema</th>
+                          <th className="w-1/8 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Preguntas</th>
+                          <th className="w-1/8 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Tiempo</th>
+                          <th className="w-1/6 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Nota</th>
+                          <th className="w-1/8 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Fecha</th>
+                          <th className="w-1/4 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="bg-white dark:bg-slate-800/50">
+                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
+                            {selectedTask.topic || (
+                              <span className="text-gray-400 italic">--</span>
                             )}
-                            {selectedTask.numQuestions && selectedTask.numQuestions > 0 && (
-                              <td className="py-4 px-4 border-r border-purple-200 dark:border-purple-700 w-1/3 text-center">
-                                <div className="flex flex-col items-center">
-                                  <span className="font-semibold text-purple-700 dark:text-purple-300 text-xs uppercase tracking-wider mb-2 block">Preguntas</span>
-                                  <span className="text-purple-600 dark:text-purple-400 font-medium text-center text-lg">{selectedTask.numQuestions}</span>
-                                </div>
-                              </td>
+                          </td>
+                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
+                            {selectedTask.numQuestions && selectedTask.numQuestions > 0 ? selectedTask.numQuestions : (
+                              <span className="text-gray-400 italic">--</span>
                             )}
-                            {selectedTask.timeLimit && selectedTask.timeLimit > 0 && (
-                              <td className="py-4 px-4 w-1/3 text-center">
-                                <div className="flex flex-col items-center">
-                                  <span className="font-semibold text-purple-700 dark:text-purple-300 text-xs uppercase tracking-wider mb-2 block">Tiempo</span>
-                                  <span className="text-purple-600 dark:text-purple-400 font-medium text-center">{selectedTask.timeLimit} minutos</span>
-                                </div>
-                              </td>
+                          </td>
+                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
+                            {selectedTask.timeLimit && selectedTask.timeLimit > 0 ? `${selectedTask.timeLimit} min` : (
+                              <span className="text-gray-400 italic">--</span>
                             )}
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    {user?.role === 'student' && (
-                      <div className="flex-shrink-0 ml-6 flex items-center">
-                        <Button
-                          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 font-medium shadow-sm"
-                          onClick={() => {
-                            // Lógica para iniciar evaluación
-                            console.log('Iniciando evaluación para:', selectedTask.title);
-                          }}
-                        >
-                          Realizar Evaluación
-                        </Button>
+                          </td>
+                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
+                            {evaluationResults[selectedTask.id] ? (
+                              <span className="text-gray-600 dark:text-gray-400 font-medium">
+                                {evaluationResults[selectedTask.id].correctAnswers}/{evaluationResults[selectedTask.id].totalQuestions} ({evaluationResults[selectedTask.id].percentage}%)
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic">Pendiente</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
+                            {evaluationResults[selectedTask.id] ? (
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {new Date(evaluationResults[selectedTask.id].completedAt).toLocaleDateString('es-ES', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic">--</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            {evaluationResults[selectedTask.id] ? (
+                              <Button
+                                onClick={() => handleReviewEvaluation(selectedTask)}
+                                className="bg-purple-500 hover:bg-purple-600 text-white text-xs px-2 py-1"
+                                size="sm"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                Revisar
+                              </Button>
+                            ) : (
+                              <Button
+                                onClick={() => handleStartEvaluation(selectedTask)}
+                                className="bg-purple-500 hover:bg-purple-600 text-white text-xs px-2 py-1"
+                                size="sm"
+                              >
+                                <ClipboardCheck className="w-3 h-3 mr-1" />
+                                Realizar
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              
+              {/* Evaluation specific information for teachers (keep original format) */}
+              {selectedTask.taskType === 'evaluacion' && user?.role === 'teacher' && (
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <h4 className="font-medium mb-2 text-purple-800 dark:text-purple-200">Información de la Evaluación</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    {selectedTask.topic && (
+                      <div>
+                        <strong className="text-purple-700 dark:text-purple-300">Tema:</strong>
+                        <p className="text-purple-600 dark:text-purple-400">{selectedTask.topic}</p>
+                      </div>
+                    )}
+                    {selectedTask.numQuestions && selectedTask.numQuestions > 0 && (
+                      <div>
+                        <strong className="text-purple-700 dark:text-purple-300">Preguntas:</strong>
+                        <p className="text-purple-600 dark:text-purple-400">{selectedTask.numQuestions}</p>
+                      </div>
+                    )}
+                    {selectedTask.timeLimit && selectedTask.timeLimit > 0 && (
+                      <div>
+                        <strong className="text-purple-700 dark:text-purple-300">Tiempo:</strong>
+                        <p className="text-purple-600 dark:text-purple-400">{selectedTask.timeLimit} minutos</p>
                       </div>
                     )}
                   </div>
@@ -2967,7 +3514,7 @@ export default function TareasPage() {
                     className="mt-1"
                   />
                   
-                  {/* File Upload for Comments - Hidden for evaluations */}
+                  {/* File Upload for Comments - Solo para tareas normales, no para evaluaciones */}
                   {selectedTask?.taskType !== 'evaluacion' && (
                     <div className="mt-3 space-y-2">
                       <div>
@@ -2982,10 +3529,7 @@ export default function TareasPage() {
                         <Button
                           type="button"
                           onClick={() => document.getElementById('comment-file-upload')?.click()}
-                          className={`w-full ${selectedTask?.taskType === 'evaluacion'
-                            ? 'bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700'
-                            : 'bg-orange-100 hover:bg-orange-500 hover:text-white text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-600 dark:hover:text-white dark:text-orange-400 dark:border-orange-700'
-                          }`}
+                          className="w-full bg-orange-100 hover:bg-orange-500 hover:text-white text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-600 dark:hover:text-white dark:text-orange-400 dark:border-orange-700"
                           size="sm"
                         >
                           <Paperclip className="w-4 h-4 mr-2" />
@@ -3034,7 +3578,7 @@ export default function TareasPage() {
                         </Label>
                       </div>
                     )}
-                    {(user?.role === 'teacher' || (user?.role === 'student' && selectedTask?.taskType === 'evaluacion')) && (
+                    {user?.role === 'teacher' && (
                       <div>{/* Espacio vacío para mantener la alineación */}</div>
                     )}
                     <Button 
@@ -3139,22 +3683,22 @@ export default function TareasPage() {
                 <Label className="text-right">{translate('assignToStudents')}</Label>
                 <div className="col-span-3">
                   <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
-                    {getStudentsFromCourse(formData.course).length > 0 ? (
-                      getStudentsFromCourse(formData.course).map(student => (
+                    {getStudentsForCourse(formData.course).length > 0 ? (
+                      getStudentsForCourse(formData.course).map((student: { id: string, username: string, displayName: string }) => (
                         <div key={student.username} className="flex items-center space-x-2 py-1">
                           <Checkbox
-                            id={`student-${student.username}`}
-                            checked={formData.assignedStudents?.includes(student.username)}
+                            id={`edit-student-${student.username}`}
+                            checked={formData.assignedStudentIds?.includes(student.id)}
                             onCheckedChange={(checked) => {
                               if (checked) {
                                 setFormData(prev => ({
                                   ...prev,
-                                  assignedStudents: [...(prev.assignedStudents || []), student.username]
+                                  assignedStudentIds: [...(prev.assignedStudentIds || []), student.id]
                                 }));
                               } else {
                                 setFormData(prev => ({
                                   ...prev,
-                                  assignedStudents: prev.assignedStudents?.filter(s => s !== student.username) || []
+                                  assignedStudentIds: prev.assignedStudentIds?.filter((s: string) => s !== student.id) || []
                                 }));
                               }
                             }}
@@ -3216,18 +3760,19 @@ export default function TareasPage() {
             {formData.taskType === 'evaluacion' && (
               <>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="topic-edit" className="text-right">Tema</Label>
+                  <Label htmlFor="topic-edit" className="text-right">Tema <span className="text-red-500">*</span></Label>
                   <Input
                     id="topic-edit"
                     value={formData.topic}
                     onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
                     className="col-span-3"
                     placeholder="Introduce el tema de la evaluación"
+                    required
                   />
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="numQuestions-edit" className="text-right">Cantidad de Preguntas</Label>
+                  <Label htmlFor="numQuestions-edit" className="text-right">Cantidad de Preguntas <span className="text-red-500">*</span></Label>
                   <Input
                     id="numQuestions-edit"
                     type="number"
@@ -3236,11 +3781,13 @@ export default function TareasPage() {
                     className="col-span-3"
                     placeholder="Ej: 15"
                     min="1"
+                    max="50"
+                    required
                   />
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="timeLimit-edit" className="text-right">Tiempo (minutos)</Label>
+                  <Label htmlFor="timeLimit-edit" className="text-right">Tiempo (minutos) <span className="text-red-500">*</span></Label>
                   <Input
                     id="timeLimit-edit"
                     type="number"
@@ -3249,6 +3796,8 @@ export default function TareasPage() {
                     className="col-span-3"
                     placeholder="Ej: 45"
                     min="1"
+                    max="180"
+                    required
                   />
                 </div>
               </>
@@ -3616,7 +4165,7 @@ export default function TareasPage() {
                               Tamaño: {formatFileSize(file.size)} • Subido: {formatDate(file.uploadedAt)}
                             </p>
                             <p className="text-xs text-blue-600 dark:text-blue-400">
-                              {translate('fileNumber', { number: index + 1, total: currentReview.submission.attachments.length })}
+                              {translate('fileNumber', { number: (index + 1).toString(), total: (currentReview.submission?.attachments?.length || 0).toString() })}
                             </p>
                           </div>
                         </div>
@@ -3791,6 +4340,265 @@ export default function TareasPage() {
               {currentReview.isGraded ? translate('updateGrade') : translate('saveGrade')}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Loading Dialog para evaluación mejorado */}
+      <Dialog open={showLoadingDialog} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-purple-700 flex items-center justify-center space-x-2">
+              <ClipboardCheck className="w-5 h-5" />
+              <span>Preparando Evaluación</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-6 py-6">
+            <div className="relative w-24 h-24">
+              <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="none"
+                  className="text-purple-200"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="none"
+                  strokeDasharray={`${2 * Math.PI * 40}`}
+                  strokeDashoffset={`${2 * Math.PI * 40 * (1 - loadingProgress / 100)}`}
+                  className="text-purple-600 transition-all duration-500 ease-out"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-lg font-bold text-purple-700">{loadingProgress}%</span>
+              </div>
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-sm text-purple-600 font-medium">{loadingStatus}</p>
+              <div className="flex justify-center">
+                <div className="animate-pulse flex space-x-1">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Evaluation Dialog mejorado */}
+      <Dialog open={showEvaluationDialog} onOpenChange={() => {}}>
+        <DialogContent className="max-w-none w-screen h-screen m-0 rounded-none border-0 p-0">
+          <DialogTitle className="sr-only">
+            Evaluación - {currentEvaluation.task?.topic || 'Evaluación en curso'}
+          </DialogTitle>
+          <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 w-full max-w-4xl mx-auto border border-white/20 shadow-2xl">
+              <div className="text-center mb-8">
+                <h1 className="text-4xl font-bold text-white mb-4 uppercase tracking-wide">
+                  EVALUACIÓN - {currentEvaluation.task?.topic?.toUpperCase() || 'EVALUACIÓN'}
+                </h1>
+                <div className="flex justify-center items-center space-x-8 text-white">
+                  <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-lg">
+                    <ClipboardCheck className="w-5 h-5" />
+                    <span className="text-lg">
+                      Pregunta {(currentEvaluation.currentQuestionIndex || 0) + 1} de {currentEvaluation.questions.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-lg">
+                    <Timer className="w-5 h-5" />
+                    <span className={`text-lg font-mono ${currentEvaluation.timeRemaining <= 60 ? 'text-red-300 animate-pulse' : ''}`}>
+                      {Math.floor(currentEvaluation.timeRemaining / 60)}:
+                      {(currentEvaluation.timeRemaining % 60).toString().padStart(2, '0')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {currentEvaluation.questions.length > 0 && (
+                <div className="bg-white/95 backdrop-blur rounded-xl p-8 mb-6 shadow-lg">
+                  <h2 className="text-2xl font-semibold mb-8 text-gray-800">
+                    {currentEvaluation.questions[(currentEvaluation.currentQuestionIndex || 0)]?.question}
+                  </h2>
+                  
+                  <div className="space-y-4">
+                    {currentEvaluation.questions[(currentEvaluation.currentQuestionIndex || 0)]?.options.map((option: string, index: number) => (
+                      <label
+                        key={index}
+                        className={`flex items-center space-x-4 p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                          currentEvaluation.answers[currentEvaluation.currentQuestionIndex || 0] === index
+                            ? 'border-purple-500 bg-purple-50 shadow-md transform scale-[1.02]'
+                            : 'border-gray-200 hover:border-purple-300 hover:bg-purple-25 hover:shadow-sm'
+                        }`}
+                        onClick={() => {
+                          const newAnswers = { ...currentEvaluation.answers };
+                          newAnswers[currentEvaluation.currentQuestionIndex || 0] = index;
+                          setCurrentEvaluation({
+                            ...currentEvaluation,
+                            answers: newAnswers
+                          });
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="question"
+                          checked={currentEvaluation.answers[currentEvaluation.currentQuestionIndex || 0] === index}
+                          onChange={() => {}}
+                          className="w-5 h-5 text-purple-600"
+                        />
+                        <span className="text-lg text-gray-700 flex-1">{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const newIndex = Math.max(0, (currentEvaluation.currentQuestionIndex || 0) - 1);
+                    setCurrentEvaluation({
+                      ...currentEvaluation,
+                      currentQuestionIndex: newIndex
+                    });
+                  }}
+                  disabled={(currentEvaluation.currentQuestionIndex || 0) === 0}
+                  className="bg-white/90 text-gray-700 hover:bg-white border-white/50 px-6 py-3 text-lg"
+                >
+                  <ChevronRight className="w-5 h-5 mr-2 rotate-180" />
+                  Anterior
+                </Button>
+
+                <div className="text-center text-white/80">
+                  <div className="flex space-x-2">
+                    {currentEvaluation.questions.map((_, index) => (
+                      <div
+                        key={index}
+                        className={`w-3 h-3 rounded-full ${
+                          index === currentEvaluation.currentQuestionIndex
+                            ? 'bg-yellow-400'
+                            : currentEvaluation.answers[index] !== undefined
+                            ? 'bg-green-400'
+                            : 'bg-white/30'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {(currentEvaluation.currentQuestionIndex || 0) < currentEvaluation.questions.length - 1 ? (
+                  <Button
+                    onClick={() => {
+                      const newIndex = (currentEvaluation.currentQuestionIndex || 0) + 1;
+                      setCurrentEvaluation({
+                        ...currentEvaluation,
+                        currentQuestionIndex: newIndex
+                      });
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 text-lg"
+                  >
+                    Siguiente
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleCompleteEvaluation()}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 text-lg"
+                  >
+                    <Award className="w-5 h-5 mr-2" />
+                    Finalizar Evaluación
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de Revisión de Evaluación */}
+      <Dialog open={showReviewEvaluationDialog} onOpenChange={setShowReviewEvaluationDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Eye className="w-5 h-5 text-blue-600" />
+              <span>Revisión de Evaluación</span>
+            </DialogTitle>
+            <DialogDescription>
+              Detalles de la evaluación completada
+            </DialogDescription>
+          </DialogHeader>
+          
+          {currentEvaluationReview && (
+            <div className="space-y-6">
+              {/* Información general */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-3">Información General</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-blue-700 dark:text-blue-300">Tema:</span>
+                    <p className="text-blue-600 dark:text-blue-400">{currentEvaluationReview.task?.topic || 'No especificado'}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-blue-700 dark:text-blue-300">Tiempo usado:</span>
+                    <p className="text-blue-600 dark:text-blue-400">
+                      {Math.floor(currentEvaluationReview.timeUsed / 60)}:{(currentEvaluationReview.timeUsed % 60).toString().padStart(2, '0')} min
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-blue-700 dark:text-blue-300">Fecha:</span>
+                    <p className="text-blue-600 dark:text-blue-400">
+                      {new Date(currentEvaluationReview.completedAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-blue-700 dark:text-blue-300">Estado:</span>
+                    <p className="text-blue-600 dark:text-blue-400">
+                      {currentEvaluationReview.timeExpired ? 'Tiempo agotado' : 'Completada a tiempo'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resultados */}
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                <h4 className="font-medium text-green-800 dark:text-green-200 mb-3">Resultados</h4>
+                <div className="flex items-center justify-center space-x-8">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                      {currentEvaluationReview.correctAnswers}/{currentEvaluationReview.totalQuestions}
+                    </div>
+                    <div className="text-sm text-green-600 dark:text-green-400">Respuestas correctas</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                      {currentEvaluationReview.percentage}%
+                    </div>
+                    <div className="text-sm text-green-600 dark:text-green-400">Porcentaje</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botón cerrar */}
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => setShowReviewEvaluationDialog(false)}
+                  className="bg-gray-500 hover:bg-gray-600 text-white"
+                >
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
