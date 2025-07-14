@@ -1288,89 +1288,204 @@ export default function TareasPage() {
 
   // Funciones para la evaluación mejorada
   const generateEvaluationQuestions = (topic: string, numQuestions: number) => {
-    const questionTemplates = {
-      'sistema respiratorio': [
-        {
-          question: "¿Cuál es la función principal del sistema respiratorio?",
-          options: ["Bombear sangre", "Intercambio de gases", "Filtrar toxinas", "Producir hormonas"],
-          correct: 1,
-          explanation: "El sistema respiratorio tiene como función principal el intercambio de gases, permitiendo que el oxígeno entre al cuerpo y se elimine el dióxido de carbono."
-        },
-        {
-          question: "¿Qué órgano es el principal del sistema respiratorio?",
-          options: ["Corazón", "Hígado", "Pulmones", "Riñones"],
-          correct: 2,
-          explanation: "Los pulmones son los órganos principales del sistema respiratorio, donde ocurre el intercambio de gases entre el aire y la sangre."
-        },
-        {
-          question: "¿Cuál de estas estructuras NO forma parte del sistema respiratorio?",
-          options: ["Tráquea", "Bronquios", "Estómago", "Alvéolos"],
-          correct: 2,
-          explanation: "El estómago es parte del sistema digestivo, no del sistema respiratorio. Las otras estructuras (tráquea, bronquios y alvéolos) sí forman parte del sistema respiratorio."
-        },
-        {
-          question: "¿Qué gas se elimina durante la exhalación?",
-          options: ["Oxígeno", "Dióxido de carbono", "Nitrógeno", "Hidrógeno"],
-          correct: 1,
-          explanation: "Durante la exhalación se elimina el dióxido de carbono (CO₂), que es un producto de desecho del metabolismo celular."
-        },
-        {
-          question: "¿Dónde ocurre el intercambio gaseoso en los pulmones?",
-          options: ["Bronquios", "Tráquea", "Alvéolos", "Laringe"],
-          correct: 2,
-          explanation: "El intercambio gaseoso ocurre en los alvéolos, que son pequeñas bolsas de aire rodeadas de capilares sanguíneos donde se intercambian oxígeno y dióxido de carbono."
-        }
-      ],
-      'matemáticas': [
-        {
-          question: "¿Cuánto es 2 + 2?",
-          options: ["3", "4", "5", "6"],
-          correct: 1,
-          explanation: "2 + 2 = 4. Esta es una suma básica donde agregamos 2 unidades a 2 unidades existentes."
-        },
-        {
-          question: "¿Cuál es la raíz cuadrada de 16?",
-          options: ["2", "4", "6", "8"],
-          correct: 1,
-          explanation: "La raíz cuadrada de 16 es 4, porque 4 × 4 = 16."
-        },
-        {
-          question: "¿Cuánto es 5 × 7?",
-          options: ["30", "35", "40", "45"],
-          correct: 1,
-          explanation: "5 × 7 = 35. Podemos verificarlo sumando 5 siete veces: 5+5+5+5+5+5+5 = 35."
-        },
-        {
-          question: "¿Cuál es el resultado de 100 ÷ 4?",
-          options: ["20", "25", "30", "35"],
-          correct: 1,
-          explanation: "100 ÷ 4 = 25. Esto significa dividir 100 en 4 partes iguales, cada parte tiene 25 unidades."
-        },
-        {
-          question: "¿Cuánto es 3³ (3 elevado al cubo)?",
-          options: ["9", "18", "27", "36"],
-          correct: 2,
-          explanation: "3³ = 3 × 3 × 3 = 27. Un cubo significa multiplicar el número por sí mismo tres veces."
-        }
-      ],
-      'ciencias': [
-        {
-          question: "¿Cuál es el planeta más cercano al Sol?",
-          options: ["Venus", "Mercurio", "Tierra", "Marte"],
-          correct: 1,
-          explanation: "Mercurio es el planeta más cercano al Sol en nuestro sistema solar, con una distancia promedio de aproximadamente 58 millones de kilómetros."
-        },
-        {
-          question: "¿Qué elemento químico tiene el símbolo 'O'?",
-          options: ["Oro", "Osmio", "Oxígeno", "Ozono"],
-          correct: 2,
-          explanation: "El símbolo 'O' representa al oxígeno en la tabla periódica. Es un elemento esencial para la respiración y la combustión."
-        }
-      ]
+    const getQuestionTemplates = () => {
+      // Preguntas en español
+      const spanishQuestions = {
+        'sistema respiratorio': [
+          {
+            question: "¿Cuál es la función principal del sistema respiratorio?",
+            options: ["Bombear sangre", "Intercambio de gases", "Filtrar toxinas", "Producir hormonas"],
+            correct: 1,
+            explanation: "El sistema respiratorio tiene como función principal el intercambio de gases, permitiendo que el oxígeno entre al cuerpo y se elimine el dióxido de carbono."
+          },
+          {
+            question: "¿Qué órgano es el principal del sistema respiratorio?",
+            options: ["Corazón", "Hígado", "Pulmones", "Riñones"],
+            correct: 2,
+            explanation: "Los pulmones son los órganos principales del sistema respiratorio, donde ocurre el intercambio de gases entre el aire y la sangre."
+          },
+          {
+            question: "¿Cuál de estas estructuras NO forma parte del sistema respiratorio?",
+            options: ["Tráquea", "Bronquios", "Estómago", "Alvéolos"],
+            correct: 2,
+            explanation: "El estómago es parte del sistema digestivo, no del sistema respiratorio. Las otras estructuras (tráquea, bronquios y alvéolos) sí forman parte del sistema respiratorio."
+          },
+          {
+            question: "¿Qué gas se elimina durante la exhalación?",
+            options: ["Oxígeno", "Dióxido de carbono", "Nitrógeno", "Hidrógeno"],
+            correct: 1,
+            explanation: "Durante la exhalación se elimina el dióxido de carbono (CO₂), que es un producto de desecho del metabolismo celular."
+          },
+          {
+            question: "¿Dónde ocurre el intercambio gaseoso en los pulmones?",
+            options: ["Bronquios", "Tráquea", "Alvéolos", "Laringe"],
+            correct: 2,
+            explanation: "El intercambio gaseoso ocurre en los alvéolos, que son pequeñas bolsas de aire rodeadas de capilares sanguíneos donde se intercambian oxígeno y dióxido de carbono."
+          }
+        ],
+        'matemáticas': [
+          {
+            question: "¿Cuánto es 2 + 2?",
+            options: ["3", "4", "5", "6"],
+            correct: 1,
+            explanation: "2 + 2 = 4. Esta es una suma básica donde agregamos 2 unidades a 2 unidades existentes."
+          },
+          {
+            question: "¿Cuál es la raíz cuadrada de 16?",
+            options: ["2", "4", "6", "8"],
+            correct: 1,
+            explanation: "La raíz cuadrada de 16 es 4, porque 4 × 4 = 16."
+          },
+          {
+            question: "¿Cuánto es 5 × 7?",
+            options: ["30", "35", "40", "45"],
+            correct: 1,
+            explanation: "5 × 7 = 35. Podemos verificarlo sumando 5 siete veces: 5+5+5+5+5+5+5 = 35."
+          },
+          {
+            question: "¿Cuál es el resultado de 100 ÷ 4?",
+            options: ["20", "25", "30", "35"],
+            correct: 1,
+            explanation: "100 ÷ 4 = 25. Esto significa dividir 100 en 4 partes iguales, cada parte tiene 25 unidades."
+          },
+          {
+            question: "¿Cuánto es 3³ (3 elevado al cubo)?",
+            options: ["9", "18", "27", "36"],
+            correct: 2,
+            explanation: "3³ = 3 × 3 × 3 = 27. Un cubo significa multiplicar el número por sí mismo tres veces."
+          }
+        ],
+        'ciencias': [
+          {
+            question: "¿Cuál es el planeta más cercano al Sol?",
+            options: ["Venus", "Mercurio", "Tierra", "Marte"],
+            correct: 1,
+            explanation: "Mercurio es el planeta más cercano al Sol en nuestro sistema solar, con una distancia promedio de aproximadamente 58 millones de kilómetros."
+          },
+          {
+            question: "¿Qué elemento químico tiene el símbolo 'O'?",
+            options: ["Oro", "Osmio", "Oxígeno", "Ozono"],
+            correct: 2,
+            explanation: "El símbolo 'O' representa al oxígeno en la tabla periódica. Es un elemento esencial para la respiración y la combustión."
+          }
+        ]
+      };
+
+      // Preguntas en inglés
+      const englishQuestions = {
+        'respiratory system': [
+          {
+            question: "What is the main function of the respiratory system?",
+            options: ["Pump blood", "Gas exchange", "Filter toxins", "Produce hormones"],
+            correct: 1,
+            explanation: "The respiratory system's main function is gas exchange, allowing oxygen to enter the body and carbon dioxide to be removed."
+          },
+          {
+            question: "What is the main organ of the respiratory system?",
+            options: ["Heart", "Liver", "Lungs", "Kidneys"],
+            correct: 2,
+            explanation: "The lungs are the main organs of the respiratory system, where gas exchange occurs between air and blood."
+          },
+          {
+            question: "Which of these structures is NOT part of the respiratory system?",
+            options: ["Trachea", "Bronchi", "Stomach", "Alveoli"],
+            correct: 2,
+            explanation: "The stomach is part of the digestive system, not the respiratory system. The other structures (trachea, bronchi, and alveoli) are part of the respiratory system."
+          },
+          {
+            question: "What gas is eliminated during exhalation?",
+            options: ["Oxygen", "Carbon dioxide", "Nitrogen", "Hydrogen"],
+            correct: 1,
+            explanation: "During exhalation, carbon dioxide (CO₂) is eliminated, which is a waste product of cellular metabolism."
+          },
+          {
+            question: "Where does gas exchange occur in the lungs?",
+            options: ["Bronchi", "Trachea", "Alveoli", "Larynx"],
+            correct: 2,
+            explanation: "Gas exchange occurs in the alveoli, which are small air sacs surrounded by blood capillaries where oxygen and carbon dioxide are exchanged."
+          }
+        ],
+        'mathematics': [
+          {
+            question: "What is 2 + 2?",
+            options: ["3", "4", "5", "6"],
+            correct: 1,
+            explanation: "2 + 2 = 4. This is a basic addition where we add 2 units to 2 existing units."
+          },
+          {
+            question: "What is the square root of 16?",
+            options: ["2", "4", "6", "8"],
+            correct: 1,
+            explanation: "The square root of 16 is 4, because 4 × 4 = 16."
+          },
+          {
+            question: "What is 5 × 7?",
+            options: ["30", "35", "40", "45"],
+            correct: 1,
+            explanation: "5 × 7 = 35. We can verify this by adding 5 seven times: 5+5+5+5+5+5+5 = 35."
+          },
+          {
+            question: "What is the result of 100 ÷ 4?",
+            options: ["20", "25", "30", "35"],
+            correct: 1,
+            explanation: "100 ÷ 4 = 25. This means dividing 100 into 4 equal parts, each part has 25 units."
+          },
+          {
+            question: "What is 3³ (3 to the power of 3)?",
+            options: ["9", "18", "27", "36"],
+            correct: 2,
+            explanation: "3³ = 3 × 3 × 3 = 27. Cubing means multiplying the number by itself three times."
+          }
+        ],
+        'science': [
+          {
+            question: "Which is the closest planet to the Sun?",
+            options: ["Venus", "Mercury", "Earth", "Mars"],
+            correct: 1,
+            explanation: "Mercury is the closest planet to the Sun in our solar system, with an average distance of approximately 58 million kilometers."
+          },
+          {
+            question: "What chemical element has the symbol 'O'?",
+            options: ["Gold", "Osmium", "Oxygen", "Ozone"],
+            correct: 2,
+            explanation: "The symbol 'O' represents oxygen in the periodic table. It is an essential element for respiration and combustion."
+          }
+        ]
+      };
+
+      // Determinar idioma actual
+      const currentLanguage = localStorage.getItem('smart-student-lang') || 'es';
+      
+      if (currentLanguage === 'en') {
+        return englishQuestions;
+      } else {
+        return spanishQuestions;
+      }
     };
 
-    const topicKey = topic.toLowerCase();
-    const templates = questionTemplates[topicKey as keyof typeof questionTemplates] || questionTemplates['matemáticas'];
+    const questionTemplates = getQuestionTemplates();
+    
+    // Mapear temas al idioma correcto
+    const currentLanguage = localStorage.getItem('smart-student-lang') || 'es';
+    let topicKey = topic.toLowerCase();
+    
+    if (currentLanguage === 'en') {
+      // Mapear temas de español a inglés
+      const topicMapping: { [key: string]: string } = {
+        'sistema respiratorio': 'respiratory system',
+        'matemáticas': 'mathematics',
+        'ciencias': 'science'
+      };
+      topicKey = topicMapping[topicKey] || topicKey;
+    }
+    
+    // Obtener las preguntas del tema o usar matemáticas por defecto
+    let templates = questionTemplates[topicKey as keyof typeof questionTemplates];
+    if (!templates) {
+      // Fallback a matemáticas/mathematics según el idioma
+      const fallbackKey = currentLanguage === 'en' ? 'mathematics' : 'matemáticas';
+      templates = questionTemplates[fallbackKey as keyof typeof questionTemplates] || Object.values(questionTemplates)[0];
+    }
     
     // Mezclar preguntas y tomar solo las necesarias
     const shuffled = [...templates].sort(() => 0.5 - Math.random());
@@ -1471,9 +1586,95 @@ export default function TareasPage() {
   const handleReviewEvaluation = (task: Task) => {
     const evaluationResult = evaluationResults[task.id];
     if (evaluationResult) {
-      setCurrentEvaluationReview(evaluationResult);
+      // Traducir las preguntas dinámicamente según el idioma actual
+      const translatedResult = translateEvaluationResult(evaluationResult, task);
+      setCurrentEvaluationReview(translatedResult);
       setShowReviewEvaluationDialog(true);
     }
+  };
+
+  // Función para traducir los resultados de evaluación según el idioma actual
+  const translateEvaluationResult = (result: any, task: Task) => {
+    const currentLanguage = localStorage.getItem('smart-student-lang') || 'es';
+    
+    console.log('🔍 TRANSLATION DEBUG - Current language:', currentLanguage);
+    console.log('🔍 TRANSLATION DEBUG - LocalStorage key check:', localStorage.getItem('smart-student-lang'));
+    console.log('🔍 TRANSLATION DEBUG - All localStorage keys:', Object.keys(localStorage));
+    console.log('🔍 TRANSLATION DEBUG - Result has questions:', !!result.questions);
+    console.log('🔍 TRANSLATION DEBUG - Questions length:', result.questions?.length);
+    
+    // FORZAR VERIFICACIÓN: Verificar otras posibles claves de idioma
+    const altLanguageCheck = localStorage.getItem('language') || localStorage.getItem('locale') || localStorage.getItem('i18n-language');
+    console.log('🔍 TRANSLATION DEBUG - Alternative language keys:', { altLanguageCheck });
+    
+    // Si ya está en español o no hay preguntas, devolver tal como está
+    if (currentLanguage === 'es' || !result.questions || result.questions.length === 0) {
+      console.log('🔍 TRANSLATION DEBUG - Returning original result (no translation needed)');
+      console.log('🔍 TRANSLATION DEBUG - Reason: currentLanguage =', currentLanguage, ', hasQuestions =', !!result.questions);
+      return result;
+    }
+
+    console.log('🔄 Translating evaluation result from Spanish to English...');
+    console.log('Original topic:', task.topic);
+    console.log('Original questions sample:', result.questions[0]?.question?.substring(0, 100));
+    
+    // Generar preguntas en inglés para el mismo tema
+    const englishQuestions = generateEvaluationQuestions(task.topic || 'mathematics', result.questions.length);
+    
+    console.log('Generated English questions:', englishQuestions.length);
+    console.log('English questions sample:', englishQuestions[0]?.question?.substring(0, 100));
+    
+    // Mapear las preguntas guardadas con las traducciones al inglés
+    const translatedQuestions = result.questions.map((savedQuestion: any, index: number) => {
+      const englishQuestion = englishQuestions[index];
+      
+      // Si no hay pregunta en inglés correspondiente, mantener la original
+      if (!englishQuestion || typeof englishQuestion !== 'object') {
+        console.log(`⚠️ No English question found for index ${index}`);
+        return savedQuestion;
+      }
+      
+      // Verificar que la pregunta en inglés tiene las propiedades necesarias
+      const hasRequiredProps = 'question' in englishQuestion && 
+                              'options' in englishQuestion && 
+                              'explanation' in englishQuestion &&
+                              'correct' in englishQuestion;
+      
+      if (!hasRequiredProps) {
+        console.log(`⚠️ English question ${index} missing required properties`);
+        return savedQuestion;
+      }
+      
+      const translatedQuestion = {
+        ...savedQuestion,
+        question: (englishQuestion as any).question,
+        options: (englishQuestion as any).options,
+        explanation: (englishQuestion as any).explanation,
+        // Actualizar texto de respuesta del estudiante y respuesta correcta
+        studentAnswerText: savedQuestion.studentAnswer !== undefined ? 
+          (englishQuestion as any).options[savedQuestion.studentAnswer] : undefined,
+        correctAnswer: (englishQuestion as any).options[(englishQuestion as any).correct],
+        // Mantener datos originales del estudiante
+        studentAnswer: savedQuestion.studentAnswer,
+        correct: savedQuestion.correct,
+        isCorrect: savedQuestion.isCorrect
+      };
+      
+      console.log(`✅ Translated question ${index + 1}:`, {
+        original: savedQuestion.question?.substring(0, 50) + '...',
+        translated: (englishQuestion as any).question?.substring(0, 50) + '...'
+      });
+      
+      return translatedQuestion;
+    });
+
+    const translatedResult = {
+      ...result,
+      questions: translatedQuestions
+    };
+    
+    console.log('🎯 Translation completed');
+    return translatedResult;
   };
 
   const handleCompleteEvaluation = (timeExpired: boolean = false) => {
@@ -2334,7 +2535,11 @@ export default function TareasPage() {
 
   // Función para abrir el diálogo de revisión de evaluación
   const handleViewEvaluationDetail = (studentId: string, taskId: string) => {
+    console.log('🔍 handleViewEvaluationDetail called with:', { studentId, taskId });
+    
     const evaluationResult = getStudentEvaluationResult(taskId, studentId);
+    console.log('🔍 Evaluation result found:', !!evaluationResult);
+    
     if (!evaluationResult) {
       toast({
         title: translate('error'),
@@ -2344,7 +2549,20 @@ export default function TareasPage() {
       return;
     }
 
-    setSelectedEvaluationResult(evaluationResult);
+    // Encontrar la tarea correspondiente para obtener el tema
+    const task = tasks.find(t => t.id === taskId);
+    console.log('🔍 Task found for translation:', !!task, task?.topic);
+    
+    if (task) {
+      // Traducir las preguntas dinámicamente según el idioma actual
+      console.log('🔄 About to translate evaluation result...');
+      const translatedResult = translateEvaluationResult(evaluationResult, task);
+      console.log('🔄 Translation completed, setting result');
+      setSelectedEvaluationResult(translatedResult);
+    } else {
+      console.log('⚠️ No task found, using original result');
+      setSelectedEvaluationResult(evaluationResult);
+    }
     setShowEvaluationReviewDialog(true);
   };
 
@@ -4683,10 +4901,10 @@ export default function TareasPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Eye className="w-5 h-5 text-blue-600" />
-              <span>Revisión de Evaluación</span>
+              <span>{translate('evalReviewTitle')}</span>
             </DialogTitle>
             <DialogDescription>
-              Detalles de la evaluación completada con respuestas y explicaciones
+              {translate('evalReviewDescription')}
             </DialogDescription>
           </DialogHeader>
           
@@ -4694,28 +4912,28 @@ export default function TareasPage() {
             <div className="space-y-6">
               {/* Información general */}
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-3">Información General</h4>
+                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-3">{translate('evalReviewGeneralInfo')}</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="font-medium text-blue-700 dark:text-blue-300">Tema:</span>
-                    <p className="text-blue-600 dark:text-blue-400">{currentEvaluationReview.task?.topic || 'No especificado'}</p>
+                    <span className="font-medium text-blue-700 dark:text-blue-300">{translate('evalReviewTopic')}</span>
+                    <p className="text-blue-600 dark:text-blue-400">{currentEvaluationReview.task?.topic || translate('evalReviewNotSpecified')}</p>
                   </div>
                   <div>
-                    <span className="font-medium text-blue-700 dark:text-blue-300">Tiempo usado:</span>
+                    <span className="font-medium text-blue-700 dark:text-blue-300">{translate('evalReviewTimeUsed')}</span>
                     <p className="text-blue-600 dark:text-blue-400">
                       {Math.floor(currentEvaluationReview.timeUsed / 60)}:{(currentEvaluationReview.timeUsed % 60).toString().padStart(2, '0')} min
                     </p>
                   </div>
                   <div>
-                    <span className="font-medium text-blue-700 dark:text-blue-300">Fecha:</span>
+                    <span className="font-medium text-blue-700 dark:text-blue-300">{translate('evalReviewDate')}</span>
                     <p className="text-blue-600 dark:text-blue-400">
                       {new Date(currentEvaluationReview.completedAt).toLocaleString()}
                     </p>
                   </div>
                   <div>
-                    <span className="font-medium text-blue-700 dark:text-blue-300">Estado:</span>
+                    <span className="font-medium text-blue-700 dark:text-blue-300">{translate('evalReviewStatus')}</span>
                     <p className="text-blue-600 dark:text-blue-400">
-                      {currentEvaluationReview.timeExpired ? 'Tiempo agotado' : 'Completada a tiempo'}
+                      {currentEvaluationReview.timeExpired ? translate('evalReviewTimeExpired') : translate('evalReviewCompletedOnTime')}
                     </p>
                   </div>
                 </div>
@@ -4723,19 +4941,19 @@ export default function TareasPage() {
 
               {/* Resultados */}
               <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-                <h4 className="font-medium text-green-800 dark:text-green-200 mb-3">Resultados</h4>
+                <h4 className="font-medium text-green-800 dark:text-green-200 mb-3">{translate('evalReviewResults')}</h4>
                 <div className="flex items-center justify-center space-x-8">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                       {currentEvaluationReview.correctAnswers}/{currentEvaluationReview.totalQuestions}
                     </div>
-                    <div className="text-sm text-green-600 dark:text-green-400">Respuestas correctas</div>
+                    <div className="text-sm text-green-600 dark:text-green-400">{translate('evalReviewCorrectAnswers')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                       {currentEvaluationReview.percentage}%
                     </div>
-                    <div className="text-sm text-green-600 dark:text-green-400">Porcentaje</div>
+                    <div className="text-sm text-green-600 dark:text-green-400">{translate('evalReviewPercentage')}</div>
                   </div>
                 </div>
               </div>
@@ -4743,7 +4961,7 @@ export default function TareasPage() {
               {/* Revisión detallada de preguntas */}
               {currentEvaluationReview.questions && currentEvaluationReview.questions.length > 0 && (
                 <div className="space-y-4">
-                  <h4 className="font-medium text-gray-800 dark:text-gray-200">Revisión Detallada de Preguntas</h4>
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200">{translate('evalReviewDetailedReview')}</h4>
                   
                   {currentEvaluationReview.questions.map((question: any, index: number) => {
                     const userAnswer = currentEvaluationReview.answers[index];
@@ -4760,7 +4978,7 @@ export default function TareasPage() {
                       >
                         <div className="flex items-start justify-between mb-3">
                           <h5 className="font-medium text-gray-800 dark:text-gray-200">
-                            Pregunta {index + 1}
+                            {translate('evalReviewQuestion')} {index + 1}
                           </h5>
                           <Badge 
                             className={isCorrect 
@@ -4768,7 +4986,7 @@ export default function TareasPage() {
                               : 'bg-red-100 text-red-800 border-red-200'
                             }
                           >
-                            {isCorrect ? 'Correcta' : 'Incorrecta'}
+                            {isCorrect ? translate('evalReviewCorrect') : translate('evalReviewIncorrect')}
                           </Badge>
                         </div>
                         
@@ -4795,12 +5013,12 @@ export default function TareasPage() {
                                 <span>{option}</span>
                                 {optionIndex === question.correct && (
                                   <Badge className="bg-green-200 text-green-800 text-xs ml-auto">
-                                    Respuesta Correcta
+                                    {translate('evalReviewCorrectAnswer')}
                                   </Badge>
                                 )}
                                 {optionIndex === userAnswer && optionIndex !== question.correct && (
                                   <Badge className="bg-red-200 text-red-800 text-xs ml-auto">
-                                    Tu Respuesta
+                                    {translate('evalReviewYourAnswer')}
                                   </Badge>
                                 )}
                               </div>
@@ -4811,7 +5029,7 @@ export default function TareasPage() {
                         <div className="space-y-2">
                           <div className="flex items-start space-x-2">
                             <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
-                              Tu respuesta:
+                              {translate('evalReviewYourAnswer')}
                             </span>
                             <span className={`text-sm ${
                               isCorrect 
@@ -4820,7 +5038,7 @@ export default function TareasPage() {
                             }`}>
                               {userAnswer !== undefined 
                                 ? `${String.fromCharCode(65 + userAnswer)}. ${question.options[userAnswer]}`
-                                : 'Sin respuesta'
+                                : translate('evalReviewNoAnswer')
                               }
                             </span>
                           </div>
@@ -4828,7 +5046,7 @@ export default function TareasPage() {
                           {!isCorrect && (
                             <div className="flex items-start space-x-2">
                               <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
-                                Respuesta correcta:
+                                {translate('evalReviewCorrectAnswer')}
                               </span>
                               <span className="text-green-700 dark:text-green-300 font-medium text-sm">
                                 {String.fromCharCode(65 + question.correct)}. {question.options[question.correct]}
@@ -4839,7 +5057,7 @@ export default function TareasPage() {
                           {question.explanation && (
                             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-200 dark:border-blue-700 mt-3">
                               <span className="font-medium text-blue-700 dark:text-blue-300 text-sm block mb-1">
-                                Explicación:
+                                {translate('evalReviewExplanation')}
                               </span>
                               <p className="text-blue-600 dark:text-blue-400 text-sm">
                                 {question.explanation}
@@ -4859,7 +5077,7 @@ export default function TareasPage() {
                   onClick={() => setShowReviewEvaluationDialog(false)}
                   className="bg-gray-500 hover:bg-gray-600 text-white"
                 >
-                  Cerrar
+                  {translate('evalReviewClose')}
                 </Button>
               </div>
             </div>
@@ -4872,38 +5090,49 @@ export default function TareasPage() {
         <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-purple-800 dark:text-purple-200">
-              {translate('viewEvaluationDetail')} - {selectedEvaluationResult?.studentName || 'Estudiante'}
+              {translate('viewEvaluationDetail')} - {selectedEvaluationResult?.studentName || translate('student')}
             </DialogTitle>
           </DialogHeader>
           
           {selectedEvaluationResult && (
             <div className="space-y-6">
+              {/* Debug log */}
+              {console.log('🎯 RENDERING EVALUATION DIALOG:', {
+                currentLanguage: localStorage.getItem('smart-student-lang'),
+                hasQuestions: !!selectedEvaluationResult.questions,
+                firstQuestion: selectedEvaluationResult.questions?.[0]?.question?.substring(0, 50),
+                studentName: selectedEvaluationResult.studentName
+              })}
+              
               {/* Resumen de la evaluación */}
               <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
-                <h4 className="font-medium mb-3 text-purple-800 dark:text-purple-200">Resumen de la Evaluación</h4>
+                <h4 className="font-bold mb-4 text-purple-800 dark:text-purple-200 text-left">{translate('evalSummaryTitle')}</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <strong className="text-purple-700 dark:text-purple-300">Puntuación:</strong>
+                  <div className="text-center">
+                    <strong className="text-purple-700 dark:text-purple-300 block mb-1">{translate('evalSummaryScore')}</strong>
                     <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
                       {selectedEvaluationResult.correctAnswers}/{selectedEvaluationResult.totalQuestions}
                     </p>
                   </div>
-                  <div>
-                    <strong className="text-purple-700 dark:text-purple-300">Porcentaje:</strong>
+                  <div className="text-center">
+                    <strong className="text-purple-700 dark:text-purple-300 block mb-1">{translate('evalSummaryPercentage')}</strong>
                     <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
                       {selectedEvaluationResult.percentage}%
                     </p>
                   </div>
-                  <div>
-                    <strong className="text-purple-700 dark:text-purple-300">Tiempo:</strong>
+                  <div className="text-center">
+                    <strong className="text-purple-700 dark:text-purple-300 block mb-1">{translate('evalSummaryTime')}</strong>
                     <p className="text-purple-600 dark:text-purple-400">
-                      {selectedEvaluationResult.timeSpent || 'N/A'}
+                      {selectedEvaluationResult.timeUsed 
+                        ? `${Math.floor(selectedEvaluationResult.timeUsed / 60)}:${(selectedEvaluationResult.timeUsed % 60).toString().padStart(2, '0')} min`
+                        : selectedEvaluationResult.timeSpent || translate('notAvailable')
+                      }
                     </p>
                   </div>
-                  <div>
-                    <strong className="text-purple-700 dark:text-purple-300">Fecha:</strong>
+                  <div className="text-center">
+                    <strong className="text-purple-700 dark:text-purple-300 block mb-1">{translate('evalSummaryDate')}</strong>
                     <p className="text-purple-600 dark:text-purple-400">
-                      {new Date(selectedEvaluationResult.completedAt).toLocaleDateString('es-ES')}
+                      {new Date(selectedEvaluationResult.completedAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -4912,7 +5141,7 @@ export default function TareasPage() {
               {/* Preguntas y respuestas */}
               {selectedEvaluationResult.questions && selectedEvaluationResult.questions.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-4 text-gray-800 dark:text-gray-200">Revisión Detallada</h4>
+                  <h4 className="font-bold mb-4 text-gray-800 dark:text-gray-200">{translate('evalDetailedReview')}</h4>
                   <div className="space-y-4">
                     {selectedEvaluationResult.questions.map((question: any, index: number) => (
                       <div 
@@ -4925,10 +5154,10 @@ export default function TareasPage() {
                       >
                         <div className="flex items-start justify-between mb-2">
                           <h5 className="font-medium text-gray-800 dark:text-gray-200">
-                            Pregunta {index + 1}
+                            {translate('evalReviewQuestion')} {index + 1}
                           </h5>
                           <Badge className={question.isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                            {question.isCorrect ? 'Correcta' : 'Incorrecta'}
+                            {question.isCorrect ? translate('evalReviewCorrect') : translate('evalReviewIncorrect')}
                           </Badge>
                         </div>
                         
@@ -4936,22 +5165,22 @@ export default function TareasPage() {
                         
                         <div className="space-y-2">
                           <div>
-                            <strong className="text-sm text-gray-600 dark:text-gray-400">Respuesta del estudiante:</strong>
+                            <strong className="text-sm text-gray-600 dark:text-gray-400">{translate('evalReviewYourAnswer')}</strong>
                             <p className={`ml-2 ${question.isCorrect ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
                               {question.studentAnswerText || 
                                (question.options && question.studentAnswer !== undefined ? question.options[question.studentAnswer] : question.studentAnswer) ||
-                               'Sin respuesta'}
+                               translate('evalReviewNoAnswer')}
                             </p>
                           </div>
                           
                           <div>
-                            <strong className="text-sm text-gray-600 dark:text-gray-400">Respuesta correcta:</strong>
+                            <strong className="text-sm text-gray-600 dark:text-gray-400">{translate('evalReviewCorrectAnswer')}</strong>
                             <p className="ml-2 text-green-700 dark:text-green-300">{question.correctAnswer}</p>
                           </div>
                           
                           {question.explanation && (
                             <div>
-                              <strong className="text-sm text-gray-600 dark:text-gray-400">Explicación:</strong>
+                              <strong className="text-sm text-gray-600 dark:text-gray-400">{translate('evalReviewExplanation')}</strong>
                               <p className="ml-2 text-gray-600 dark:text-gray-400 text-sm">{question.explanation}</p>
                             </div>
                           )}
