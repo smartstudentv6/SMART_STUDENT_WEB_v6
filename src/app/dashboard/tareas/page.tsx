@@ -5,7 +5,7 @@ import { useAuth, User as UserType } from '@/contexts/auth-context';
 import { useLanguage } from '@/contexts/language-context';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { TaskNotificationManager } from '@/lib/notifications';
@@ -37,7 +37,7 @@ interface Task {
   assignedStudentIds?: string[]; // Changed from assignedStudents (specific student IDs)
   dueDate: string;
   createdAt: string;
-  status: 'pending' | 'submitted' | 'reviewed' | 'delivered';
+  status: 'pending' | 'submitted' | 'reviewed' | 'delivered' | 'finished';
   priority: 'low' | 'medium' | 'high';
   attachments?: TaskFile[]; // Files attached by teacher
   taskType: 'tarea' | 'evaluacion'; // New field for task type
@@ -128,6 +128,8 @@ export default function TareasPage() {
 
   // Estados para el diálogo de revisión mejorado
   const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [showEvaluationReviewDialog, setShowEvaluationReviewDialog] = useState(false);
+  const [selectedEvaluationResult, setSelectedEvaluationResult] = useState<any>(null);
   const [currentReview, setCurrentReview] = useState<{
     studentId: string; // Changed from studentUsername
     studentDisplayName: string;
@@ -221,7 +223,8 @@ export default function TareasPage() {
       status: task.status,
       statusText: task.status === 'pending' ? translate('statusPending') : 
                   task.status === 'delivered' ? translate('underReview') :
-                  task.status === 'submitted' ? translate('underReview') : translate('statusFinished'),
+                  task.status === 'submitted' ? translate('underReview') : 
+                  task.status === 'finished' ? translate('statusFinished') : translate('statusFinished'),
       statusClass: getStatusColor(task.status)
     };
   };
@@ -237,6 +240,20 @@ export default function TareasPage() {
           resultsMap[result.taskId] = result;
         });
         setEvaluationResults(resultsMap);
+
+        // Si es profesor, verificar y actualizar estados de evaluaciones
+        if (user.role === 'teacher') {
+          // Verificar todas las evaluaciones creadas por este profesor
+          const teacherEvaluations = tasks.filter(task => 
+            task.taskType === 'evaluacion' && 
+            task.assignedById === user.id &&
+            task.status === 'pending'
+          );
+          
+          teacherEvaluations.forEach(task => {
+            checkAndUpdateEvaluationStatus(task.id);
+          });
+        }
       }
     }
   };
@@ -754,6 +771,27 @@ export default function TareasPage() {
     return undefined;
   };
 
+  // Función para verificar si todos los estudiantes han completado la evaluación
+  const checkAndUpdateEvaluationStatus = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || task.taskType !== 'evaluacion') return;
+
+    const assignedStudents = getAssignedStudentsForTask(task);
+    const completedCount = assignedStudents.filter(student => {
+      const result = getStudentEvaluationResult(taskId, student.username);
+      return result !== undefined;
+    }).length;
+
+    // Si todos los estudiantes han completado la evaluación, actualizar el estado a 'finished'
+    if (completedCount === assignedStudents.length && assignedStudents.length > 0) {
+      const updatedTasks = tasks.map(t => 
+        t.id === taskId ? { ...t, status: 'finished' as const } : t
+      );
+      setTasks(updatedTasks);
+      localStorage.setItem('smart-student-tasks', JSON.stringify(updatedTasks));
+    }
+  };
+
   // Filter tasks based on user role
   // Genera la fecha mínima en formato ISO para el input datetime-local
   const getMinDateTimeString = () => {
@@ -1171,66 +1209,78 @@ export default function TareasPage() {
         {
           question: "¿Cuál es la función principal del sistema respiratorio?",
           options: ["Bombear sangre", "Intercambio de gases", "Filtrar toxinas", "Producir hormonas"],
-          correct: 1
+          correct: 1,
+          explanation: "El sistema respiratorio tiene como función principal el intercambio de gases, permitiendo que el oxígeno entre al cuerpo y se elimine el dióxido de carbono."
         },
         {
           question: "¿Qué órgano es el principal del sistema respiratorio?",
           options: ["Corazón", "Hígado", "Pulmones", "Riñones"],
-          correct: 2
+          correct: 2,
+          explanation: "Los pulmones son los órganos principales del sistema respiratorio, donde ocurre el intercambio de gases entre el aire y la sangre."
         },
         {
           question: "¿Cuál de estas estructuras NO forma parte del sistema respiratorio?",
           options: ["Tráquea", "Bronquios", "Estómago", "Alvéolos"],
-          correct: 2
+          correct: 2,
+          explanation: "El estómago es parte del sistema digestivo, no del sistema respiratorio. Las otras estructuras (tráquea, bronquios y alvéolos) sí forman parte del sistema respiratorio."
         },
         {
           question: "¿Qué gas se elimina durante la exhalación?",
           options: ["Oxígeno", "Dióxido de carbono", "Nitrógeno", "Hidrógeno"],
-          correct: 1
+          correct: 1,
+          explanation: "Durante la exhalación se elimina el dióxido de carbono (CO₂), que es un producto de desecho del metabolismo celular."
         },
         {
           question: "¿Dónde ocurre el intercambio gaseoso en los pulmones?",
           options: ["Bronquios", "Tráquea", "Alvéolos", "Laringe"],
-          correct: 2
+          correct: 2,
+          explanation: "El intercambio gaseoso ocurre en los alvéolos, que son pequeñas bolsas de aire rodeadas de capilares sanguíneos donde se intercambian oxígeno y dióxido de carbono."
         }
       ],
       'matemáticas': [
         {
           question: "¿Cuánto es 2 + 2?",
           options: ["3", "4", "5", "6"],
-          correct: 1
+          correct: 1,
+          explanation: "2 + 2 = 4. Esta es una suma básica donde agregamos 2 unidades a 2 unidades existentes."
         },
         {
           question: "¿Cuál es la raíz cuadrada de 16?",
           options: ["2", "4", "6", "8"],
-          correct: 1
+          correct: 1,
+          explanation: "La raíz cuadrada de 16 es 4, porque 4 × 4 = 16."
         },
         {
           question: "¿Cuánto es 5 × 7?",
           options: ["30", "35", "40", "45"],
-          correct: 1
+          correct: 1,
+          explanation: "5 × 7 = 35. Podemos verificarlo sumando 5 siete veces: 5+5+5+5+5+5+5 = 35."
         },
         {
           question: "¿Cuál es el resultado de 100 ÷ 4?",
           options: ["20", "25", "30", "35"],
-          correct: 1
+          correct: 1,
+          explanation: "100 ÷ 4 = 25. Esto significa dividir 100 en 4 partes iguales, cada parte tiene 25 unidades."
         },
         {
           question: "¿Cuánto es 3³ (3 elevado al cubo)?",
           options: ["9", "18", "27", "36"],
-          correct: 2
+          correct: 2,
+          explanation: "3³ = 3 × 3 × 3 = 27. Un cubo significa multiplicar el número por sí mismo tres veces."
         }
       ],
       'ciencias': [
         {
           question: "¿Cuál es el planeta más cercano al Sol?",
           options: ["Venus", "Mercurio", "Tierra", "Marte"],
-          correct: 1
+          correct: 1,
+          explanation: "Mercurio es el planeta más cercano al Sol en nuestro sistema solar, con una distancia promedio de aproximadamente 58 millones de kilómetros."
         },
         {
           question: "¿Qué elemento químico tiene el símbolo 'O'?",
           options: ["Oro", "Osmio", "Oxígeno", "Ozono"],
-          correct: 2
+          correct: 2,
+          explanation: "El símbolo 'O' representa al oxígeno en la tabla periódica. Es un elemento esencial para la respiración y la combustión."
         }
       ]
     };
@@ -1348,23 +1398,34 @@ export default function TareasPage() {
     let correctAnswers = 0;
     const totalQuestions = currentEvaluation.questions.length;
 
-    // Calcular respuestas correctas
-    currentEvaluation.questions.forEach((question, index) => {
-      if (currentEvaluation.answers[index] === question.correct) {
+    // Calcular respuestas correctas y procesar cada pregunta
+    const processedQuestions = currentEvaluation.questions.map((question, index) => {
+      const studentAnswer = currentEvaluation.answers[index];
+      const isCorrect = studentAnswer === question.correct;
+      
+      if (isCorrect) {
         correctAnswers++;
       }
+      
+      return {
+        ...question,
+        studentAnswer: studentAnswer,
+        correctAnswer: question.options[question.correct],
+        isCorrect: isCorrect
+      };
     });
 
     const percentage = Math.round((correctAnswers / totalQuestions) * 100);
     const timeUsed = (currentEvaluation.task.timeLimit || 10) * 60 - currentEvaluation.timeRemaining;
 
-    // Crear resultado de evaluación
+    // Crear resultado de evaluación con detalles completos
     const evaluationResult = {
       taskId: currentEvaluation.task.id,
       studentId: user?.id,
       studentUsername: user?.username,
       studentName: user?.displayName,
       answers: currentEvaluation.answers,
+      questions: processedQuestions, // Guardar preguntas procesadas con resultados
       correctAnswers,
       totalQuestions,
       percentage,
@@ -1624,6 +1685,7 @@ export default function TareasPage() {
       case 'delivered': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
       case 'submitted': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
       case 'reviewed': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'finished': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     }
   };
@@ -2178,6 +2240,22 @@ export default function TareasPage() {
     setShowReviewDialog(true);
   };
 
+  // Función para abrir el diálogo de revisión de evaluación
+  const handleViewEvaluationDetail = (studentId: string, taskId: string) => {
+    const evaluationResult = getStudentEvaluationResult(taskId, studentId);
+    if (!evaluationResult) {
+      toast({
+        title: translate('error'),
+        description: 'No se encontró el resultado de la evaluación',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSelectedEvaluationResult(evaluationResult);
+    setShowEvaluationReviewDialog(true);
+  };
+
   // Función para guardar la revisión y calificación
   const saveReviewAndGrade = () => {
     if (!currentReview.submission || !selectedTask) return;
@@ -2703,7 +2781,7 @@ export default function TareasPage() {
                   <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
                     {getStudentsForCourse(formData.course).length > 0 ? (
                       getStudentsForCourse(formData.course).map((student: { id: string, username: string, displayName: string }) => (
-                        <div key={student.username} className="flex items-center space-x-2 py-1">
+                        <div key={student.id} className="flex items-center space-x-2 py-1">
                           <Checkbox
                             id={`create-student-${student.username}`}
                             checked={formData.assignedStudentIds?.includes(student.id)}
@@ -3061,48 +3139,48 @@ export default function TareasPage() {
               {/* Evaluation specific information */}
               {selectedTask.taskType === 'evaluacion' && user?.role === 'student' && (
                 <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
-                  <h4 className="font-medium mb-3 text-purple-800 dark:text-purple-200">Información de la Evaluación</h4>
+                  <h4 className="font-medium mb-3 text-purple-800 dark:text-purple-200">{translate('evaluationInformation')}</h4>
                   
                   {/* Tabla horizontal de información de evaluación - Sin scroll horizontal */}
                   <div className="border border-purple-200 dark:border-purple-700 rounded-lg">
                     <table className="w-full table-fixed">
                       <thead className="bg-purple-100 dark:bg-purple-900/40">
                         <tr>
-                          <th className="w-1/6 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Tema</th>
-                          <th className="w-1/8 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Preguntas</th>
-                          <th className="w-1/8 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Tiempo</th>
-                          <th className="w-1/6 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Nota</th>
-                          <th className="w-1/8 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Fecha</th>
-                          <th className="w-1/4 px-2 py-2 text-center text-sm font-medium text-purple-700 dark:text-purple-300">Acción</th>
+                          <th className="w-1/6 px-2 py-3 text-center text-sm font-medium text-purple-700 dark:text-purple-300 align-middle">{translate('evaluationTopic')}</th>
+                          <th className="w-1/8 px-2 py-3 text-center text-sm font-medium text-purple-700 dark:text-purple-300 align-middle">{translate('evaluationQuestions')}</th>
+                          <th className="w-1/8 px-2 py-3 text-center text-sm font-medium text-purple-700 dark:text-purple-300 align-middle">{translate('evaluationTime')}</th>
+                          <th className="w-1/6 px-2 py-3 text-center text-sm font-medium text-purple-700 dark:text-purple-300 align-middle">{translate('evaluationGradeColumn')}</th>
+                          <th className="w-1/8 px-2 py-3 text-center text-sm font-medium text-purple-700 dark:text-purple-300 align-middle">{translate('evaluationDateColumn')}</th>
+                          <th className="w-1/4 px-2 py-3 text-center text-sm font-medium text-purple-700 dark:text-purple-300 align-middle">{translate('evaluationActionsColumn')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr className="bg-white dark:bg-slate-800/50">
-                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
+                          <td className="px-2 py-3 text-center text-gray-600 dark:text-gray-400 text-sm font-medium align-middle">
                             {selectedTask.topic || (
                               <span className="text-gray-400 italic">--</span>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
+                          <td className="px-2 py-3 text-center text-gray-600 dark:text-gray-400 text-sm font-medium align-middle">
                             {selectedTask.numQuestions && selectedTask.numQuestions > 0 ? selectedTask.numQuestions : (
                               <span className="text-gray-400 italic">--</span>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
-                            {selectedTask.timeLimit && selectedTask.timeLimit > 0 ? `${selectedTask.timeLimit} min` : (
+                          <td className="px-2 py-3 text-center text-gray-600 dark:text-gray-400 text-sm font-medium align-middle">
+                            {selectedTask.timeLimit && selectedTask.timeLimit > 0 ? `${selectedTask.timeLimit} ${translate('minutes')}` : (
                               <span className="text-gray-400 italic">--</span>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
+                          <td className="px-2 py-3 text-center text-gray-600 dark:text-gray-400 text-sm font-medium align-middle">
                             {evaluationResults[selectedTask.id] ? (
                               <span className="text-gray-600 dark:text-gray-400 font-medium">
                                 {evaluationResults[selectedTask.id].correctAnswers}/{evaluationResults[selectedTask.id].totalQuestions} ({evaluationResults[selectedTask.id].percentage}%)
                               </span>
                             ) : (
-                              <span className="text-gray-400 italic">Pendiente</span>
+                              <span className="text-gray-400 italic">{translate('statusPending')}</span>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-center text-gray-600 dark:text-gray-400 text-sm">
+                          <td className="px-2 py-3 text-center text-gray-600 dark:text-gray-400 text-sm font-medium align-middle">
                             {evaluationResults[selectedTask.id] ? (
                               <span className="text-gray-600 dark:text-gray-400">
                                 {new Date(evaluationResults[selectedTask.id].completedAt).toLocaleDateString('es-ES', {
@@ -3115,7 +3193,7 @@ export default function TareasPage() {
                               <span className="text-gray-400 italic">--</span>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-center">
+                          <td className="px-2 py-3 text-center align-middle">
                             {evaluationResults[selectedTask.id] ? (
                               <Button
                                 onClick={() => handleReviewEvaluation(selectedTask)}
@@ -3123,7 +3201,7 @@ export default function TareasPage() {
                                 size="sm"
                               >
                                 <Eye className="w-3 h-3 mr-1" />
-                                Revisar
+                                {translate('reviewButton')}
                               </Button>
                             ) : (
                               <Button
@@ -3132,7 +3210,7 @@ export default function TareasPage() {
                                 size="sm"
                               >
                                 <ClipboardCheck className="w-3 h-3 mr-1" />
-                                Realizar
+                                {translate('takeEvaluation')}
                               </Button>
                             )}
                           </td>
@@ -3146,23 +3224,23 @@ export default function TareasPage() {
               {/* Evaluation specific information for teachers (keep original format) */}
               {selectedTask.taskType === 'evaluacion' && user?.role === 'teacher' && (
                 <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
-                  <h4 className="font-medium mb-2 text-purple-800 dark:text-purple-200">Información de la Evaluación</h4>
+                  <h4 className="font-medium mb-2 text-purple-800 dark:text-purple-200">{translate('evaluationInformation')}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     {selectedTask.topic && (
                       <div>
-                        <strong className="text-purple-700 dark:text-purple-300">Tema:</strong>
+                        <strong className="text-purple-700 dark:text-purple-300">{translate('evaluationTopic')}:</strong>
                         <p className="text-purple-600 dark:text-purple-400">{selectedTask.topic}</p>
                       </div>
                     )}
                     {selectedTask.numQuestions && selectedTask.numQuestions > 0 && (
                       <div>
-                        <strong className="text-purple-700 dark:text-purple-300">Preguntas:</strong>
+                        <strong className="text-purple-700 dark:text-purple-300">{translate('evaluationQuestions')}:</strong>
                         <p className="text-purple-600 dark:text-purple-400">{selectedTask.numQuestions}</p>
                       </div>
                     )}
                     {selectedTask.timeLimit && selectedTask.timeLimit > 0 && (
                       <div>
-                        <strong className="text-purple-700 dark:text-purple-300">Tiempo:</strong>
+                        <strong className="text-purple-700 dark:text-purple-300">{translate('evaluationTime')}:</strong>
                         <p className="text-purple-600 dark:text-purple-400">{selectedTask.timeLimit} minutos</p>
                       </div>
                     )}
@@ -3261,7 +3339,7 @@ export default function TareasPage() {
                                 });
                                 
                                 return (
-                                  <tr key={student.username} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                                  <tr key={student.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
                                     <td className="py-2 px-3 text-center">{student.displayName}</td>
                                     <td className="py-2 px-3 text-center">
                                       <Badge className={
@@ -3334,11 +3412,11 @@ export default function TareasPage() {
                           <tbody>
                             {getAssignedStudentsForTask(selectedTask).length > 0 ? (
                               getAssignedStudentsForTask(selectedTask).map((student, index) => {
-                                const evaluationResult = getStudentEvaluationResult(selectedTask.id, student.username);
+                                const evaluationResult = getStudentEvaluationResult(selectedTask.id, student.id);
                                 const hasCompleted = evaluationResult !== undefined;
                                 
                                 return (
-                                  <tr key={student.username} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
+                                  <tr key={student.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
                                     <td className="py-2 px-3">{student.displayName}</td>
                                     <td className="py-2 px-3">
                                       <Badge className={hasCompleted ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}>
@@ -3347,7 +3425,7 @@ export default function TareasPage() {
                                     </td>
                                     <td className="py-2 px-3">
                                       {hasCompleted ? 
-                                        <span className="font-medium">{evaluationResult.score}/{evaluationResult.totalQuestions} ({evaluationResult.completionPercentage.toFixed(1)}%)</span> :
+                                        <span className="font-medium">{evaluationResult.correctAnswers}/{evaluationResult.totalQuestions} ({evaluationResult.percentage}%)</span> :
                                         <span className="text-muted-foreground italic">{translate('noSubmissionYet')}</span>
                                       }
                                     </td>
@@ -3361,9 +3439,7 @@ export default function TareasPage() {
                                         <Button 
                                           size="sm" 
                                           className="h-7 bg-purple-500 hover:bg-purple-600 text-white"
-                                          onClick={() => {
-                                            // Implementar lógica para ver detalles
-                                          }}
+                                          onClick={() => handleViewEvaluationDetail(student.id, selectedTask.id)}
                                         >
                                           {translate('viewEvaluationDetail')}
                                         </Button>
@@ -3685,7 +3761,7 @@ export default function TareasPage() {
                   <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
                     {getStudentsForCourse(formData.course).length > 0 ? (
                       getStudentsForCourse(formData.course).map((student: { id: string, username: string, displayName: string }) => (
-                        <div key={student.username} className="flex items-center space-x-2 py-1">
+                        <div key={student.id} className="flex items-center space-x-2 py-1">
                           <Checkbox
                             id={`edit-student-${student.username}`}
                             checked={formData.assignedStudentIds?.includes(student.id)}
@@ -4395,146 +4471,118 @@ export default function TareasPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Evaluation Dialog mejorado */}
+      {/* Evaluation Dialog mejorado - Formato similar a pestaña evaluaciones */}
       <Dialog open={showEvaluationDialog} onOpenChange={() => {}}>
         <DialogContent className="max-w-none w-screen h-screen m-0 rounded-none border-0 p-0">
           <DialogTitle className="sr-only">
             Evaluación - {currentEvaluation.task?.topic || 'Evaluación en curso'}
           </DialogTitle>
-          <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 w-full max-w-4xl mx-auto border border-white/20 shadow-2xl">
-              <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold text-white mb-4 uppercase tracking-wide">
+          <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4">
+            <Card className="w-full max-w-2xl mx-auto shadow-xl">
+              <CardHeader className="text-center border-b pb-4">
+                <CardTitle className="text-2xl font-bold font-headline">
                   EVALUACIÓN - {currentEvaluation.task?.topic?.toUpperCase() || 'EVALUACIÓN'}
-                </h1>
-                <div className="flex justify-center items-center space-x-8 text-white">
-                  <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-lg">
-                    <ClipboardCheck className="w-5 h-5" />
-                    <span className="text-lg">
-                      Pregunta {(currentEvaluation.currentQuestionIndex || 0) + 1} de {currentEvaluation.questions.length}
-                    </span>
+                </CardTitle>
+                <CardDescription className="flex items-center justify-center space-x-4">
+                  <span>Pregunta {(currentEvaluation.currentQuestionIndex || 0) + 1} de {currentEvaluation.questions.length}</span>
+                  <span className={`font-mono text-base text-primary tabular-nums flex items-center ${currentEvaluation.timeRemaining <= 60 ? 'text-red-500 animate-pulse' : ''}`}>
+                    <Timer className="w-4 h-4 mr-1.5" />
+                    Tiempo Restante: {Math.floor(currentEvaluation.timeRemaining / 60)}:
+                    {(currentEvaluation.timeRemaining % 60).toString().padStart(2, '0')}
+                  </span>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 min-h-[250px] flex flex-col justify-between">
+                {currentEvaluation.questions.length > 0 && (
+                  <div>
+                    <p className="text-lg font-medium mb-6 text-left md:text-center">
+                      {currentEvaluation.questions[(currentEvaluation.currentQuestionIndex || 0)]?.question}
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {currentEvaluation.questions[(currentEvaluation.currentQuestionIndex || 0)]?.options.map((option: string, index: number) => (
+                        <Button
+                          key={index}
+                          variant="ghost"
+                          className={`py-3 text-base justify-start text-left h-auto whitespace-normal w-full ${
+                            currentEvaluation.answers[currentEvaluation.currentQuestionIndex || 0] === index
+                              ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                              : 'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
+                          }`}
+                          onClick={() => {
+                            const newAnswers = { ...currentEvaluation.answers };
+                            newAnswers[currentEvaluation.currentQuestionIndex || 0] = index;
+                            setCurrentEvaluation({
+                              ...currentEvaluation,
+                              answers: newAnswers
+                            });
+                          }}
+                        >
+                          <span className="mr-2 font-semibold">{String.fromCharCode(65 + index)}.</span> {option}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-lg">
-                    <Timer className="w-5 h-5" />
-                    <span className={`text-lg font-mono ${currentEvaluation.timeRemaining <= 60 ? 'text-red-300 animate-pulse' : ''}`}>
-                      {Math.floor(currentEvaluation.timeRemaining / 60)}:
-                      {(currentEvaluation.timeRemaining % 60).toString().padStart(2, '0')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {currentEvaluation.questions.length > 0 && (
-                <div className="bg-white/95 backdrop-blur rounded-xl p-8 mb-6 shadow-lg">
-                  <h2 className="text-2xl font-semibold mb-8 text-gray-800">
-                    {currentEvaluation.questions[(currentEvaluation.currentQuestionIndex || 0)]?.question}
-                  </h2>
-                  
-                  <div className="space-y-4">
-                    {currentEvaluation.questions[(currentEvaluation.currentQuestionIndex || 0)]?.options.map((option: string, index: number) => (
-                      <label
-                        key={index}
-                        className={`flex items-center space-x-4 p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                          currentEvaluation.answers[currentEvaluation.currentQuestionIndex || 0] === index
-                            ? 'border-purple-500 bg-purple-50 shadow-md transform scale-[1.02]'
-                            : 'border-gray-200 hover:border-purple-300 hover:bg-purple-25 hover:shadow-sm'
-                        }`}
-                        onClick={() => {
-                          const newAnswers = { ...currentEvaluation.answers };
-                          newAnswers[currentEvaluation.currentQuestionIndex || 0] = index;
-                          setCurrentEvaluation({
-                            ...currentEvaluation,
-                            answers: newAnswers
-                          });
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="question"
-                          checked={currentEvaluation.answers[currentEvaluation.currentQuestionIndex || 0] === index}
-                          onChange={() => {}}
-                          className="w-5 h-5 text-purple-600"
-                        />
-                        <span className="text-lg text-gray-700 flex-1">{option}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const newIndex = Math.max(0, (currentEvaluation.currentQuestionIndex || 0) - 1);
-                    setCurrentEvaluation({
-                      ...currentEvaluation,
-                      currentQuestionIndex: newIndex
-                    });
-                  }}
-                  disabled={(currentEvaluation.currentQuestionIndex || 0) === 0}
-                  className="bg-white/90 text-gray-700 hover:bg-white border-white/50 px-6 py-3 text-lg"
-                >
-                  <ChevronRight className="w-5 h-5 mr-2 rotate-180" />
-                  Anterior
-                </Button>
-
-                <div className="text-center text-white/80">
-                  <div className="flex space-x-2">
-                    {currentEvaluation.questions.map((_, index) => (
-                      <div
-                        key={index}
-                        className={`w-3 h-3 rounded-full ${
-                          index === currentEvaluation.currentQuestionIndex
-                            ? 'bg-yellow-400'
-                            : currentEvaluation.answers[index] !== undefined
-                            ? 'bg-green-400'
-                            : 'bg-white/30'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {(currentEvaluation.currentQuestionIndex || 0) < currentEvaluation.questions.length - 1 ? (
-                  <Button
-                    onClick={() => {
-                      const newIndex = (currentEvaluation.currentQuestionIndex || 0) + 1;
-                      setCurrentEvaluation({
-                        ...currentEvaluation,
-                        currentQuestionIndex: newIndex
-                      });
-                    }}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 text-lg"
-                  >
-                    Siguiente
-                    <ChevronRight className="w-5 h-5 ml-2" />
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => handleCompleteEvaluation()}
-                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 text-lg"
-                  >
-                    <Award className="w-5 h-5 mr-2" />
-                    Finalizar Evaluación
-                  </Button>
                 )}
-              </div>
-            </div>
+                
+                <div className="flex mt-8 justify-between">
+                  {(currentEvaluation.currentQuestionIndex || 0) > 0 && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        const newIndex = Math.max(0, (currentEvaluation.currentQuestionIndex || 0) - 1);
+                        setCurrentEvaluation({
+                          ...currentEvaluation,
+                          currentQuestionIndex: newIndex
+                        });
+                      }}
+                      className="text-base py-3 px-6"
+                    >
+                      <ChevronRight className="w-5 h-5 mr-2 rotate-180" />
+                      Anterior
+                    </Button>
+                  )}
+                  
+                  {(currentEvaluation.currentQuestionIndex || 0) < currentEvaluation.questions.length - 1 ? (
+                    <Button
+                      onClick={() => {
+                        const newIndex = (currentEvaluation.currentQuestionIndex || 0) + 1;
+                        setCurrentEvaluation({
+                          ...currentEvaluation,
+                          currentQuestionIndex: newIndex
+                        });
+                      }}
+                      className="text-base py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      Siguiente
+                      <ChevronRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleCompleteEvaluation()}
+                      className="text-base py-3 px-6 bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700"
+                    >
+                      <Award className="w-5 h-5 mr-2" />
+                      Finalizar Evaluación
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Diálogo de Revisión de Evaluación */}
+      {/* Diálogo de Revisión de Evaluación con detalles completos */}
       <Dialog open={showReviewEvaluationDialog} onOpenChange={setShowReviewEvaluationDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Eye className="w-5 h-5 text-blue-600" />
               <span>Revisión de Evaluación</span>
             </DialogTitle>
             <DialogDescription>
-              Detalles de la evaluación completada
+              Detalles de la evaluación completada con respuestas y explicaciones
             </DialogDescription>
           </DialogHeader>
           
@@ -4588,8 +4636,121 @@ export default function TareasPage() {
                 </div>
               </div>
 
+              {/* Revisión detallada de preguntas */}
+              {currentEvaluationReview.questions && currentEvaluationReview.questions.length > 0 && (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200">Revisión Detallada de Preguntas</h4>
+                  
+                  {currentEvaluationReview.questions.map((question: any, index: number) => {
+                    const userAnswer = currentEvaluationReview.answers[index];
+                    const isCorrect = userAnswer === question.correct;
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className={`p-4 rounded-lg border-l-4 ${
+                          isCorrect 
+                            ? 'bg-green-50 dark:bg-green-900/20 border-l-green-500 border border-green-200 dark:border-green-800' 
+                            : 'bg-red-50 dark:bg-red-900/20 border-l-red-500 border border-red-200 dark:border-red-800'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <h5 className="font-medium text-gray-800 dark:text-gray-200">
+                            Pregunta {index + 1}
+                          </h5>
+                          <Badge 
+                            className={isCorrect 
+                              ? 'bg-green-100 text-green-800 border-green-200' 
+                              : 'bg-red-100 text-red-800 border-red-200'
+                            }
+                          >
+                            {isCorrect ? 'Correcta' : 'Incorrecta'}
+                          </Badge>
+                        </div>
+                        
+                        <p className="text-gray-700 dark:text-gray-300 mb-4 font-medium">
+                          {question.question}
+                        </p>
+                        
+                        <div className="space-y-2 mb-4">
+                          {question.options.map((option: string, optionIndex: number) => (
+                            <div 
+                              key={optionIndex}
+                              className={`p-2 rounded border text-sm ${
+                                optionIndex === question.correct
+                                  ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-800 dark:text-green-300 font-medium'
+                                  : optionIndex === userAnswer && optionIndex !== question.correct
+                                  ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-800 dark:text-red-300'
+                                  : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <span className="font-semibold">
+                                  {String.fromCharCode(65 + optionIndex)}.
+                                </span>
+                                <span>{option}</span>
+                                {optionIndex === question.correct && (
+                                  <Badge className="bg-green-200 text-green-800 text-xs ml-auto">
+                                    Respuesta Correcta
+                                  </Badge>
+                                )}
+                                {optionIndex === userAnswer && optionIndex !== question.correct && (
+                                  <Badge className="bg-red-200 text-red-800 text-xs ml-auto">
+                                    Tu Respuesta
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-start space-x-2">
+                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
+                              Tu respuesta:
+                            </span>
+                            <span className={`text-sm ${
+                              isCorrect 
+                                ? 'text-green-700 dark:text-green-300 font-medium' 
+                                : 'text-red-700 dark:text-red-300 font-medium'
+                            }`}>
+                              {userAnswer !== undefined 
+                                ? `${String.fromCharCode(65 + userAnswer)}. ${question.options[userAnswer]}`
+                                : 'Sin respuesta'
+                              }
+                            </span>
+                          </div>
+                          
+                          {!isCorrect && (
+                            <div className="flex items-start space-x-2">
+                              <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
+                                Respuesta correcta:
+                              </span>
+                              <span className="text-green-700 dark:text-green-300 font-medium text-sm">
+                                {String.fromCharCode(65 + question.correct)}. {question.options[question.correct]}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {question.explanation && (
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-200 dark:border-blue-700 mt-3">
+                              <span className="font-medium text-blue-700 dark:text-blue-300 text-sm block mb-1">
+                                Explicación:
+                              </span>
+                              <p className="text-blue-600 dark:text-blue-400 text-sm">
+                                {question.explanation}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Botón cerrar */}
-              <div className="flex justify-end">
+              <div className="flex justify-end pt-4 border-t">
                 <Button
                   onClick={() => setShowReviewEvaluationDialog(false)}
                   className="bg-gray-500 hover:bg-gray-600 text-white"
@@ -4597,6 +4758,103 @@ export default function TareasPage() {
                   Cerrar
                 </Button>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de revisión de evaluación */}
+      <Dialog open={showEvaluationReviewDialog} onOpenChange={setShowEvaluationReviewDialog}>
+        <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-purple-800 dark:text-purple-200">
+              {translate('viewEvaluationDetail')} - {selectedEvaluationResult?.studentName || 'Estudiante'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedEvaluationResult && (
+            <div className="space-y-6">
+              {/* Resumen de la evaluación */}
+              <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
+                <h4 className="font-medium mb-3 text-purple-800 dark:text-purple-200">Resumen de la Evaluación</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <strong className="text-purple-700 dark:text-purple-300">Puntuación:</strong>
+                    <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                      {selectedEvaluationResult.correctAnswers}/{selectedEvaluationResult.totalQuestions}
+                    </p>
+                  </div>
+                  <div>
+                    <strong className="text-purple-700 dark:text-purple-300">Porcentaje:</strong>
+                    <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                      {selectedEvaluationResult.percentage}%
+                    </p>
+                  </div>
+                  <div>
+                    <strong className="text-purple-700 dark:text-purple-300">Tiempo:</strong>
+                    <p className="text-purple-600 dark:text-purple-400">
+                      {selectedEvaluationResult.timeSpent || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <strong className="text-purple-700 dark:text-purple-300">Fecha:</strong>
+                    <p className="text-purple-600 dark:text-purple-400">
+                      {new Date(selectedEvaluationResult.completedAt).toLocaleDateString('es-ES')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preguntas y respuestas */}
+              {selectedEvaluationResult.questions && selectedEvaluationResult.questions.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-4 text-gray-800 dark:text-gray-200">Revisión Detallada</h4>
+                  <div className="space-y-4">
+                    {selectedEvaluationResult.questions.map((question: any, index: number) => (
+                      <div 
+                        key={index}
+                        className={`p-4 rounded-lg border-2 ${
+                          question.isCorrect 
+                            ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' 
+                            : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h5 className="font-medium text-gray-800 dark:text-gray-200">
+                            Pregunta {index + 1}
+                          </h5>
+                          <Badge className={question.isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                            {question.isCorrect ? 'Correcta' : 'Incorrecta'}
+                          </Badge>
+                        </div>
+                        
+                        <p className="mb-3 text-gray-700 dark:text-gray-300">{question.question}</p>
+                        
+                        <div className="space-y-2">
+                          <div>
+                            <strong className="text-sm text-gray-600 dark:text-gray-400">Respuesta del estudiante:</strong>
+                            <p className={`ml-2 ${question.isCorrect ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                              {question.studentAnswer}
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <strong className="text-sm text-gray-600 dark:text-gray-400">Respuesta correcta:</strong>
+                            <p className="ml-2 text-green-700 dark:text-green-300">{question.correctAnswer}</p>
+                          </div>
+                          
+                          {question.explanation && (
+                            <div>
+                              <strong className="text-sm text-gray-600 dark:text-gray-400">Explicación:</strong>
+                              <p className="ml-2 text-gray-600 dark:text-gray-400 text-sm">{question.explanation}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
