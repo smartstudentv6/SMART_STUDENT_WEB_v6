@@ -201,19 +201,30 @@ export default function TareasPage() {
 
   // Function to get task status for current user, considering evaluations
   const getTaskStatusForCurrentUser = (task: Task) => {
-    if (task.taskType === 'evaluacion' && user?.role === 'student') {
-      const evaluationResult = evaluationResults[task.id];
-      if (evaluationResult) {
+    if (task.taskType === 'evaluacion') {
+      if (user?.role === 'student') {
+        const evaluationResult = evaluationResults[task.id];
+        if (evaluationResult) {
+          return {
+            status: 'reviewed',
+            statusText: `Finalizado (${evaluationResult.percentage}%)`,
+            statusClass: 'bg-green-500 hover:bg-green-600 text-white'
+          };
+        } else {
+          return {
+            status: 'pending',
+            statusText: translate('statusPending'),
+            statusClass: getStatusColor('pending')
+          };
+        }
+      } else if (user?.role === 'teacher') {
+        // Para profesores, mostrar el estado real de la evaluación
         return {
-          status: 'reviewed',
-          statusText: `Finalizado (${evaluationResult.percentage}%)`,
-          statusClass: 'bg-green-500 hover:bg-green-600 text-white'
-        };
-      } else {
-        return {
-          status: 'pending',
-          statusText: translate('statusPending'),
-          statusClass: getStatusColor('pending')
+          status: task.status,
+          statusText: task.status === 'pending' ? translate('statusPending') : 
+                      task.status === 'finished' ? translate('statusFinished') : 
+                      translate('statusPending'),
+          statusClass: getStatusColor(task.status)
         };
       }
     }
@@ -464,6 +475,26 @@ export default function TareasPage() {
     };
   }, [showTaskDialog, selectedTask]);
 
+  // Verificación periódica del estado de evaluaciones (solo para profesores)
+  useEffect(() => {
+    if (user?.role !== 'teacher') return;
+
+    const checkEvaluationsInterval = setInterval(() => {
+      const allEvaluations = tasks.filter(task => 
+        task.taskType === 'evaluacion' && 
+        task.assignedById === user.id
+      );
+
+      console.log(`🔄 Verificación periódica: ${allEvaluations.length} evaluaciones del profesor`);
+      allEvaluations.forEach(task => {
+        console.log(`⏰ Verificando evaluación "${task.title}" - Estado: ${task.status}`);
+        checkAndUpdateEvaluationStatus(task.id);
+      });
+    }, 30000); // Verificar cada 30 segundos
+
+    return () => clearInterval(checkEvaluationsInterval);
+  }, [user, tasks]);
+
   const loadTasks = () => {
     const storedTasks = localStorage.getItem('smart-student-tasks');
     const usersText = localStorage.getItem('smart-student-users');
@@ -510,6 +541,18 @@ export default function TareasPage() {
         // console.log("Migrating tasks in localStorage due to ID changes...");
         localStorage.setItem('smart-student-tasks', JSON.stringify(tasksData));
       }
+
+      // Verificar y corregir el estado de evaluaciones al cargar tareas
+      const evaluationTasks = (tasksData as Task[]).filter(task => 
+        task.taskType === 'evaluacion'
+      );
+      
+      console.log(`🔍 Verificando estados de ${evaluationTasks.length} evaluaciones al cargar...`);
+      evaluationTasks.forEach(task => {
+        console.log(`📋 Evaluación "${task.title}" - Estado actual: ${task.status}`);
+        // Usar setTimeout para evitar problemas de estado
+        setTimeout(() => checkAndUpdateEvaluationStatus(task.id), 100);
+      });
     }
   };
 
@@ -777,18 +820,50 @@ export default function TareasPage() {
     if (!task || task.taskType !== 'evaluacion') return;
 
     const assignedStudents = getAssignedStudentsForTask(task);
-    const completedCount = assignedStudents.filter(student => {
-      const result = getStudentEvaluationResult(taskId, student.username);
+    console.log(`🔍 Verificando estado de evaluación para tarea "${task.title}" (ID: ${taskId})`);
+    console.log(`� Estado actual de la tarea: "${task.status}"`);
+    console.log(`�👥 Estudiantes asignados: ${assignedStudents.length}`, assignedStudents.map(s => s.displayName));
+
+    const completedStudents = assignedStudents.filter(student => {
+      const result = getStudentEvaluationResult(taskId, student.id);
+      console.log(`📊 Estudiante ${student.displayName} (ID: ${student.id}) - Resultado:`, result ? 'Completado' : 'Pendiente');
       return result !== undefined;
-    }).length;
+    });
+
+    const completedCount = completedStudents.length;
+    console.log(`📈 Progreso: ${completedCount}/${assignedStudents.length} estudiantes han completado la evaluación`);
 
     // Si todos los estudiantes han completado la evaluación, actualizar el estado a 'finished'
     if (completedCount === assignedStudents.length && assignedStudents.length > 0) {
-      const updatedTasks = tasks.map(t => 
-        t.id === taskId ? { ...t, status: 'finished' as const } : t
-      );
-      setTasks(updatedTasks);
-      localStorage.setItem('smart-student-tasks', JSON.stringify(updatedTasks));
+      if (task.status !== 'finished') {
+        console.log(`✅ ¡Todos los estudiantes completaron la evaluación! Cambiando estado de "${task.status}" a 'finished'`);
+        const updatedTasks = tasks.map(t => 
+          t.id === taskId ? { ...t, status: 'finished' as const } : t
+        );
+        saveTasks(updatedTasks);
+        
+        // Mostrar notificación al profesor
+        toast({
+          title: "Evaluación Finalizada",
+          description: `La evaluación "${task.title}" ha sido completada por todos los estudiantes.`,
+          duration: 5000,
+        });
+      } else {
+        console.log(`✅ Evaluación ya está marcada como 'finished' correctamente`);
+      }
+    } else {
+      console.log(`⏳ Evaluación pendiente: ${assignedStudents.length - completedCount} estudiantes aún no han completado`);
+      
+      // CORRECCIÓN IMPORTANTE: Asegurar que el estado se mantenga como 'pending' si no todos han completado
+      if (task.status !== 'pending') {
+        console.log(`🔄 CORRIGIENDO: Restaurando estado de "${task.status}" a 'pending' porque no todos han completado`);
+        const updatedTasks = tasks.map(t => 
+          t.id === taskId ? { ...t, status: 'pending' as const } : t
+        );
+        saveTasks(updatedTasks);
+      } else {
+        console.log(`✅ Estado 'pending' es correcto`);
+      }
     }
   };
 
@@ -817,6 +892,15 @@ export default function TareasPage() {
       if (selectedCourseFilter !== 'all') {
         filtered = filtered.filter(task => task.course === selectedCourseFilter);
       }
+
+      // Verificar estado de evaluaciones pendientes para actualizar automáticamente
+      filtered
+        .filter(task => task.taskType === 'evaluacion' && task.status === 'pending')
+        .forEach(task => {
+          // Realizar verificación asíncrona para no bloquear el renderizado
+          setTimeout(() => checkAndUpdateEvaluationStatus(task.id), 0);
+        });
+
       return filtered;
     } else if (user?.role === 'student') {
       // Los estudiantes solo ven tareas que existen actualmente y que están asignadas a su curso o usuario
@@ -1410,6 +1494,7 @@ export default function TareasPage() {
       return {
         ...question,
         studentAnswer: studentAnswer,
+        studentAnswerText: question.options[studentAnswer], // Texto de la alternativa elegida
         correctAnswer: question.options[question.correct],
         isCorrect: isCorrect
       };
@@ -1445,6 +1530,12 @@ export default function TareasPage() {
     existingResults.push(evaluationResult);
     localStorage.setItem('smart-student-evaluation-results', JSON.stringify(existingResults));
 
+    // Verificar si todos los estudiantes han completado la evaluación para actualizar el estado
+    checkAndUpdateEvaluationStatus(currentEvaluation.task!.id);
+
+    // NO actualizar el estado de la tarea aquí - esto se hace en checkAndUpdateEvaluationStatus
+    // Solo guardar el resultado individual del estudiante
+    /* 
     // Actualizar estado de la tarea a finalizado
     const storedTasks = localStorage.getItem('smart-student-tasks');
     if (storedTasks) {
@@ -1453,7 +1544,7 @@ export default function TareasPage() {
       if (taskIndex !== -1) {
         tasks[taskIndex] = {
           ...tasks[taskIndex],
-          status: 'reviewed', // Cambiar estado a finalizado
+          status: 'reviewed', // INCORRECTO: No cambiar el estado aquí
           evaluationResult: {
             completed: true,
             percentage: percentage,
@@ -1465,6 +1556,7 @@ export default function TareasPage() {
         localStorage.setItem('smart-student-tasks', JSON.stringify(tasks));
       }
     }
+    */
 
     // Actualizar estado local
     setEvaluationResults(prev => ({
@@ -2490,6 +2582,12 @@ export default function TareasPage() {
                               onClick={() => {
                                 console.log('🔄 Opening task dialog from course view - reloading comments');
                                 loadComments(); // Recargar comentarios antes de abrir
+                                
+                                // Si es una evaluación, verificar su estado antes de abrir
+                                if (task.taskType === 'evaluacion') {
+                                  checkAndUpdateEvaluationStatus(task.id);
+                                }
+                                
                                 setSelectedTask(task);
                                 setShowTaskDialog(true);
                               }}
@@ -2631,6 +2729,12 @@ export default function TareasPage() {
                           onClick={() => {
                             console.log('🔄 Opening task dialog - reloading comments');
                             loadComments(); // Recargar comentarios antes de abrir
+                            
+                            // Si es una evaluación, verificar su estado antes de abrir
+                            if (task.taskType === 'evaluacion') {
+                              checkAndUpdateEvaluationStatus(task.id);
+                            }
+                            
                             setSelectedTask(task);
                             setShowTaskDialog(true);
                           }}
@@ -3206,7 +3310,7 @@ export default function TareasPage() {
                             ) : (
                               <Button
                                 onClick={() => handleStartEvaluation(selectedTask)}
-                                className="bg-purple-500 hover:bg-purple-600 text-white text-xs px-2 py-1"
+                                className="bg-purple-500 hover:bg-purple-600 text-white text-xs px-3 py-1"
                                 size="sm"
                               >
                                 <ClipboardCheck className="w-3 h-3 mr-1" />
@@ -3224,23 +3328,23 @@ export default function TareasPage() {
               {/* Evaluation specific information for teachers (keep original format) */}
               {selectedTask.taskType === 'evaluacion' && user?.role === 'teacher' && (
                 <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
-                  <h4 className="font-medium mb-2 text-purple-800 dark:text-purple-200">{translate('evaluationInformation')}</h4>
+                  <h4 className="font-bold mb-4 text-purple-800 dark:text-purple-200 text-left">{translate('evaluationInformation')}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     {selectedTask.topic && (
-                      <div>
-                        <strong className="text-purple-700 dark:text-purple-300">{translate('evaluationTopic')}:</strong>
+                      <div className="text-center">
+                        <strong className="text-purple-700 dark:text-purple-300 block mb-1">{translate('evaluationTopic')}:</strong>
                         <p className="text-purple-600 dark:text-purple-400">{selectedTask.topic}</p>
                       </div>
                     )}
                     {selectedTask.numQuestions && selectedTask.numQuestions > 0 && (
-                      <div>
-                        <strong className="text-purple-700 dark:text-purple-300">{translate('evaluationQuestions')}:</strong>
+                      <div className="text-center">
+                        <strong className="text-purple-700 dark:text-purple-300 block mb-1">{translate('evaluationQuestions')}:</strong>
                         <p className="text-purple-600 dark:text-purple-400">{selectedTask.numQuestions}</p>
                       </div>
                     )}
                     {selectedTask.timeLimit && selectedTask.timeLimit > 0 && (
-                      <div>
-                        <strong className="text-purple-700 dark:text-purple-300">{translate('evaluationTime')}:</strong>
+                      <div className="text-center">
+                        <strong className="text-purple-700 dark:text-purple-300 block mb-1">{translate('evaluationTime')}:</strong>
                         <p className="text-purple-600 dark:text-purple-400">{selectedTask.timeLimit} minutos</p>
                       </div>
                     )}
@@ -3254,7 +3358,7 @@ export default function TareasPage() {
               {user?.role === 'teacher' && (
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-medium">{translate('studentDetailPanel')}</h4>
+                    <h4 className="font-bold">{translate('studentDetailPanel')}</h4>
                   </div>
 
                   {/* Tabla para tareas normales */}
@@ -3417,24 +3521,24 @@ export default function TareasPage() {
                                 
                                 return (
                                   <tr key={student.id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                                    <td className="py-2 px-3">{student.displayName}</td>
-                                    <td className="py-2 px-3">
+                                    <td className="py-2 px-3 text-center">{student.displayName}</td>
+                                    <td className="py-2 px-3 text-center">
                                       <Badge className={hasCompleted ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}>
                                         {hasCompleted ? translate('statusCompleted') : translate('statusPending')}
                                       </Badge>
                                     </td>
-                                    <td className="py-2 px-3">
+                                    <td className="py-2 px-3 text-center">
                                       {hasCompleted ? 
                                         <span className="font-medium">{evaluationResult.correctAnswers}/{evaluationResult.totalQuestions} ({evaluationResult.percentage}%)</span> :
                                         <span className="text-muted-foreground italic">{translate('noSubmissionYet')}</span>
                                       }
                                     </td>
-                                    <td className="py-2 px-3 date-cell">
+                                    <td className="py-2 px-3 text-center date-cell">
                                       <span className="single-line-date font-medium">
                                         {hasCompleted ? formatDateOneLine(evaluationResult.completedAt) : '-'}
                                       </span>
                                     </td>
-                                    <td className="py-2 px-3">
+                                    <td className="py-2 px-3 text-center">
                                       {hasCompleted && (
                                         <Button 
                                           size="sm" 
@@ -4834,7 +4938,9 @@ export default function TareasPage() {
                           <div>
                             <strong className="text-sm text-gray-600 dark:text-gray-400">Respuesta del estudiante:</strong>
                             <p className={`ml-2 ${question.isCorrect ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                              {question.studentAnswer}
+                              {question.studentAnswerText || 
+                               (question.options && question.studentAnswer !== undefined ? question.options[question.studentAnswer] : question.studentAnswer) ||
+                               'Sin respuesta'}
                             </p>
                           </div>
                           
