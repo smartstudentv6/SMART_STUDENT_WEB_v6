@@ -70,9 +70,24 @@ interface NotificationsPanelProps {
 }
 
 export default function NotificationsPanel({ count: propCount }: NotificationsPanelProps) {
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
   const { translate } = useLanguage();
   const [open, setOpen] = useState(false);
+  
+  // 🚨 FALLBACK: Si el hook useAuth() no funciona, intentar leer directamente del localStorage
+  const user = authUser || (() => {
+    try {
+      const storedUser = localStorage.getItem('smart-student-user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        console.log('🔧 [NotificationsPanel] Using fallback user from localStorage:', userData);
+        return userData;
+      }
+    } catch (error) {
+      console.error('🚨 [NotificationsPanel] Error reading fallback user:', error);
+    }
+    return null;
+  })();
   
   const [unreadComments, setUnreadComments] = useState<(TaskComment & {task?: Task})[]>([]);
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
@@ -491,13 +506,25 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       TaskNotificationManager.cleanupFinalizedTaskNotifications();
       
       loadTaskNotifications();
+      
+      // 🔥 NUEVO: También actualizar tareas pendientes cuando se actualicen las notificaciones
+      loadPendingTasks();
+      console.log('🎯 [handleTaskNotificationsUpdated] Updated both task notifications and pending tasks');
     };
     window.addEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
+    
+    // 🔥 NUEVO: Listener específico para actualizar tareas pendientes
+    const handlePendingTasksUpdated = () => {
+      console.log('🎯 [handlePendingTasksUpdated] Event received, reloading pending tasks');
+      loadPendingTasks();
+    };
+    window.addEventListener('pendingTasksUpdated', handlePendingTasksUpdated);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('commentsUpdated', handleCommentsUpdated);
       window.removeEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
+      window.removeEventListener('pendingTasksUpdated', handlePendingTasksUpdated);
     };
   }, [user, open]); // Reload data when the panel is opened or user changes
 
@@ -538,12 +565,21 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
 
   const loadPendingTasks = () => {
     try {
+      // 🚨 SAFETY CHECK: Verificar que user existe
+      if (!user || !user.username) {
+        console.error('🚨 [loadPendingTasks] User not properly defined:', user);
+        setPendingTasks([]);
+        return;
+      }
+      
       const storedTasks = localStorage.getItem('smart-student-tasks');
       const storedComments = localStorage.getItem('smart-student-task-comments');
       
       if (storedTasks) {
         const tasks: Task[] = JSON.parse(storedTasks);
         const comments: TaskComment[] = storedComments ? JSON.parse(storedComments) : [];
+        
+        console.log(`[loadPendingTasks] 🔍 Processing ${tasks.length} total tasks for ${user.username}`);
         
         // Filter tasks assigned to the student with due dates approaching
         const now = new Date();
@@ -557,11 +593,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           const isApproaching = dueDate > now; // Only include not overdue tasks
           
           // 🔥 NUEVO: Para evaluaciones, verificar si ya fueron completadas
-          if (task.taskType === 'evaluation') {
+          // Detectar evaluaciones tanto por taskType como por nombre que contenga "eval"
+          const isEvaluation = task.taskType === 'evaluation' || task.title.toLowerCase().includes('eval');
+          if (isEvaluation) {
             const isCompleted = TaskNotificationManager.isEvaluationCompletedByStudent(
               task.id, 
               user?.username || ''
             );
+            console.log(`[loadPendingTasks] 🔍 Evaluation "${task.title}" (taskType: ${task.taskType}) for ${user?.username}: completed=${isCompleted}`);
             if (isCompleted) {
               console.log(`[loadPendingTasks] ✅ Filtering out completed evaluation: ${task.title} for ${user?.username}`);
               return false; // No mostrar evaluaciones completadas
@@ -575,6 +614,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
             comment.isSubmission
           );
           
+          console.log(`[loadPendingTasks] Task "${task.title}": assigned=${isAssigned}, approaching=${isApproaching}, submitted=${hasSubmitted}`);
+          
           return isAssigned && isApproaching && !hasSubmitted;
         });
         
@@ -584,7 +625,11 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         );
         
         setPendingTasks(studentTasks);
-        console.log(`[loadPendingTasks] Loaded ${studentTasks.length} pending tasks for ${user?.username}`);
+        console.log(`[loadPendingTasks] 📊 Results for ${user?.username}:`);
+        console.log(`  - Total pending tasks: ${studentTasks.length}`);
+        console.log(`  - Pending evaluations: ${studentTasks.filter(t => t.taskType === 'evaluation' || t.title.toLowerCase().includes('eval')).length}`);
+        console.log(`  - Pending assignments: ${studentTasks.filter(t => t.taskType !== 'evaluation' && !t.title.toLowerCase().includes('eval')).length}`);
+        console.log(`  - Task details:`, studentTasks.map(t => ({ title: t.title, type: t.taskType, dueDate: t.dueDate })));
       }
     } catch (error) {
       console.error('Error loading pending tasks:', error);
@@ -799,7 +844,36 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           return true;
         });
         
-        setTaskNotifications(filteredNotifications);
+        // 🔥 NUEVO: Si se filtraron evaluaciones completadas, también eliminarlas del localStorage
+        const removedCount = notifications.length - filteredNotifications.length;
+        if (removedCount > 0) {
+          console.log(`🧹 [NotificationsPanel] Removing ${removedCount} completed evaluation notifications from storage`);
+          const completedEvaluationIds = notifications
+            .filter(n => n.type === 'new_task' && n.taskType === 'evaluation')
+            .filter(n => TaskNotificationManager.isEvaluationCompletedByStudent(n.taskId, user.username))
+            .map(n => n.taskId);
+          
+          completedEvaluationIds.forEach(taskId => {
+            TaskNotificationManager.removeNotificationsForTask(taskId, ['new_task']);
+          });
+          
+          // Recargar notificaciones después de la limpieza
+          setTimeout(() => {
+            const cleanedNotifications = TaskNotificationManager.getUnreadNotificationsForUser(
+              user.username, 
+              user.role as 'student' | 'teacher'
+            );
+            setTaskNotifications(cleanedNotifications);
+            console.log(`✅ [NotificationsPanel] Reloaded ${cleanedNotifications.length} clean notifications`);
+            
+            // 🔥 NUEVO: También recargar pendingTasks para asegurar consistencia
+            console.log('🔄 [NotificationsPanel] Reloading pendingTasks after notification cleanup...');
+            loadPendingTasks();
+          }, 100);
+        } else {
+          setTaskNotifications(filteredNotifications);
+        }
+        
         console.log(`[NotificationsPanel] Loaded ${filteredNotifications.length} task notifications for ${user.username}`);
       } else if (user.role === 'teacher') {
         // Para profesores, separar notificaciones de evaluaciones y tareas
@@ -1077,17 +1151,27 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     <div className="relative">
       <Popover open={open} onOpenChange={(newOpen) => {
         setOpen(newOpen);
-        // 🧹 NUEVO: Ejecutar limpieza automática cada vez que se abre el panel
-        if (newOpen && user?.role === 'teacher') {
-          console.log('🧹 [PANEL_OPEN] Ejecutando limpieza automática de notificaciones...');
-          TaskNotificationManager.cleanupFinalizedTaskNotifications();
-          // Pequeño delay para que la limpieza termine antes de recargar
-          setTimeout(() => {
+        
+        // 🔄 NUEVO: Recargar datos cuando se abre el panel para ambos roles
+        if (newOpen) {
+          console.log(`🔄 [PANEL_OPEN] Panel abierto por ${user?.role}: ${user?.username} - Recargando datos...`);
+          
+          if (user?.role === 'student') {
+            console.log('👨‍🎓 [STUDENT_PANEL_OPEN] Recargando datos de estudiante...');
             loadTaskNotifications();
-            loadStudentSubmissions();
-            loadPendingGrading();
+            loadPendingTasks();
             loadUnreadComments();
-          }, 100);
+          } else if (user?.role === 'teacher') {
+            console.log('👩‍🏫 [TEACHER_PANEL_OPEN] Ejecutando limpieza automática de notificaciones...');
+            TaskNotificationManager.cleanupFinalizedTaskNotifications();
+            // Pequeño delay para que la limpieza termine antes de recargar
+            setTimeout(() => {
+              loadTaskNotifications();
+              loadStudentSubmissions();
+              loadPendingGrading();
+              loadUnreadComments();
+            }, 100);
+          }
         }
       }}>
         <PopoverTrigger asChild>
@@ -1185,10 +1269,51 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
               {/* Student: Notifications in correct order */}
               {user?.role === 'student' && (
                 <div>
+                  {(() => {
+                    // 🚨 SAFETY CHECK: Verificar que user existe y tiene las propiedades necesarias
+                    if (!user || !user.username || !user.role) {
+                      console.error('🚨 [NotificationsPanel] USER NOT PROPERLY DEFINED:', user);
+                      return null;
+                    }
+                    
+                    console.log('🔍 [NotificationsPanel] RENDERING STUDENT SECTION with:', {
+                      username: user?.username,
+                      role: user?.role,
+                      unreadComments: unreadComments.length,
+                      pendingTasks: pendingTasks.length, 
+                      taskNotifications: taskNotifications.length
+                    });
+                    
+                    console.log('🎯 [NotificationsPanel] Student notification counts:', {
+                      unreadComments: unreadComments.length,
+                      pendingTasks: pendingTasks.length,
+                      taskNotifications: taskNotifications.length,
+                      pendingEvaluations: pendingTasks.filter(task => task.taskType === 'evaluation' || task.title.toLowerCase().includes('eval')).length,
+                      newEvaluationNotifications: taskNotifications.filter(n => n.type === 'new_task' && n.taskType === 'evaluation').length
+                    });
+                    
+                    // 🚨 DEBUGGING: Log detallado de cada array
+                    console.log('📋 DETAILED unreadComments:', unreadComments);
+                    console.log('📋 DETAILED pendingTasks:', pendingTasks);
+                    console.log('📋 DETAILED taskNotifications:', taskNotifications);
+                    
+                    return null; // Este IIFE solo hace logging
+                  })()}
+                  
+                  {/* 🔥 SIMPLIFICADO: Mostrar mensaje directo sin notificaciones */}
                   {unreadComments.length === 0 && pendingTasks.length === 0 && taskNotifications.length === 0 ? (
-                    <div className="py-6 text-center text-muted-foreground">
-                      {translate('noNotificationsStudent')}
-                    </div>
+                    <>
+                      {console.log('� [NotificationsPanel] MOSTRANDO MENSAJE SIN NOTIFICACIONES')}
+                      <div className="py-8 text-center">
+                        <div className="text-4xl mb-4">🌟</div>
+                        <div className="text-gray-600 dark:text-gray-300 text-sm font-medium">
+                          ¡Excelente! No tienes notificaciones pendientes.
+                        </div>
+                        <div className="text-gray-500 dark:text-gray-400 text-xs mt-2">
+                          Disfruta de este momento de tranquilidad
+                        </div>
+                      </div>
+                    </>
                   ) : (
                     <div className="divide-y divide-border">
                       {/* 1. EVALUACIONES PENDIENTES - FIRST POSITION */}

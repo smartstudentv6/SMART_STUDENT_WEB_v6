@@ -553,6 +553,28 @@ export default function TareasPage() {
         // Usar setTimeout para evitar problemas de estado
         setTimeout(() => checkAndUpdateEvaluationStatus(task.id), 100);
       });
+
+      // 🔥 NUEVO: Limpiar notificaciones obsoletas de evaluaciones ya finalizadas
+      if (user?.role === 'teacher') {
+        setTimeout(() => {
+          console.log('🧹 Limpiando notificaciones obsoletas de evaluaciones finalizadas...');
+          const finishedEvaluations = (tasksData as Task[]).filter(task => 
+            task.taskType === 'evaluacion' && 
+            task.status === 'finished' &&
+            task.assignedById === user.id
+          );
+          
+          finishedEvaluations.forEach(task => {
+            TaskNotificationManager.removeNotificationsForTask(task.id, ['pending_grading']);
+            console.log(`🗑️ Removed obsolete notifications for finished evaluation: ${task.title}`);
+          });
+          
+          if (finishedEvaluations.length > 0) {
+            window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+            console.log(`✅ Cleaned up notifications for ${finishedEvaluations.length} finished evaluations`);
+          }
+        }, 500);
+      }
     }
   };
 
@@ -841,6 +863,13 @@ export default function TareasPage() {
           t.id === taskId ? { ...t, status: 'finished' as const } : t
         );
         saveTasks(updatedTasks);
+        
+        // 🔥 NUEVO: Limpiar notificaciones pendientes del profesor para esta evaluación completada
+        TaskNotificationManager.removeNotificationsForTask(taskId, ['pending_grading']);
+        console.log('🧹 Removed pending evaluation notifications for teacher after all students completed');
+        
+        // Disparar evento para actualizar notificaciones en tiempo real
+        window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
         
         // Mostrar notificación al profesor
         toast({
@@ -1467,6 +1496,9 @@ export default function TareasPage() {
     
     // Mapear temas al idioma correcto
     const currentLanguage = localStorage.getItem('smart-student-lang') || 'es';
+    console.log('🔍 GENERATING QUESTIONS - Current language:', currentLanguage);
+    console.log('🔍 GENERATING QUESTIONS - Topic:', topic, 'Num questions:', numQuestions);
+    
     let topicKey = topic.toLowerCase();
     
     if (currentLanguage === 'en') {
@@ -1546,6 +1578,7 @@ export default function TareasPage() {
           
           // Generar preguntas usando criterios del profesor
           const questions = generateEvaluationQuestions(topic, numQuestions);
+          console.log('🔍 GENERATED QUESTIONS:', questions.map(q => ({ question: q.question?.substring(0, 50), options: q.options?.map(o => o?.substring(0, 20)) })));
           const timeInSeconds = timeLimit * 60;
           
           setCurrentEvaluation({
@@ -1787,6 +1820,11 @@ export default function TareasPage() {
 
     // Disparar evento para actualizar notificaciones en tiempo real
     window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+    
+    // 🔥 NUEVO: Disparar evento para actualizar tareas pendientes
+    window.dispatchEvent(new CustomEvent('pendingTasksUpdated'));
+    
+    console.log('🎯 [handleCompleteEvaluation] Events dispatched: taskNotificationsUpdated, pendingTasksUpdated');
 
     // Limpiar estado y cerrar
     setShowEvaluationDialog(false);
@@ -4797,20 +4835,24 @@ export default function TareasPage() {
       <Dialog open={showEvaluationDialog} onOpenChange={() => {}}>
         <DialogContent className="max-w-none w-screen h-screen m-0 rounded-none border-0 p-0">
           <DialogTitle className="sr-only">
-            Evaluación - {currentEvaluation.task?.topic || 'Evaluación en curso'}
+            {translate('navEvaluation')} - {currentEvaluation.task?.topic || translate('navEvaluation')}
           </DialogTitle>
           <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4">
             <Card className="w-full max-w-2xl mx-auto shadow-xl">
               <CardHeader className="text-center border-b pb-4">
                 <CardTitle className="text-2xl font-bold font-headline">
-                  EVALUACIÓN - {currentEvaluation.task?.topic?.toUpperCase() || 'EVALUACIÓN'}
+                  {translate('navEvaluation').toUpperCase()} - {currentEvaluation.task?.topic?.toUpperCase() || translate('navEvaluation').toUpperCase()}
                 </CardTitle>
                 <CardDescription className="flex items-center justify-center space-x-4">
-                  <span>Pregunta {(currentEvaluation.currentQuestionIndex || 0) + 1} de {currentEvaluation.questions.length}</span>
+                  <span>{translate('evalQuestionProgress', { 
+                    current: (currentEvaluation.currentQuestionIndex || 0) + 1, 
+                    total: currentEvaluation.questions.length 
+                  })}</span>
                   <span className={`font-mono text-base text-primary tabular-nums flex items-center ${currentEvaluation.timeRemaining <= 60 ? 'text-red-500 animate-pulse' : ''}`}>
                     <Timer className="w-4 h-4 mr-1.5" />
-                    Tiempo Restante: {Math.floor(currentEvaluation.timeRemaining / 60)}:
-                    {(currentEvaluation.timeRemaining % 60).toString().padStart(2, '0')}
+                    {translate('evalTimeLeft', { 
+                      time: `${Math.floor(currentEvaluation.timeRemaining / 60)}:${(currentEvaluation.timeRemaining % 60).toString().padStart(2, '0')}` 
+                    })}
                   </span>
                 </CardDescription>
               </CardHeader>
@@ -4861,7 +4903,7 @@ export default function TareasPage() {
                       className="text-base py-3 px-6"
                     >
                       <ChevronRight className="w-5 h-5 mr-2 rotate-180" />
-                      Anterior
+                      {translate('evalPreviousButton')}
                     </Button>
                   )}
                   
@@ -4876,7 +4918,7 @@ export default function TareasPage() {
                       }}
                       className="text-base py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white"
                     >
-                      Siguiente
+                      {translate('evalNextButton')}
                       <ChevronRight className="w-5 h-5 ml-2" />
                     </Button>
                   ) : (
@@ -4885,7 +4927,7 @@ export default function TareasPage() {
                       className="text-base py-3 px-6 bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700"
                     >
                       <Award className="w-5 h-5 mr-2" />
-                      Finalizar Evaluación
+                      {translate('evalFinishButton')}
                     </Button>
                   )}
                 </div>

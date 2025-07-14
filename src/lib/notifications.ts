@@ -452,11 +452,43 @@ export class TaskNotificationManager {
   // Verificar si un estudiante completó una evaluación específica
   static isEvaluationCompletedByStudent(taskId: string, studentUsername: string): boolean {
     try {
+      console.log(`[isEvaluationCompletedByStudent] Checking completion for task ${taskId} by student ${studentUsername}`);
+      
+      // 🔧 CORREGIDO: Los resultados se almacenan como array, no como objeto
+      const evaluationResultsArray = JSON.parse(localStorage.getItem('smart-student-evaluation-results') || '[]');
+      console.log(`[isEvaluationCompletedByStudent] 📊 Found ${evaluationResultsArray.length} total evaluation results in localStorage`);
+      
+      // Buscar resultado específico para este estudiante y tarea  
+      const studentResult = evaluationResultsArray.find((result: any) => 
+        result.taskId === taskId && result.studentUsername === studentUsername
+      );
+      
+      if (studentResult) {
+        const isCompleted = studentResult.percentage !== undefined && studentResult.completedAt;
+        console.log(`[isEvaluationCompletedByStudent] ✅ Found evaluation result for ${studentUsername} on task ${taskId}: completed=${isCompleted}, percentage=${studentResult.percentage}%`);
+        return true;
+      }
+      
+      // Método adicional: verificar en userTasks por si acaso
       const userTasksKey = `userTasks_${studentUsername}`;
       const userTasks = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
-      
       const task = userTasks.find((t: any) => t.id === taskId);
-      return task && task.status === 'completed';
+      const isCompletedInUserTasks = task && task.status === 'completed';
+      
+      if (isCompletedInUserTasks) {
+        console.log(`[isEvaluationCompletedByStudent] ✅ Found completed status in userTasks for ${studentUsername} on task ${taskId}`);
+        return true;
+      }
+      
+      console.log(`[isEvaluationCompletedByStudent] ❌ No completion found for ${studentUsername} on task ${taskId}`);
+      
+      // 🔍 LOG DE DEBUG: Mostrar resultados disponibles
+      const availableResults = evaluationResultsArray.map((r: any) => 
+        `${r.studentUsername}:${r.taskId}(${r.percentage}%)`
+      ).join(', ');
+      console.log(`[isEvaluationCompletedByStudent] Available student results: [${availableResults}]`);
+      
+      return false;
     } catch (error) {
       console.error('Error checking evaluation completion:', error);
       return false;
