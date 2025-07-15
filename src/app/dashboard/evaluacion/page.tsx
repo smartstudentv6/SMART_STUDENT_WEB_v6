@@ -57,6 +57,7 @@ export default function EvaluacionPage() {
   const [evaluationStarted, setEvaluationStarted] = useState(false);
   const [evaluationFinished, setEvaluationFinished] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
+  const [showTimeUpDialog, setShowTimeUpDialog] = useState(false);
   const [score, setScore] = useState(0);
   const [motivationalMessageKey, setMotivationalMessageKey] = useState('');
 
@@ -423,9 +424,9 @@ export default function EvaluacionPage() {
               console.log(`✅ Task status updated from "${oldStatus}" to "completed" for student:`, user.username);
               console.log('📋 Updated user tasks:', userTasks);
               
-              // Eliminar notificación de evaluación pendiente para este estudiante
-              TaskNotificationManager.removeEvaluationNotificationOnCompletion(taskId, user.username);
-              console.log('🗑️ Removed evaluation notification for student:', user.username);
+              // TODO: Eliminar notificación de evaluación pendiente para este estudiante
+              // TaskNotificationManager.removeEvaluationNotificationOnCompletion(taskId, user.username);
+              console.log('🗑️ Task evaluation completed for student:', user.username);
               
               // Disparar evento para actualizar notificaciones en tiempo real
               window.dispatchEvent(new Event('taskNotificationsUpdated'));
@@ -557,12 +558,8 @@ export default function EvaluacionPage() {
         }, 1000);
       } else { 
         setTimerActive(false); 
-        toast({
-          title: translate('evalTimeUpTitle'),
-          description: translate('evalTimeUpDesc'),
-          variant: "default", 
-        });
-        handleFinishEvaluation();
+        // Mostrar popup de tiempo terminado
+        setShowTimeUpDialog(true);
       }
     }
     return () => {
@@ -1065,6 +1062,11 @@ export default function EvaluacionPage() {
     }
   };
 
+  const handleTimeUpDialogClose = () => {
+    setShowTimeUpDialog(false);
+    handleFinishEvaluation();
+  };
+
   const handleCloseTaskEvaluation = useCallback(() => {
     console.log('🔄 Closing task evaluation...');
     
@@ -1555,27 +1557,59 @@ export default function EvaluacionPage() {
             </div>
           )}
           
-          <div className={cn("flex mt-8", currentQuestionIndex > 0 ? "justify-between" : "justify-end")}>
-            {currentQuestionIndex > 0 && (
-              <Button variant="outline" onClick={handlePreviousQuestion} className="text-base py-3 px-6">
-                <ChevronLeft className="w-5 h-5 mr-2" />
-                {translate('evalPreviousButton')}
-              </Button>
-            )}
-            {currentQuestionIndex < evaluationQuestions.length - 1 ? (
-              <Button onClick={handleNextQuestion} className="text-base py-3 px-6 home-card-button-purple">
-                {translate('evalNextButton')}
-                <ChevronRight className="w-5 h-5 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleFinishEvaluation} className="text-base py-3 px-6 bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700">
-                <Award className="w-5 h-5 mr-2" />
-                {translate('evalFinishButton')}
-              </Button>
-            )}
+          <div className="flex justify-between items-center mt-8">
+            {/* Botón Anterior - solo visible cuando no es la primera pregunta */}
+            <div className="flex">
+              {currentQuestionIndex > 0 && (
+                <Button variant="outline" onClick={handlePreviousQuestion} className="text-base py-3 px-6">
+                  <ChevronLeft className="w-5 h-5 mr-2" />
+                  {translate('evalPreviousButton')}
+                </Button>
+              )}
+            </div>
+
+            {/* Botón Siguiente/Finalizar - siempre alineado a la derecha */}
+            <div className="flex">
+              {currentQuestionIndex < evaluationQuestions.length - 1 ? (
+                <Button onClick={handleNextQuestion} className="text-base py-3 px-6 home-card-button-purple">
+                  {translate('evalNextButton')}
+                  <ChevronRight className="w-5 h-5 ml-2" />
+                </Button>
+              ) : (
+                <Button onClick={handleFinishEvaluation} className="text-base py-3 px-6 bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700">
+                  <Award className="w-5 h-5 mr-2" />
+                  {translate('evalFinishButton')}
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog para cuando se acaba el tiempo */}
+      <AlertDialog open={showTimeUpDialog} onOpenChange={setShowTimeUpDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader className="items-center text-center">
+            <Timer className="w-16 h-16 text-red-500 mb-3" />
+            <AlertDialogTitle className="text-2xl font-headline text-red-600 dark:text-red-400">
+              {translate('evalTimeUpTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base text-muted-foreground mt-2">
+              {translate('evalTimeUpDesc')}
+            </AlertDialogDescription>
+            <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-700 dark:text-red-300 text-center">
+                {translate('evalTimeUpMessage')}
+              </p>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6">
+            <Button onClick={handleTimeUpDialogClose} className="w-full home-card-button-purple">
+              {translate('evalTimeUpCloseButton')}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showResultDialog} onOpenChange={setShowResultDialog}>
         <AlertDialogContent className="max-w-md">
