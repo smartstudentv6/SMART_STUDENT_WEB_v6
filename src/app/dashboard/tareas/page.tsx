@@ -4889,7 +4889,7 @@ export default function TareasPage() {
                   </div>
                 )}
                 
-                <div className={`flex mt-8 ${(currentEvaluation.currentQuestionIndex || 0) > 0 ? 'justify-between' : 'justify-end'}`}>
+                <div className="flex mt-8 justify-between">
                   {(currentEvaluation.currentQuestionIndex || 0) > 0 && (
                     <Button 
                       variant="outline" 
@@ -5068,45 +5068,16 @@ export default function TareasPage() {
                           ))}
                         </div>
                         
-                        <div className="space-y-2">
-                          <div className="flex items-start space-x-2">
-                            <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
-                              {translate('evalReviewYourAnswer')}
+                        {question.explanation && (
+                          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-200 dark:border-blue-700 mt-3">
+                            <span className="font-medium text-blue-700 dark:text-blue-300 text-sm block mb-1">
+                              {translate('evalReviewExplanation')}
                             </span>
-                            <span className={`text-sm ${
-                              isCorrect 
-                                ? 'text-green-700 dark:text-green-300 font-medium' 
-                                : 'text-red-700 dark:text-red-300 font-medium'
-                            }`}>
-                              {userAnswer !== undefined 
-                                ? `${String.fromCharCode(65 + userAnswer)}. ${question.options[userAnswer]}`
-                                : translate('evalReviewNoAnswer')
-                              }
-                            </span>
+                            <p className="text-blue-600 dark:text-blue-400 text-sm">
+                              {question.explanation}
+                            </p>
                           </div>
-                          
-                          {!isCorrect && (
-                            <div className="flex items-start space-x-2">
-                              <span className="font-medium text-gray-600 dark:text-gray-400 text-sm">
-                                {translate('evalReviewCorrectAnswer')}
-                              </span>
-                              <span className="text-green-700 dark:text-green-300 font-medium text-sm">
-                                {String.fromCharCode(65 + question.correct)}. {question.options[question.correct]}
-                              </span>
-                            </div>
-                          )}
-                          
-                          {question.explanation && (
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-200 dark:border-blue-700 mt-3">
-                              <span className="font-medium text-blue-700 dark:text-blue-300 text-sm block mb-1">
-                                {translate('evalReviewExplanation')}
-                              </span>
-                              <p className="text-blue-600 dark:text-blue-400 text-sm">
-                                {question.explanation}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
                     );
                   })}
@@ -5117,7 +5088,7 @@ export default function TareasPage() {
               <div className="flex justify-end pt-4 border-t">
                 <Button
                   onClick={() => setShowReviewEvaluationDialog(false)}
-                  className="bg-gray-500 hover:bg-gray-600 text-white"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   {translate('evalReviewClose')}
                 </Button>
@@ -5206,15 +5177,6 @@ export default function TareasPage() {
                         <p className="mb-3 text-gray-700 dark:text-gray-300">{question.question}</p>
                         
                         <div className="space-y-2">
-                          <div>
-                            <strong className="text-sm text-gray-600 dark:text-gray-400">{translate('evalReviewYourAnswer')}</strong>
-                            <p className={`ml-2 ${question.isCorrect ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                              {question.studentAnswerText || 
-                               (question.options && question.studentAnswer !== undefined ? question.options[question.studentAnswer] : question.studentAnswer) ||
-                               translate('evalReviewNoAnswer')}
-                            </p>
-                          </div>
-                          
                           <div>
                             <strong className="text-sm text-gray-600 dark:text-gray-400">{translate('evalReviewCorrectAnswer')}</strong>
                             <p className="ml-2 text-green-700 dark:text-green-300">{question.correctAnswer}</p>
