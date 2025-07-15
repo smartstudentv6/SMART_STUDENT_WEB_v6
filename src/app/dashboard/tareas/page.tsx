@@ -4889,7 +4889,7 @@ export default function TareasPage() {
                   </div>
                 )}
                 
-                <div className="flex mt-8 justify-between">
+                <div className={`flex mt-8 ${(currentEvaluation.currentQuestionIndex || 0) > 0 ? 'justify-between' : 'justify-end'}`}>
                   {(currentEvaluation.currentQuestionIndex || 0) > 0 && (
                     <Button 
                       variant="outline" 
