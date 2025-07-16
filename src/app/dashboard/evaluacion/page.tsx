@@ -1557,19 +1557,10 @@ export default function EvaluacionPage() {
             </div>
           )}
           
-          <div className="flex justify-between items-center mt-8">
-            {/* Botón Anterior - solo visible cuando no es la primera pregunta */}
-            <div className="flex">
-              {currentQuestionIndex > 0 && (
-                <Button variant="outline" onClick={handlePreviousQuestion} className="text-base py-3 px-6">
-                  <ChevronLeft className="w-5 h-5 mr-2" />
-                  {translate('evalPreviousButton')}
-                </Button>
-              )}
-            </div>
-
-            {/* Botón Siguiente/Finalizar - siempre alineado a la derecha */}
-            <div className="flex">
+          {/* Renderizado condicional separado para primera pregunta vs resto */}
+          {currentQuestionIndex === 0 ? (
+            /* PRIMERA PREGUNTA: Solo botón Siguiente/Finalizar alineado a la derecha */
+            <div className="flex justify-end items-center mt-8 w-full">
               {currentQuestionIndex < evaluationQuestions.length - 1 ? (
                 <Button onClick={handleNextQuestion} className="text-base py-3 px-6 home-card-button-purple">
                   {translate('evalNextButton')}
@@ -1582,7 +1573,27 @@ export default function EvaluacionPage() {
                 </Button>
               )}
             </div>
-          </div>
+          ) : (
+            /* PREGUNTAS SIGUIENTES: Botón Anterior (izquierda) y Siguiente (derecha) */
+            <div className="flex justify-between items-center mt-8 w-full">
+              <Button variant="outline" onClick={handlePreviousQuestion} className="text-base py-3 px-6">
+                <ChevronLeft className="w-5 h-5 mr-2" />
+                {translate('evalPreviousButton')}
+              </Button>
+              
+              {currentQuestionIndex < evaluationQuestions.length - 1 ? (
+                <Button onClick={handleNextQuestion} className="text-base py-3 px-6 home-card-button-purple">
+                  {translate('evalNextButton')}
+                  <ChevronRight className="w-5 h-5 ml-2" />
+                </Button>
+              ) : (
+                <Button onClick={handleFinishEvaluation} className="text-base py-3 px-6 bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700">
+                  <Award className="w-5 h-5 mr-2" />
+                  {translate('evalFinishButton')}
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
