@@ -192,7 +192,28 @@ export default function TareasPage() {
   const [showReviewEvaluationDialog, setShowReviewEvaluationDialog] = useState(false);
   const [currentEvaluationReview, setCurrentEvaluationReview] = useState<any>(null);
 
+  // Estado para modal de tiempo agotado
+  const [showTimeExpiredDialog, setShowTimeExpiredDialog] = useState(false);
+  const [timeExpiredResult, setTimeExpiredResult] = useState<any>(null);
+  const [evaluationTimeExpired, setEvaluationTimeExpired] = useState(false);
 
+  // Debug: Monitor cambios en el modal de tiempo agotado
+  useEffect(() => {
+    console.log('🔥 [useEffect] showTimeExpiredDialog cambió a:', showTimeExpiredDialog);
+    console.log('🔥 [useEffect] timeExpiredResult:', !!timeExpiredResult);
+    console.log('🔥 [useEffect] evaluationTimeExpired:', evaluationTimeExpired);
+  }, [showTimeExpiredDialog, timeExpiredResult, evaluationTimeExpired]);
+
+  // Nuevo useEffect para detectar cuando el tiempo llega a 0
+  useEffect(() => {
+    if (currentEvaluation.timeRemaining === 0 && 
+        currentEvaluation.task && 
+        !showTimeExpiredDialog &&
+        !timeExpiredResult) {
+      console.log('🔥 [useEffect] Tiempo llegó a 0, forzando completion');
+      handleCompleteEvaluation(true);
+    }
+  }, [currentEvaluation.timeRemaining]);
 
   // Cargar resultados de evaluaciones existentes
   useEffect(() => {
@@ -1593,22 +1614,47 @@ export default function TareasPage() {
           setShowEvaluationDialog(true);
           
           // Iniciar countdown del timer
+          console.log('🔥 [startEvaluation] Iniciando evaluación con tiempo límite:', timeLimit, 'minutos');
           startEvaluationTimer(timeInSeconds);
+          
+          // PRUEBA: Si el tiempo es menor a 1 minuto, usar 10 segundos para testing
+          if (timeLimit < 1) {
+            console.log('🔥 [startEvaluation] MODO DE PRUEBA: Usando 10 segundos para testing');
+            startEvaluationTimer(10);
+          } else {
+            startEvaluationTimer(timeInSeconds);
+          }
         }, 500);
       }
     }, 800);
   };
 
   const startEvaluationTimer = (initialTime: number) => {
-    const timer = setInterval(() => {
+    console.log('🔥 [startEvaluationTimer] Iniciando timer con tiempo:', initialTime);
+    let timerRef: NodeJS.Timeout;
+    
+    timerRef = setInterval(() => {
       setCurrentEvaluation(prev => {
         const newTime = prev.timeRemaining - 1;
         
         if (newTime <= 0) {
-          clearInterval(timer);
-          // Auto-completar evaluación cuando se acabe el tiempo
-          setTimeout(() => handleCompleteEvaluation(true), 100);
+          console.log('🔥 [startEvaluationTimer] ¡TIEMPO AGOTADO! Deteniendo timer');
+          clearInterval(timerRef);
+          
+          // Ejecutar handleCompleteEvaluation con un delay para asegurar que el estado se actualice
+          setTimeout(() => {
+            console.log('🔥 [startEvaluationTimer] Ejecutando handleCompleteEvaluation(true)');
+            handleCompleteEvaluation(true);
+          }, 200);
+          
           return { ...prev, timeRemaining: 0 };
+        }
+        
+        // Log cada segundo cuando queden menos de 30 segundos
+        if (newTime <= 30) {
+          console.log(`🔥 [startEvaluationTimer] Tiempo restante: ${newTime} segundos`);
+        } else if (newTime % 10 === 0) {
+          console.log(`🔥 [startEvaluationTimer] Tiempo restante: ${newTime} segundos`);
         }
         
         return { ...prev, timeRemaining: newTime };
@@ -1826,26 +1872,44 @@ export default function TareasPage() {
     
     console.log('🎯 [handleCompleteEvaluation] Events dispatched: taskNotificationsUpdated, pendingTasksUpdated');
 
-    // Limpiar estado y cerrar
-    setShowEvaluationDialog(false);
-    setCurrentEvaluation({
-      task: null,
-      questions: [],
-      startTime: null,
-      answers: {},
-      timeRemaining: 0,
-      currentQuestionIndex: 0
-    });
-
-    // Mostrar mensaje de éxito
-    const resultMessage = timeExpired 
-      ? `Tiempo agotado. Tu calificación es ${correctAnswers}/${totalQuestions} (${percentage}%)`
-      : `¡Evaluación completada! Tu calificación es ${correctAnswers}/${totalQuestions} (${percentage}%)`;
+    // Si el tiempo se agotó, mostrar modal específico ANTES de cerrar la evaluación
+    if (timeExpired) {
+      console.log('🔥 [handleCompleteEvaluation] Tiempo agotado - Configurando estados para modal');
+      console.log('🔥 [handleCompleteEvaluation] evaluationResult:', evaluationResult);
       
-    toast({
-      title: timeExpired ? "Tiempo Agotado" : "Evaluación Completada",
-      description: resultMessage,
-    });
+      // Configurar estados para el modal
+      setEvaluationTimeExpired(true);
+      setTimeExpiredResult(evaluationResult);
+      setShowTimeExpiredDialog(true);
+      
+      console.log('🔥 [handleCompleteEvaluation] Estados configurados - timeExpiredResult:', !!evaluationResult);
+      console.log('🔥 [handleCompleteEvaluation] showTimeExpiredDialog será:', true);
+      
+      // NO cerrar la evaluación hasta que el usuario haga clic en "Revisar"
+      // Solo resetear algunas propiedades para evitar continuar la evaluación
+      setCurrentEvaluation(prev => ({
+        ...prev,
+        timeRemaining: 0,
+        // Bloquear interacciones manteniendo el estado
+      }));
+    } else {
+      // Limpiar estado y cerrar inmediatamente para evaluación normal
+      setShowEvaluationDialog(false);
+      setCurrentEvaluation({
+        task: null,
+        questions: [],
+        startTime: null,
+        answers: {},
+        timeRemaining: 0,
+        currentQuestionIndex: 0
+      });
+      
+      // Mostrar mensaje de éxito normal
+      toast({
+        title: "Evaluación Completada",
+        description: `¡Evaluación completada! Tu calificación es ${correctAnswers}/${totalQuestions} (${percentage}%)`,
+      });
+    }
 
     // Recargar tareas para reflejar cambios
     loadTasks();
@@ -3561,7 +3625,7 @@ export default function TareasPage() {
                                 size="sm"
                               >
                                 <Eye className="w-3 h-3 mr-1" />
-                                {translate('reviewButton')}
+                                Resultados
                               </Button>
                             ) : (
                               <Button
@@ -4881,6 +4945,7 @@ export default function TareasPage() {
                               answers: newAnswers
                             });
                           }}
+                          disabled={currentEvaluation.timeRemaining === 0}
                         >
                           <span className="mr-2 font-semibold">{String.fromCharCode(65 + index)}.</span> {option}
                         </Button>
@@ -4900,7 +4965,8 @@ export default function TareasPage() {
                           currentQuestionIndex: newIndex
                         });
                       }}
-                      className="text-base py-3 px-6"
+                      className="text-base py-3 px-6 hover:bg-purple-100 hover:text-purple-700 hover:border-purple-300"
+                      disabled={currentEvaluation.timeRemaining === 0}
                     >
                       <ChevronRight className="w-5 h-5 mr-2 rotate-180" />
                       {translate('evalPreviousButton')}
@@ -4917,6 +4983,7 @@ export default function TareasPage() {
                         });
                       }}
                       className="text-base py-3 px-6 bg-purple-600 hover:bg-purple-700 text-white"
+                      disabled={currentEvaluation.timeRemaining === 0}
                     >
                       {translate('evalNextButton')}
                       <ChevronRight className="w-5 h-5 ml-2" />
@@ -4925,6 +4992,7 @@ export default function TareasPage() {
                     <Button
                       onClick={() => handleCompleteEvaluation()}
                       className="text-base py-3 px-6 bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700"
+                      disabled={currentEvaluation.timeRemaining === 0}
                     >
                       <Award className="w-5 h-5 mr-2" />
                       {translate('evalFinishButton')}
@@ -4933,6 +5001,68 @@ export default function TareasPage() {
                 </div>
               </CardContent>
             </Card>
+            
+            {/* Modal de Tiempo Agotado - DENTRO del diálogo de evaluación */}
+            {showTimeExpiredDialog && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Timer className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    <h3 className="text-lg font-semibold text-red-600 dark:text-red-400">Tiempo Agotado</h3>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-300 mb-6">
+                    Se acabó el tiempo para completar la evaluación. La evaluación se ha guardado automáticamente con las respuestas que alcanzaste a completar.
+                  </p>
+                  
+                  {timeExpiredResult && (
+                    <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg border border-red-200 dark:border-red-800 mb-6">
+                      <h4 className="font-medium text-red-800 dark:text-red-200 mb-6 text-center text-lg">Resultados Obtenidos</h4>
+                      <div className="flex justify-center space-x-12">
+                        <div className="text-center">
+                          <span className="font-medium text-red-700 dark:text-red-300 block mb-2">Respuestas Correctas:</span>
+                          <p className="text-red-600 dark:text-red-400 text-2xl font-bold">
+                            {timeExpiredResult.correctAnswers}/{timeExpiredResult.totalQuestions}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <span className="font-medium text-red-700 dark:text-red-300 block mb-2">Calificación:</span>
+                          <p className="text-red-600 dark:text-red-400 text-2xl font-bold">
+                            {timeExpiredResult.percentage}%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={() => {
+                        setShowTimeExpiredDialog(false);
+                        setEvaluationTimeExpired(false);
+                        // Cerrar la evaluación completamente
+                        setShowEvaluationDialog(false);
+                        setCurrentEvaluation({
+                          task: null,
+                          questions: [],
+                          startTime: null,
+                          answers: {},
+                          timeRemaining: 0,
+                          currentQuestionIndex: 0
+                        });
+                        // Mostrar revisión de resultados
+                        setCurrentEvaluationReview(timeExpiredResult);
+                        setShowReviewEvaluationDialog(true);
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 text-lg font-medium rounded-lg"
+                    >
+                      <Eye className="w-5 h-5 mr-2" />
+                      Resultados
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
           </div>
         </DialogContent>
       </Dialog>
