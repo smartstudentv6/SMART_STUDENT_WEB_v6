@@ -328,6 +328,12 @@ export default function TareasPage() {
           if (user?.role === 'teacher' && user?.username) {
             console.log('🔔 [ESCENARIO 2] Profesor abrió la tarea, eliminando notificaciones de comentarios...');
             
+            // 🎯 NUEVA FUNCIONALIDAD: Eliminar notificaciones de evaluaciones completadas cuando el profesor las ve
+            if (task.taskType === 'evaluacion') {
+              console.log('🔔 [EVALUACION_VISTA] Profesor abrió evaluación, eliminando notificaciones de evaluaciones completadas...');
+              TaskNotificationManager.removeEvaluationCompletedNotifications(taskIdParam, user.username);
+            }
+            
             // Obtener comentarios de esta tarea
             const storedComments = localStorage.getItem('smart-student-task-comments');
             if (storedComments) {

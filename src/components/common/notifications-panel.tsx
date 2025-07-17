@@ -217,21 +217,37 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     );
   };
 
-  // 🔧 NUEVA: Función para verificar si una tarea ya ha sido calificada
+  // 🔧 CORREGIDA: Función para verificar si una tarea ya ha sido calificada
   const isTaskAlreadyGraded = (taskId: string, studentUsername: string): boolean => {
     try {
-      const submissions = localStorage.getItem('smart-student-submissions');
-      if (submissions) {
-        const submissionsData = JSON.parse(submissions);
-        const taskSubmissions = submissionsData[taskId];
-        if (taskSubmissions && taskSubmissions[studentUsername]) {
-          const submission = taskSubmissions[studentUsername];
-          return submission.grade !== undefined && submission.grade !== null;
+      console.log(`🔍 [isTaskAlreadyGraded] Verificando si tarea ${taskId} de estudiante ${studentUsername} está calificada`);
+      
+      // ✅ CORRECCIÓN: Buscar en smart-student-task-comments, no en smart-student-submissions
+      const commentsData = localStorage.getItem('smart-student-task-comments');
+      if (commentsData) {
+        const comments = JSON.parse(commentsData);
+        
+        // Buscar la entrega (isSubmission = true) del estudiante para esta tarea
+        const studentSubmission = comments.find((comment: any) => 
+          comment.taskId === taskId && 
+          comment.studentUsername === studentUsername && 
+          comment.isSubmission === true
+        );
+        
+        if (studentSubmission) {
+          const isGraded = studentSubmission.grade !== undefined && studentSubmission.grade !== null;
+          console.log(`🔍 [isTaskAlreadyGraded] Estudiante ${studentUsername}, Tarea ${taskId}: ${isGraded ? 'CALIFICADA' : 'NO CALIFICADA'} (grade: ${studentSubmission.grade})`);
+          return isGraded;
+        } else {
+          console.log(`🔍 [isTaskAlreadyGraded] No se encontró entrega del estudiante ${studentUsername} para tarea ${taskId}`);
         }
+      } else {
+        console.log(`🔍 [isTaskAlreadyGraded] No se encontraron comentarios en localStorage`);
       }
+      
       return false;
     } catch (error) {
-      console.error('Error verificando si la tarea está calificada:', error);
+      console.error('❌ [isTaskAlreadyGraded] Error verificando si la tarea está calificada:', error);
       return false;
     }
   };
@@ -854,6 +870,15 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         console.log(`[NotificationsPanel] ${index + 1}. Type: ${n.type}, TaskId: ${n.taskId}, From: ${n.fromUsername}, Target: ${n.targetUsernames.join(',')}, ReadBy: ${n.readBy.join(',')}`);
       });
       
+      // 🔍 DEBUG ESPECÍFICO: Verificar notificaciones de evaluaciones completadas
+      const evaluationCompletedNotifications = notifications.filter(n => 
+        n.type === 'task_completed' && n.taskType === 'evaluation'
+      );
+      console.log(`[NotificationsPanel] 🎯 Evaluaciones completadas encontradas: ${evaluationCompletedNotifications.length}`);
+      evaluationCompletedNotifications.forEach((n, index) => {
+        console.log(`[NotificationsPanel] 📝 Eval ${index + 1}: ${n.taskTitle} por ${n.fromDisplayName} para ${n.targetUsernames.join(',')}`);
+      });
+      
       // ✅ MEJORA: Filtrar mejor las notificaciones de evaluaciones completadas
       if (user.role === 'student') {
         // Para estudiantes, filtrar evaluaciones completadas
@@ -903,16 +928,18 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         
         console.log(`[NotificationsPanel] Loaded ${filteredNotifications.length} task notifications for ${user.username}`);
       } else if (user.role === 'teacher') {
-        // Para profesores, filtrar notificaciones de tareas ya calificadas
+        // Para profesores, filtrar notificaciones de tareas ya calificadas (pero NO evaluaciones)
         const filteredNotifications = notifications.filter(notification => {
-          // Si es una notificación de tarea completada, verificar si ya fue calificada
-          if (notification.type === 'task_completed') {
+          // Si es una notificación de tarea completada de tipo 'assignment' (no evaluación), verificar si ya fue calificada
+          if (notification.type === 'task_completed' && notification.taskType !== 'evaluation') {
             const isGraded = isTaskAlreadyGraded(notification.taskId, notification.fromUsername);
             if (isGraded) {
               console.log(`🔥 [NotificationsPanel] Filtering out graded task notification: ${notification.taskTitle} by ${notification.fromUsername}`);
               return false; // No mostrar notificaciones de tareas ya calificadas
             }
           }
+          // ✅ CORRECCIÓN: Para evaluaciones (taskType === 'evaluation'), siempre mostrar la notificación
+          // Las evaluaciones no se "califican", solo se revisan resultados
           return true;
         });
         
@@ -1702,25 +1729,23 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       {/* 2. EVALUACIONES COMPLETADAS POR ESTUDIANTES - SEGUNDO LUGAR */}
                       {taskNotifications.filter(notif => 
                         notif.type === 'task_completed' && 
-                        notif.taskType === 'evaluation' &&
-                        // 🔥 NUEVO FILTRO: Solo mostrar si la evaluación NO ha sido calificada aún
-                        !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                        notif.taskType === 'evaluation'
+                        // 🔥 CORREGIDO: Las evaluaciones no se "califican", solo se revisan resultados
+                        // Eliminamos el filtro isTaskAlreadyGraded para evaluaciones
                       ).length > 0 && (
                         <>
                           <div className="px-4 py-2 bg-purple-100 dark:bg-purple-900/10 border-l-4 border-gray-300 dark:border-gray-500">
                             <h3 className="text-sm font-medium text-purple-700 dark:text-purple-300">
                               {translate('evaluationsCompleted') || 'Evaluaciones Completadas'} ({taskNotifications.filter(notif => 
                                 notif.type === 'task_completed' && 
-                                notif.taskType === 'evaluation' &&
-                                !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                                notif.taskType === 'evaluation'
                               ).length})
                             </h3>
                           </div>
                           {taskNotifications
                             .filter(notif => 
                               notif.type === 'task_completed' && 
-                              notif.taskType === 'evaluation' &&
-                              !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                              notif.taskType === 'evaluation'
                             )
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
@@ -1893,15 +1918,25 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       )}
 
                       {/* 5. ENTREGAS INDIVIDUALES DE ESTUDIANTES */}
-                      {taskNotifications.filter(notif => notif.type === 'task_submission').length > 0 && (
+                      {taskNotifications.filter(notif => 
+                        notif.type === 'task_submission' &&
+                        // 🔥 NUEVO FILTRO: Solo mostrar entregas que NO han sido calificadas aún
+                        !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                      ).length > 0 && (
                         <>
                           <div className="px-4 py-2 bg-orange-100 dark:bg-orange-900/30 border-l-4 border-orange-500 dark:border-orange-600">
                             <h3 className="text-sm font-medium text-orange-900 dark:text-orange-100">
-                              {translate('completedTasks') || 'Tareas Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_submission').length})
+                              {translate('completedTasks') || 'Tareas Completadas'} ({taskNotifications.filter(notif => 
+                                notif.type === 'task_submission' &&
+                                !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                              ).length})
                             </h3>
                           </div>
                           {taskNotifications
-                            .filter(notif => notif.type === 'task_submission')
+                            .filter(notif => 
+                              notif.type === 'task_submission' &&
+                              !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                            )
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
                             <div key={`teacher-task-submission-${notif.id}`} className="p-4 hover:bg-muted/50">

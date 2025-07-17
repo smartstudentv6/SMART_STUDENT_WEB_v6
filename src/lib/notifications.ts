@@ -1376,6 +1376,56 @@ export class TaskNotificationManager {
     }
   }
 
+  // 🔥 NUEVA: Función para eliminar notificaciones de evaluaciones completadas cuando el profesor las ve
+  static removeEvaluationCompletedNotifications(taskId: string, teacherUsername: string): void {
+    try {
+      console.log(`🎯 [REMOVE_EVAL_COMPLETED] Eliminando notificaciones de evaluaciones completadas para tarea: ${taskId}, profesor: ${teacherUsername}`);
+      
+      const notifications = this.getNotifications();
+      let removedCount = 0;
+      
+      const filteredNotifications = notifications.filter(notification => {
+        const shouldRemove = notification.taskId === taskId && 
+          notification.type === 'task_completed' &&
+          notification.taskType === 'evaluation' &&
+          notification.targetUsernames.includes(teacherUsername);
+        
+        if (shouldRemove) {
+          console.log(`📭 [REMOVE_EVAL_COMPLETED] Eliminando notificación de evaluación completada:`, {
+            id: notification.id,
+            taskTitle: notification.taskTitle,
+            fromUser: notification.fromUsername,
+            targetUsers: notification.targetUsernames
+          });
+          removedCount++;
+          return false; // Eliminar esta notificación
+        }
+        
+        return true; // Mantener esta notificación
+      });
+      
+      if (removedCount > 0) {
+        this.saveNotifications(filteredNotifications);
+        console.log(`✅ [REMOVE_EVAL_COMPLETED] ${removedCount} notificaciones de evaluaciones completadas eliminadas para tarea ${taskId}`);
+        
+        // Disparar eventos para actualizar la UI
+        window.dispatchEvent(new CustomEvent('taskNotificationsUpdated', {
+          detail: { type: 'evaluationCompletedRemoval', taskId, removedCount }
+        }));
+        
+        // También disparar evento para actualizar el contador
+        window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+          detail: { type: 'evaluationCompletedRemoval', taskId, removedCount }
+        }));
+      } else {
+        console.log(`ℹ️ [REMOVE_EVAL_COMPLETED] No se encontraron notificaciones de evaluaciones completadas para eliminar`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ [REMOVE_EVAL_COMPLETED] Error eliminando notificaciones de evaluaciones completadas:`, error);
+    }
+  }
+
   // 🔥 NUEVA: Función para eliminar notificaciones de tarea completada cuando el profesor califica
   static removeTaskCompletedNotifications(taskId: string): void {
     try {
