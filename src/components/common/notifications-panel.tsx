@@ -1947,24 +1947,24 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           </div>
                           {unreadStudentComments.map(comment => (
                             <div key={`teacher-student-comment-${comment.id}`} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-3">
+                              <div className="flex items-start gap-2">
                                 <div className="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
                                   <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <p className="font-medium text-sm">
-                                      {comment.task?.title || 'Sin título'}
+                                      {comment.studentName || comment.studentUsername}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {formatDate(comment.timestamp)}
-                                    </p>
+                                    <Badge variant="outline" className="text-xs border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300 flex flex-col items-center justify-center text-center leading-tight">
+                                      {getCourseAbbreviation(comment.task?.subject || 'Sin materia')}
+                                    </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1">
-                                    {comment.comment}
+                                    Comentario en: {comment.task?.title || 'Sin título'}
                                   </p>
-                                  <p className="text-xs font-medium mt-1">
-                                    {comment.task?.course ? TaskNotificationManager.getCourseNameById(comment.task.course) : 'Sin curso'} • {comment.task?.subject || 'Sin materia'}
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {comment.task?.course ? TaskNotificationManager.getCourseNameById(comment.task.course) : 'Sin curso'} • {formatDate(comment.timestamp)}
                                   </p>
                                   {createSafeCommentLink(comment.taskId, comment.id, translate('viewComment') || 'Ver Comentario')}
                                 </div>
