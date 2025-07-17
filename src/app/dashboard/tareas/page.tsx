@@ -2398,6 +2398,9 @@ export default function TareasPage() {
         
         // 🧹 NUEVO: Eliminar notificaciones específicas del estudiante recién calificado
         TaskNotificationManager.removeNotificationsForTask(selectedTask.id, ['task_submission']);
+        
+        // 🎯 NUEVO: Eliminar notificaciones de 'task_completed' cuando el profesor califica
+        TaskNotificationManager.removeTaskCompletedNotifications(selectedTask.id);
       }
     }
 

@@ -1395,8 +1395,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                         <>
                           <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
                             <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                              {translate('pendingTasks') || 'Tareas Pendientes'} 
-                              ({pendingTasks.filter(task => task.taskType === 'assignment' || !task.taskType).length + 
+                              {translate('pendingTasks') || 'Tareas Pendientes'} ({pendingTasks.filter(task => task.taskType === 'assignment' || !task.taskType).length + 
                                 taskNotifications.filter(n => n.type === 'new_task' && (n.taskType === 'assignment' || !n.taskType)).length})
                             </h3>
                           </div>
@@ -1407,25 +1406,25 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .slice(0, 2)
                             .map(task => (
                             <div key={`pending-task-${task.id}`} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
+                              <div className="flex items-start gap-3">
                                 <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
                                   <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
                                 </div>
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
+                                    <p className="font-medium text-sm text-orange-800 dark:text-orange-200">
                                       {task.title}
                                     </p>
-                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {splitTextForBadge(task.subject).map((line, index) => (
-                                        <div key={index}>{line}</div>
-                                      ))}
+                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 font-medium">
+                                      {getCourseAbbreviation(task.subject)}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {translate('duePrefix')} {formatDate(task.dueDate)}
+                                    {TaskNotificationManager.getCourseNameById(task.course)} • {formatDate(task.dueDate)}
                                   </p>
-                                  {createSafeTaskLink(task.id, '', translate('viewTask'), 'task')}
+                                  <div className="mt-2">
+                                    {createSafeTaskLink(task.id, '', 'Ver Tarea', 'task')}
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1437,26 +1436,25 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                             .slice(0, 3 - pendingTasks.filter(task => task.taskType === 'assignment' || !task.taskType).length)
                             .map(notification => (
                             <div key={`new-task-${notification.id}`} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
+                              <div className="flex items-start gap-3">
                                 <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
                                   <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
                                 </div>
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
+                                    <p className="font-medium text-sm text-orange-800 dark:text-orange-200">
                                       {notification.taskTitle}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {formatDate(notification.timestamp)}
-                                    </p>
+                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 font-medium">
+                                      {getCourseAbbreviation(notification.subject)}
+                                    </Badge>
                                   </div>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    Nueva tarea asignada por {notification.teacherName || notification.fromDisplayName}
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {TaskNotificationManager.getCourseNameById(notification.course)} • {formatDate(notification.timestamp)}
                                   </p>
-                                  <p className="text-xs font-medium mt-1">
-                                    {TaskNotificationManager.getCourseNameById(notification.course)} • {notification.subject}
-                                  </p>
-                                  {createSafeTaskLink(notification.taskId, '', translate('viewTask'), 'task')}
+                                  <div className="mt-2">
+                                    {createSafeTaskLink(notification.taskId, '', 'Ver Tarea', 'task')}
+                                  </div>
                                 </div>
                               </div>
                             </div>

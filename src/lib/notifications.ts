@@ -1375,4 +1375,44 @@ export class TaskNotificationManager {
       console.error(`❌ [REMOVE_COMMENTS] Error eliminando notificaciones de comentarios:`, error);
     }
   }
+
+  // 🔥 NUEVA: Función para eliminar notificaciones de tarea completada cuando el profesor califica
+  static removeTaskCompletedNotifications(taskId: string): void {
+    try {
+      console.log(`🎯 [REMOVE_COMPLETED] Eliminando notificaciones 'task_completed' para tarea: ${taskId}`);
+      
+      const notifications = this.getNotifications();
+      
+      const filteredNotifications = notifications.filter(notification => {
+        const shouldRemove = notification.taskId === taskId && 
+          notification.type === 'task_completed';
+        
+        if (shouldRemove) {
+          console.log(`❌ [REMOVE_COMPLETED] Eliminando notificación 'task_completed': ${notification.taskTitle}`);
+        }
+        
+        return !shouldRemove;
+      });
+      
+      const removedCount = notifications.length - filteredNotifications.length;
+      
+      if (removedCount > 0) {
+        this.saveNotifications(filteredNotifications);
+        console.log(`✅ [REMOVE_COMPLETED] ${removedCount} notificaciones 'task_completed' eliminadas para tarea ${taskId}`);
+        
+        // Disparar eventos para actualizar la UI
+        window.dispatchEvent(new CustomEvent('taskNotificationsUpdated', {
+          detail: { type: 'taskCompletedRemoval', taskId, removedCount }
+        }));
+        
+        // También disparar evento para actualizar el contador
+        window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+          detail: { type: 'taskCompletedRemoval', taskId, removedCount }
+        }));
+      }
+      
+    } catch (error) {
+      console.error(`❌ [REMOVE_COMPLETED] Error eliminando notificaciones 'task_completed':`, error);
+    }
+  }
 }
