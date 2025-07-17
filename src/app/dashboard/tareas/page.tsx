@@ -2401,6 +2401,11 @@ export default function TareasPage() {
         
         // 🎯 NUEVO: Eliminar notificaciones de 'task_completed' cuando el profesor califica
         TaskNotificationManager.removeTaskCompletedNotifications(selectedTask.id);
+        
+        // 🔥 NUEVO: Disparar evento para actualizar panel de notificaciones
+        window.dispatchEvent(new CustomEvent('taskGraded', {
+          detail: { taskId: selectedTask.id, studentUsername: submission?.studentUsername }
+        }));
       }
     }
 

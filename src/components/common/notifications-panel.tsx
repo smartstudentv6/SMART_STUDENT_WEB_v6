@@ -217,6 +217,25 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     );
   };
 
+  // 🔧 NUEVA: Función para verificar si una tarea ya ha sido calificada
+  const isTaskAlreadyGraded = (taskId: string, studentUsername: string): boolean => {
+    try {
+      const submissions = localStorage.getItem('smart-student-submissions');
+      if (submissions) {
+        const submissionsData = JSON.parse(submissions);
+        const taskSubmissions = submissionsData[taskId];
+        if (taskSubmissions && taskSubmissions[studentUsername]) {
+          const submission = taskSubmissions[studentUsername];
+          return submission.grade !== undefined && submission.grade !== null;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Error verificando si la tarea está calificada:', error);
+      return false;
+    }
+  };
+
   // 🔧 NUEVA: Función para crear enlaces seguros a comentarios
   const createSafeCommentLink = (taskId: string, commentId: string, linkText: string = 'Ver comentario'): JSX.Element => {
     const taskExists = validateTaskExists(taskId);
@@ -520,11 +539,19 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     };
     window.addEventListener('pendingTasksUpdated', handlePendingTasksUpdated);
     
+    // 🔥 NUEVO: Listener para actualizar notificaciones cuando se califique una tarea
+    const handleGradingUpdated = () => {
+      console.log('🎯 [handleGradingUpdated] Task graded, reloading notifications');
+      loadTaskNotifications();
+    };
+    window.addEventListener('taskGraded', handleGradingUpdated);
+    
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('commentsUpdated', handleCommentsUpdated);
       window.removeEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
       window.removeEventListener('pendingTasksUpdated', handlePendingTasksUpdated);
+      window.removeEventListener('taskGraded', handleGradingUpdated);
     };
   }, [user, open]); // Reload data when the panel is opened or user changes
 
@@ -876,8 +903,20 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         
         console.log(`[NotificationsPanel] Loaded ${filteredNotifications.length} task notifications for ${user.username}`);
       } else if (user.role === 'teacher') {
-        // Para profesores, separar notificaciones de evaluaciones y tareas
-        setTaskNotifications(notifications);
+        // Para profesores, filtrar notificaciones de tareas ya calificadas
+        const filteredNotifications = notifications.filter(notification => {
+          // Si es una notificación de tarea completada, verificar si ya fue calificada
+          if (notification.type === 'task_completed') {
+            const isGraded = isTaskAlreadyGraded(notification.taskId, notification.fromUsername);
+            if (isGraded) {
+              console.log(`🔥 [NotificationsPanel] Filtering out graded task notification: ${notification.taskTitle} by ${notification.fromUsername}`);
+              return false; // No mostrar notificaciones de tareas ya calificadas
+            }
+          }
+          return true;
+        });
+        
+        setTaskNotifications(filteredNotifications);
         
         console.log(`[NotificationsPanel] Teacher ${user.username} - all notifications:`, notifications.length);
         
@@ -1661,15 +1700,28 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       )}
 
                       {/* 2. EVALUACIONES COMPLETADAS POR ESTUDIANTES - SEGUNDO LUGAR */}
-                      {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length > 0 && (
+                      {taskNotifications.filter(notif => 
+                        notif.type === 'task_completed' && 
+                        notif.taskType === 'evaluation' &&
+                        // 🔥 NUEVO FILTRO: Solo mostrar si la evaluación NO ha sido calificada aún
+                        !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                      ).length > 0 && (
                         <>
                           <div className="px-4 py-2 bg-purple-100 dark:bg-purple-900/10 border-l-4 border-gray-300 dark:border-gray-500">
                             <h3 className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                              {translate('evaluationsCompleted') || 'Evaluaciones Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation').length})
+                              {translate('evaluationsCompleted') || 'Evaluaciones Completadas'} ({taskNotifications.filter(notif => 
+                                notif.type === 'task_completed' && 
+                                notif.taskType === 'evaluation' &&
+                                !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                              ).length})
                             </h3>
                           </div>
                           {taskNotifications
-                            .filter(notif => notif.type === 'task_completed' && notif.taskType === 'evaluation')
+                            .filter(notif => 
+                              notif.type === 'task_completed' && 
+                              notif.taskType === 'evaluation' &&
+                              !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                            )
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
                             <div key={`teacher-eval-completed-${notif.id}`} className="p-4 hover:bg-muted/50">
@@ -1786,15 +1838,28 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                       )}
                       
                       {/* 4. TAREAS COMPLETADAS POR ESTUDIANTES - CUARTO LUGAR */}
-                      {taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length > 0 && (
+                      {taskNotifications.filter(notif => 
+                        notif.type === 'task_completed' && 
+                        notif.taskType === 'assignment' &&
+                        // 🔥 NUEVO FILTRO: Solo mostrar si la tarea NO ha sido calificada aún
+                        !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                      ).length > 0 && (
                         <>
                           <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
                             <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                              {translate('completedTasks') || 'Tareas Completadas'} ({taskNotifications.filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment').length})
+                              {translate('completedTasks') || 'Tareas Completadas'} ({taskNotifications.filter(notif => 
+                                notif.type === 'task_completed' && 
+                                notif.taskType === 'assignment' &&
+                                !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                              ).length})
                             </h3>
                           </div>
                           {taskNotifications
-                            .filter(notif => notif.type === 'task_completed' && notif.taskType === 'assignment')
+                            .filter(notif => 
+                              notif.type === 'task_completed' && 
+                              notif.taskType === 'assignment' &&
+                              !isTaskAlreadyGraded(notif.taskId, notif.fromUsername)
+                            )
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
                             <div key={`teacher-task-completed-${notif.id}`} className="p-4 hover:bg-muted/50">
