@@ -2147,6 +2147,16 @@ export default function TareasPage() {
     return comments.filter(comment => comment.taskId === taskId);
   };
 
+  // 🔧 NUEVA FUNCIÓN: Contar solo comentarios del profesor (excluir entregas de estudiantes)
+  // PROBLEMA SOLUCIONADO: El contador mostraba "3 comentarios" cuando debía mostrar "1 comentario"
+  // porque estaba contando también las entregas de estudiantes como comentarios
+  const getTeacherCommentsCount = (taskId: string) => {
+    return comments.filter(comment => 
+      comment.taskId === taskId && 
+      !comment.isSubmission // Excluir entregas de estudiantes (isSubmission: true)
+    ).length;
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
@@ -2981,7 +2991,7 @@ export default function TareasPage() {
                               </span>
                               <span className="flex items-center">
                                 <MessageSquare className="w-3 h-3 mr-1" />
-                                {getTaskComments(task.id).length} {translate('commentsCount')}
+                                {getTeacherCommentsCount(task.id)} {translate('commentsCount')}
                               </span>
                             </div>
                           </div>
@@ -3201,7 +3211,7 @@ export default function TareasPage() {
                       </div>
                       <div className="flex items-center">
                         <MessageSquare className="w-3 h-3 mr-1" />
-                        {getTaskComments(task.id).length} {translate('commentsCount')}
+                        {getTeacherCommentsCount(task.id)} {translate('commentsCount')}
                       </div>
                     </div>
                   </CardContent>
