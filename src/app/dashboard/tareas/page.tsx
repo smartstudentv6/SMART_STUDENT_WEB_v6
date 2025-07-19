@@ -295,6 +295,57 @@ export default function TareasPage() {
     loadTasks();
     loadComments();
     loadEvaluationResults();
+    
+    // 🧹 LIMPIEZA AUTOMÁTICA SÚPER AGRESIVA: Eliminar TODAS las notificaciones "task_completed"
+    // Ejecuta en cada carga de página y se repite para mantener el panel limpio
+    const cleanupTaskCompletedNotifications = () => {
+      if (user?.role === 'teacher') {
+        try {
+          const notifications = JSON.parse(localStorage.getItem('smart-student-notifications') || '[]');
+          const taskCompletedNotifications = notifications.filter((n: any) => n.type === 'task_completed');
+          
+          console.log(`🔍 [CLEANUP] VERIFICANDO: ${notifications.length} notificaciones totales`);
+          console.log(`🎯 [CLEANUP] ENCONTRADAS: ${taskCompletedNotifications.length} notificaciones task_completed`);
+          
+          if (taskCompletedNotifications.length > 0) {
+            // Mostrar detalles de las notificaciones que se van a eliminar
+            console.log('📋 [CLEANUP] ELIMINANDO notificaciones task_completed:', 
+              taskCompletedNotifications.map((n: any) => ({
+                id: n.id,
+                title: n.taskTitle || n.title,
+                timestamp: n.timestamp
+              }))
+            );
+            
+            const cleanedNotifications = notifications.filter((n: any) => n.type !== 'task_completed');
+            localStorage.setItem('smart-student-notifications', JSON.stringify(cleanedNotifications));
+            
+            // Disparar evento para actualizar la UI inmediatamente
+            window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+              detail: { 
+                type: 'cleanup', 
+                action: 'auto_cleanup_task_completed',
+                removed: taskCompletedNotifications.length 
+              }
+            }));
+            
+            console.log(`✅ [CLEANUP] ELIMINADAS: ${taskCompletedNotifications.length} notificaciones task_completed`);
+            console.log(`📊 [CLEANUP] RESTANTES: ${cleanedNotifications.length} notificaciones en total`);
+          } else {
+            console.log(`✅ [CLEANUP] PANEL LIMPIO: No hay notificaciones task_completed`);
+          }
+        } catch (error) {
+          console.warn('⚠️ [CLEANUP] Error al limpiar notificaciones automáticamente:', error);
+        }
+      }
+    };
+
+    // Ejecutar limpieza inicial
+    cleanupTaskCompletedNotifications();
+    
+    // Ejecutar limpieza cada 2 segundos para mantener el panel limpio
+    const cleanupInterval = setInterval(cleanupTaskCompletedNotifications, 2000);
+    
     // Forzar refresco de tareas para asegurar que el panel de estudiantes se actualice con las entregas
     loadTasks && loadTasks();
     // Si hay un selectedTask, forzar su recarga desde localStorage para obtener la versión más reciente
@@ -306,6 +357,11 @@ export default function TareasPage() {
         if (updated) setSelectedTask(updated);
       }
     }
+    
+    // Limpiar interval cuando el componente se desmonte
+    return () => {
+      clearInterval(cleanupInterval);
+    };
   }, []);
   
   // Maneja la navegación desde notificaciones (separado para ejecutarse después de cargar las tareas)
@@ -328,10 +384,12 @@ export default function TareasPage() {
           if (user?.role === 'teacher' && user?.username) {
             console.log('🔔 [ESCENARIO 2] Profesor abrió la tarea, eliminando notificaciones de comentarios...');
             
-            // 🎯 NUEVA FUNCIONALIDAD: Eliminar notificaciones de evaluaciones completadas cuando el profesor las ve
+            // 🎯 CAMBIO: NO eliminar automáticamente las notificaciones de evaluaciones completadas
+            // Las notificaciones de evaluaciones completadas deben eliminarse solo cuando el profesor
+            // hace clic específicamente en "Ver Resultados" desde el panel de notificaciones
             if (task.taskType === 'evaluacion') {
-              console.log('🔔 [EVALUACION_VISTA] Profesor abrió evaluación, eliminando notificaciones de evaluaciones completadas...');
-              TaskNotificationManager.removeEvaluationCompletedNotifications(taskIdParam, user.username);
+              console.log('🔔 [EVALUACION_VISTA] Profesor abrió evaluación - MANTENIENDO notificaciones de evaluaciones completadas');
+              // TaskNotificationManager.removeEvaluationCompletedNotifications(taskIdParam, user.username); // COMENTADO
             }
             
             // Obtener comentarios de esta tarea
@@ -1117,7 +1175,7 @@ export default function TareasPage() {
     saveTasks(updatedTasks);
     
     // 🔔 NUEVA FUNCIONALIDAD: Crear notificación de "Tarea Pendiente" para el profesor
-    TaskNotificationManager.createTaskPendingNotification(
+    TaskNotificationManager.createPendingGradingNotification(
       taskId,
       formData.title,
       formData.course, // This is courseId
@@ -1296,7 +1354,7 @@ export default function TareasPage() {
       
       // 🔥 NUEVO: Si todos los estudiantes entregaron, crear notificación de tarea completa
       if (allStudentsSubmitted) {
-        console.log(`🚀 Creando notificación de tarea completa...`);
+        console.log(`🚀 Verificando si crear notificación de tarea completa...`);
         console.log(`📋 Detalles para notificación:`, {
           taskId: selectedTask.id,
           taskTitle: selectedTask.title,
@@ -1306,22 +1364,40 @@ export default function TareasPage() {
           taskType: selectedTask.taskType
         });
         
-        TaskNotificationManager.createTaskCompletedNotification(
-          selectedTask.id,
-          selectedTask.title,
-          selectedTask.course,
-          selectedTask.subject,
-          selectedTask.assignedById, // ID del profesor
-          selectedTask.taskType === 'evaluacion' ? 'evaluation' : 'assignment'
-        );
+        // � TEMPORALMENTE DESHABILITADO: Bloquear TODAS las notificaciones task_completed hasta resolver duplicados
+        console.log(`⚠️ NOTIFICACIÓN BLOQUEADA: Creación de task_completed temporalmente deshabilitada`);
+        console.log(`📝 Razón: Evitar duplicados mientras se investiga el problema`);
         
-        console.log(`✅ Tarea completa: Todos los estudiantes han entregado "${selectedTask.title}"`);
-        
-        // 🔥 FORZAR REFRESCO DE NOTIFICACIONES
-        // Disparar evento personalizado para actualizar el panel de notificaciones
-        window.dispatchEvent(new CustomEvent('notificationsUpdated', {
-          detail: { type: 'task_completed', taskId: selectedTask.id }
-        }));
+        /* 
+        // �🔧 CORRECCIÓN CRÍTICA: NO crear notificaciones para evaluaciones aquí
+        // Las evaluaciones ya se manejan en la página de evaluaciones con createEvaluationCompletedNotification
+        if (selectedTask.taskType !== 'evaluacion') {
+          console.log(`✅ Creando notificación para tarea de tipo: ${selectedTask.taskType}`);
+          
+          // 🔧 CORRECCIÓN CRÍTICA: Obtener el username del profesor, no usar el ID
+          const teacherUsername = getTeacherUsernameById(selectedTask.assignedById);
+          
+          TaskNotificationManager.createTaskCompletedNotification(
+            selectedTask.id,
+            selectedTask.title,
+            selectedTask.course,
+            selectedTask.subject,
+            teacherUsername, // Usar username del profesor, no ID
+            'assignment' // Solo para assignments, no evaluations
+          );
+          
+          console.log(`✅ Tarea completa: Todos los estudiantes han entregado "${selectedTask.title}"`);
+          
+          // 🔥 FORZAR REFRESCO DE NOTIFICACIONES
+          // Disparar evento personalizado para actualizar el panel de notificaciones
+          window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+            detail: { type: 'task_completed', taskId: selectedTask.id }
+          }));
+        } else {
+          console.log(`ℹ️ Saltando notificación para evaluación - ya se maneja en página de evaluaciones`);
+          console.log(`📝 Evaluación "${selectedTask.title}" completada por todos los estudiantes`);
+        }
+        */
       }
       
       // NO actualizar el estado aquí - se mantiene en 'pending' hasta calificación completa

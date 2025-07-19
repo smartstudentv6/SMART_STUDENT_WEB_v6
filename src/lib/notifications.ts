@@ -1,7 +1,7 @@
 // Sistema de notificaciones para tareas
 export interface TaskNotification {
   id: string;
-  type: 'new_task' | 'task_submission' | 'task_completed' | 'teacher_comment' | 'grade_received' | 'pending_grading';
+  type: 'new_task' | 'task_submission' | 'task_completed' | 'teacher_comment' | 'grade_received' | 'pending_grading' | 'evaluation_completed';
   taskId: string;
   taskTitle: string;
   targetUserRole: 'student' | 'teacher';
@@ -128,64 +128,7 @@ export class TaskNotificationManager {
     console.log('Pending grading notification saved');
   }
 
-  // Crear notificación de "Tarea Pendiente" para el profesor cuando crea una tarea
-  static createTaskPendingNotification(
-    taskId: string,
-    taskTitle: string,
-    course: string,
-    subject: string,
-    teacherUsername: string,
-    teacherDisplayName: string,
-    taskType: 'assignment' | 'evaluation' = 'assignment'
-  ): void {
-    console.log('=== DEBUG createTaskPendingNotification ===');
-    console.log('Creating task pending notification for teacher:', teacherUsername);
-    console.log('Task ID:', taskId);
-    console.log('Task Title:', taskTitle);
-    console.log('Course:', course);
-    console.log('Subject:', subject);
-    console.log('Task Type:', taskType);
-    
-    const notifications = this.getNotifications();
-    console.log('Current notifications count before creation:', notifications.length);
-    
-    // Obtener nombre del curso
-    const courseName = this.getCourseNameById(course);
-    console.log('Course name:', courseName);
-    
-    const newNotification: TaskNotification = {
-      id: `task_pending_${taskId}_${Date.now()}`,
-      type: 'pending_grading',
-      taskId,
-      taskTitle,
-      targetUserRole: 'teacher',
-      targetUsernames: [teacherUsername],
-      fromUsername: 'system',
-      fromDisplayName: `Tarea Pendiente: ${taskTitle}`,
-      teacherName: teacherDisplayName,
-      course,
-      subject,
-      timestamp: new Date().toISOString(),
-      read: false,
-      readBy: [],
-      taskType
-    };
 
-    notifications.push(newNotification);
-    console.log('Task pending notification created:', newNotification);
-    console.log('Total notifications after creation:', notifications.length);
-    
-    this.saveNotifications(notifications);
-    console.log('Task pending notification saved to localStorage');
-    
-    // Verify it was saved
-    const savedNotifications = this.getNotifications();
-    console.log('Verified saved notifications count:', savedNotifications.length);
-    
-    // Trigger event to update UI
-    window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
-    console.log('taskNotificationsUpdated event dispatched');
-  }
 
   // Función helper para obtener nombre del curso
   static getCourseNameById(courseId: string): string {
@@ -316,31 +259,24 @@ export class TaskNotificationManager {
   ): void {
     console.log(`🚀 createTaskCompletedNotification: Iniciando para taskId=${taskId}, teacher=${teacherUsername}`);
     
-    const notifications = this.getNotifications();
-    console.log(`📋 Notificaciones actuales: ${notifications.length}`);
-    
-    // Verificar si ya existe una notificación de tarea completa para esta tarea
-    const existingNotification = notifications.find(n => 
-      n.type === 'task_completed' && 
-      n.taskId === taskId &&
-      n.targetUsernames.includes(teacherUsername)
-    );
-    
-    if (existingNotification) {
-      console.log(`⚠️ Ya existe notificación de tarea completa para taskId: ${taskId}`);
-      console.log(`📋 Notificación existente:`, existingNotification);
-      return;
+    // 🔧 USAR FUNCIÓN CENTRALIZADA para verificar duplicados
+    if (this.hasExistingTaskCompletedNotification(taskId, teacherUsername)) {
+      console.log(`⚠️ [PROTECTED] Ya existe notificación task_completed para taskId: ${taskId}, teacher: ${teacherUsername}`);
+      return; // No crear nueva notificación
     }
     
+    const notifications = this.getNotifications();
+    
+    // 🔧 MEJORA: ID más específico para evitar colisiones de timing
     const newNotification: TaskNotification = {
-      id: `completed_${taskId}_${Date.now()}`,
+      id: `completed_${taskId}_${teacherUsername}_${Date.now()}`,
       type: 'task_completed',
       taskId,
       taskTitle,
       targetUserRole: 'teacher',
       targetUsernames: [teacherUsername],
       fromUsername: 'system',
-      fromDisplayName: 'Estudiante',
+      fromDisplayName: 'Sistema',
       course,
       subject,
       timestamp: new Date().toISOString(),
@@ -366,6 +302,132 @@ export class TaskNotificationManager {
     });
     
     console.log(`✅ Proceso de creación de notificación completado exitosamente`);
+    
+    // Disparar evento para actualizar la UI
+    window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+  }
+
+  // 🔧 NUEVA FUNCIÓN: Limpiar notificaciones duplicadas de tareas completadas
+  static cleanupDuplicateTaskCompletedNotifications(): number {
+    try {
+      const notifications = this.getNotifications();
+      let cleanedCount = 0;
+      
+      console.log(`🧹 [CLEANUP] Iniciando limpieza de notificaciones task_completed duplicadas...`);
+      
+      // Agrupar notificaciones task_completed por taskId y targetUsername
+      const taskCompletedGroups: { [key: string]: TaskNotification[] } = {};
+      
+      notifications.forEach(notification => {
+        if (notification.type === 'task_completed') {
+          const key = `${notification.taskId}_${notification.targetUsernames[0]}`;
+          if (!taskCompletedGroups[key]) {
+            taskCompletedGroups[key] = [];
+          }
+          taskCompletedGroups[key].push(notification);
+        }
+      });
+      
+      // Identificar y limpiar duplicados
+      const notificationsToKeep: TaskNotification[] = [];
+      const notificationsToRemove: string[] = [];
+      
+      Object.entries(taskCompletedGroups).forEach(([key, groupNotifications]) => {
+        if (groupNotifications.length > 1) {
+          console.log(`🔍 [CLEANUP] Encontrados ${groupNotifications.length} duplicados para ${key}`);
+          
+          // Mantener la más antigua (primera), eliminar el resto
+          const sorted = groupNotifications.sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          
+          notificationsToKeep.push(sorted[0]);
+          sorted.slice(1).forEach(duplicate => {
+            notificationsToRemove.push(duplicate.id);
+            cleanedCount++;
+          });
+          
+          console.log(`✅ [CLEANUP] Manteniendo: ${sorted[0].id}, eliminando: ${sorted.slice(1).map(n => n.id).join(', ')}`);
+        } else {
+          notificationsToKeep.push(groupNotifications[0]);
+        }
+      });
+      
+      if (cleanedCount > 0) {
+        // Filtrar notificaciones eliminando los duplicados
+        const cleanedNotifications = notifications.filter(n => 
+          n.type !== 'task_completed' || !notificationsToRemove.includes(n.id)
+        );
+        
+        this.saveNotifications(cleanedNotifications);
+        console.log(`✅ [CLEANUP] ${cleanedCount} notificaciones duplicadas eliminadas`);
+        
+        // Disparar evento para actualizar la UI
+        window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+      } else {
+        console.log(`ℹ️ [CLEANUP] No se encontraron duplicados de task_completed`);
+      }
+      
+      return cleanedCount;
+    } catch (error) {
+      console.error(`❌ [CLEANUP] Error limpiando duplicados:`, error);
+      return 0;
+    }
+  }
+
+  // 🔧 FUNCIÓN CENTRALIZADA: Verificar si ya existe notificación task_completed para una tarea
+  private static hasExistingTaskCompletedNotification(
+    taskId: string,
+    teacherUsername: string,
+    fromUsername?: string
+  ): boolean {
+    const notifications = this.getNotifications();
+    
+    // Buscar cualquier notificación task_completed para esta tarea y profesor
+    const existingNotifications = notifications.filter(n => 
+      n.type === 'task_completed' && 
+      n.taskId === taskId &&
+      n.targetUsernames.includes(teacherUsername)
+    );
+    
+    if (existingNotifications.length === 0) {
+      return false; // No hay notificaciones existentes
+    }
+    
+    console.log(`🔍 [DUPLICATE_CHECK] Encontradas ${existingNotifications.length} notificaciones task_completed para tarea ${taskId}`);
+    
+    // Si hay más de una notificación, hay duplicados - limpiar
+    if (existingNotifications.length > 1) {
+      console.log(`🧹 [DUPLICATE_CHECK] Limpiando ${existingNotifications.length - 1} duplicados automáticamente...`);
+      
+      // Mantener solo la primera (más antigua)
+      const toKeep = existingNotifications.sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      )[0];
+      
+      const toRemove = existingNotifications.filter(n => n.id !== toKeep.id);
+      
+      const cleanedNotifications = notifications.filter(n => 
+        !toRemove.some(duplicate => duplicate.id === n.id)
+      );
+      
+      this.saveNotifications(cleanedNotifications);
+      console.log(`✅ [DUPLICATE_CHECK] ${toRemove.length} duplicados eliminados, mantenida: ${toKeep.id}`);
+      
+      // Disparar evento para actualizar la UI
+      window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+    }
+    
+    // Si se especifica fromUsername, verificar si ya existe una notificación de ese usuario específico
+    if (fromUsername) {
+      const fromThisUser = existingNotifications.find(n => n.fromUsername === fromUsername);
+      if (fromThisUser) {
+        console.log(`⚠️ [DUPLICATE_CHECK] Ya existe notificación de ${fromUsername} para tarea ${taskId}: ${fromThisUser.id}`);
+        return true;
+      }
+    }
+    
+    return existingNotifications.length > 0;
   }
 
   // Verificar si todos los estudiantes de un curso han entregado una tarea específica
@@ -495,20 +557,58 @@ export class TaskNotificationManager {
     }
   }
 
+  // 🔧 NUEVA FUNCIÓN: Verificar si una tarea de asignación ya fue calificada para un estudiante específico
+  static isTaskAlreadyGraded(taskId: string, studentUsername: string): boolean {
+    try {
+      console.log(`[isTaskAlreadyGraded] Checking if assignment ${taskId} is already graded for student ${studentUsername}`);
+      
+      const comments = JSON.parse(localStorage.getItem('smart-student-task-comments') || '[]');
+      console.log(`[isTaskAlreadyGraded] 📊 Found ${comments.length} total comments in localStorage`);
+      
+      // Buscar la entrega del estudiante específico
+      const submission = comments.find((comment: any) =>
+        comment.taskId === taskId &&
+        comment.studentUsername === studentUsername &&
+        comment.isSubmission === true
+      );
+      
+      if (!submission) {
+        console.log(`[isTaskAlreadyGraded] ❌ No submission found for ${studentUsername} on task ${taskId}`);
+        return false;
+      }
+      
+      // Verificar si tiene calificación
+      const isGraded = submission.grade !== null && submission.grade !== undefined;
+      console.log(`[isTaskAlreadyGraded] ${isGraded ? '✅' : '❌'} Assignment ${taskId} grading status for ${studentUsername}: ${isGraded ? 'GRADED' : 'NOT GRADED'} (grade: ${submission.grade})`);
+      
+      return isGraded;
+    } catch (error) {
+      console.error('Error checking task grading status:', error);
+      return false;
+    }
+  }
+
   // Obtener notificaciones no leídas para un usuario específico
-  static getUnreadNotificationsForUser(username: string, userRole: 'student' | 'teacher'): TaskNotification[] {
+  static getUnreadNotificationsForUser(username: string, userRole: 'student' | 'teacher', userId?: string): TaskNotification[] {
     const notifications = this.getNotifications();
     
-    console.log(`[TaskNotificationManager] getUnreadNotificationsForUser: ${username} (${userRole})`);
+    console.log(`[TaskNotificationManager] getUnreadNotificationsForUser: ${username} (${userRole}) with ID: ${userId}`);
     console.log(`[TaskNotificationManager] Total notifications in storage: ${notifications.length}`);
     
     const filtered = notifications.filter(notification => {
       console.log(`[TaskNotificationManager] Checking notification: ${notification.type} from ${notification.fromUsername} to ${notification.targetUsernames.join(',')} (role: ${notification.targetUserRole})`);
       
+      // 🔥 FILTRO MEJORADO: Verificar tanto username como userId
+      const isTargetUser = notification.targetUsernames.includes(username) || 
+                          (userId && notification.targetUsernames.includes(userId));
+      
+      console.log(`[TaskNotificationManager] 🎯 Target check - Username: ${notification.targetUsernames.includes(username)}, UserID: ${userId && notification.targetUsernames.includes(userId)}, Final: ${isTargetUser}`);
+      
       // Filtros básicos
       let basicFilters = notification.targetUserRole === userRole &&
-        notification.targetUsernames.includes(username) &&
-        !notification.readBy.includes(username);
+        isTargetUser &&
+        !notification.readBy.includes(username) && 
+        !notification.readBy.includes(userId || '');
 
       // 🔥 CORRECCIÓN ESPECÍFICA PARA PROFESORES: Solo excluir sus propios comentarios de estudiante, NO las entregas de estudiantes
       if (userRole === 'teacher') {
@@ -527,14 +627,23 @@ export class TaskNotificationManager {
 
       if (!basicFilters) return false;
 
-      // Para estudiantes: filtrar evaluaciones completadas
+      // 🔧 SOLUCIÓN: Filtrado específico por estudiante para evitar filtrado cruzado
       if (userRole === 'student' && notification.type === 'new_task') {
-        // Verificar si la tarea es una evaluación y si ya fue completada
+        // Para tareas de asignación: solo filtrar si EL MISMO estudiante ya entregó y fue calificado
+        if (notification.taskType === 'assignment') {
+          const isGraded = this.isTaskAlreadyGraded(notification.taskId, username);
+          if (isGraded) {
+            console.log(`[SOLUTION] Filtering graded assignment only for ${username}: ${notification.taskTitle}`);
+            return false;
+          }
+        }
+        
+        // Para evaluaciones: solo filtrar si EL MISMO estudiante ya la completó
         if (notification.taskType === 'evaluation') {
           const isCompleted = this.isEvaluationCompletedByStudent(notification.taskId, username);
           if (isCompleted) {
-            console.log(`[getUnreadNotificationsForUser] Filtering out completed evaluation: ${notification.taskTitle} for student: ${username}`);
-            return false; // No mostrar notificaciones de evaluaciones completadas
+            console.log(`[SOLUTION] Filtering completed evaluation only for ${username}: ${notification.taskTitle}`);
+            return false;
           }
         }
       }
@@ -548,21 +657,22 @@ export class TaskNotificationManager {
   }
 
   // Contar notificaciones no leídas para un usuario
-  static getUnreadCountForUser(username: string, userRole: 'student' | 'teacher'): number {
-    const unreadNotifications = this.getUnreadNotificationsForUser(username, userRole);
+  static getUnreadCountForUser(username: string, userRole: 'student' | 'teacher', userId?: string): number {
+    const unreadNotifications = this.getUnreadNotificationsForUser(username, userRole, userId);
     
     // Para profesores, contar todas las notificaciones incluyendo pending_grading y task_completed
     if (userRole === 'teacher') {
-      // 🔥 CORRECCIÓN: Incluir notificaciones de entregas de estudiantes (task_submission)
+      // 🔥 CORRECCIÓN: Incluir notificaciones de entregas de estudiantes (task_submission) y evaluaciones completadas
       const notificationCount = unreadNotifications.filter(n => 
         n.type === 'pending_grading' || 
         n.type === 'task_completed' || 
         n.type === 'task_submission' ||  // 🔥 NUEVO: Incluir entregas de estudiantes
-        n.type === 'teacher_comment' ||
-        (n.type === 'new_task' && n.fromUsername === username) // Notificaciones de tareas creadas por este profesor
+        n.type === 'evaluation_completed' || // 🔥 NUEVO: Incluir evaluaciones completadas
+        n.type === 'teacher_comment'
+        // ✅ ELIMINADO: new_task no debería contarse para profesores ya que son notificaciones para estudiantes
       ).length;
       
-      console.log(`[TaskNotificationManager] Teacher ${username} has ${notificationCount} notifications (including ${unreadNotifications.filter(n => n.type === 'pending_grading').length} pending_grading, ${unreadNotifications.filter(n => n.type === 'task_completed').length} task_completed, and ${unreadNotifications.filter(n => n.type === 'task_submission').length} task_submission)`);
+      console.log(`[TaskNotificationManager] Teacher ${username} has ${notificationCount} notifications (including ${unreadNotifications.filter(n => n.type === 'pending_grading').length} pending_grading, ${unreadNotifications.filter(n => n.type === 'task_completed').length} task_completed, ${unreadNotifications.filter(n => n.type === 'task_submission').length} task_submission, and ${unreadNotifications.filter(n => n.type === 'evaluation_completed').length} evaluation_completed)`);
       
       return notificationCount;
     }
@@ -580,17 +690,19 @@ export class TaskNotificationManager {
 
   // Obtener estudiantes en un curso específico
   private static getStudentsInCourse(course: string): Array<{username: string, displayName: string}> {
-    // Obtenemos los usuarios del localStorage (que es un objeto)
-    const usersObj = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+    // 🔧 CORREGIDO: Parsear como array (no como objeto) - el sistema usa arrays
+    const usersArray = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
     
-    // Convertimos el objeto a un array de usuarios con su nombre de usuario
-    const users = Object.entries(usersObj).map(([username, data]: [string, any]) => ({
-      username,
-      ...data,
-      displayName: data.displayName || username
-    }));
+    // 🔧 CORREGIDO: Verificar que sea un array
+    if (!Array.isArray(usersArray)) {
+      console.error('❌ [getStudentsInCourse] Users format is not an array:', typeof usersArray);
+      return [];
+    }
     
-    return users
+    console.log(`🔍 [getStudentsInCourse] Searching for students in course: "${course}"`);
+    console.log(`👥 [getStudentsInCourse] Total users in system: ${usersArray.length}`);
+    
+    const studentsInCourse = usersArray
       .filter((user: any) => 
         user.role === 'student' && 
         user.activeCourses && 
@@ -600,6 +712,13 @@ export class TaskNotificationManager {
         username: user.username,
         displayName: user.displayName || user.username
       }));
+    
+    console.log(`🎯 [getStudentsInCourse] Students found in "${course}": ${studentsInCourse.length}`);
+    studentsInCourse.forEach((student, index) => {
+      console.log(`   ${index + 1}. ${student.username} (${student.displayName})`);
+    });
+    
+    return studentsInCourse;
   }
 
   // Crear notificación cuando un profesor califica una tarea
@@ -1084,9 +1203,24 @@ export class TaskNotificationManager {
     
     const notifications = this.getNotifications();
     
+    // 🔧 USAR FUNCIÓN CENTRALIZADA para verificar duplicados - incluir verificación específica por estudiante
+    // ✅ VERIFICAR AMBOS TIPOS: task_completed Y evaluation_completed
+    const existingTaskCompleted = this.hasExistingTaskCompletedNotification(taskId, teacherUsername, studentUsername);
+    const existingEvaluationCompleted = notifications.some(n => 
+      n.type === 'evaluation_completed' && 
+      n.taskId === taskId &&
+      n.targetUsernames.includes(teacherUsername) &&
+      n.fromUsername === studentUsername
+    );
+    
+    if (existingTaskCompleted || existingEvaluationCompleted) {
+      console.log(`⚠️ [PROTECTED] Ya existe notificación de evaluación completada para taskId: ${taskId}, teacher: ${teacherUsername}, student: ${studentUsername}`);
+      return; // No crear nueva notificación
+    }
+    
     const newNotification: TaskNotification = {
       id: `eval_completed_${taskId}_${studentUsername}_${Date.now()}`,
-      type: 'task_completed',
+      type: 'evaluation_completed',
       taskId,
       taskTitle,
       targetUserRole: 'teacher',
@@ -1099,7 +1233,7 @@ export class TaskNotificationManager {
       read: false,
       readBy: [],
       taskType: 'evaluation'
-      // ✅ CORRECCIÓN: Eliminado el campo grade para no mostrar resultado en notificación
+      // ✅ CORRECCIÓN CRÍTICA: Cambiar tipo a 'evaluation_completed' para separar de 'task_completed'
     };
 
     notifications.push(newNotification);
@@ -1107,6 +1241,9 @@ export class TaskNotificationManager {
     
     this.saveNotifications(notifications);
     console.log('Evaluation completion notification saved for teacher:', teacherUsername);
+    
+    // Disparar evento para actualizar la UI
+    window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
   }
 
   // 🔧 FUNCIÓN DE MIGRACIÓN: Actualizar notificaciones existentes que muestran "Sistema"
@@ -1264,14 +1401,22 @@ export class TaskNotificationManager {
       });
       
       // Filtrar notificaciones que NO sean de tareas finalizadas
-      // Eliminamos TODAS las notificaciones relacionadas con tareas finalizadas
+      // 🔥 CORRECCIÓN: NO eliminar notificaciones de evaluaciones completadas (task_completed + evaluation)
+      // ya que los profesores necesitan verlas para revisar resultados
       const filteredNotifications = notifications.filter(notification => {
         const isFromFinalizedTask = finalizedTaskIds.includes(notification.taskId);
+        
+        // 🎯 NUEVO: Preservar notificaciones de evaluaciones completadas para profesores
+        if (isFromFinalizedTask && notification.type === 'task_completed' && notification.taskType === 'evaluation') {
+          console.log(`✅ [CLEANUP] Preservando notificación de evaluación completada: "${notification.taskTitle}" (profesor necesita ver resultados)`);
+          return true; // NO eliminar evaluaciones completadas
+        }
+        
         const shouldRemove = isFromFinalizedTask && 
           (notification.type === 'pending_grading' || 
            notification.type === 'task_submission' ||
            notification.type === 'new_task' ||
-           notification.type === 'task_completed' ||
+           (notification.type === 'task_completed' && notification.taskType !== 'evaluation') || // Solo eliminar tareas, no evaluaciones
            notification.type === 'teacher_comment');
         
         if (shouldRemove) {
@@ -1377,22 +1522,25 @@ export class TaskNotificationManager {
   }
 
   // 🔥 NUEVA: Función para eliminar notificaciones de evaluaciones completadas cuando el profesor las ve
-  static removeEvaluationCompletedNotifications(taskId: string, teacherUsername: string): void {
+  static removeEvaluationCompletedNotifications(taskId: string, teacherUsername: string, teacherId?: string): void {
     try {
-      console.log(`🎯 [REMOVE_EVAL_COMPLETED] Eliminando notificaciones de evaluaciones completadas para tarea: ${taskId}, profesor: ${teacherUsername}`);
+      console.log(`🎯 [REMOVE_EVAL_COMPLETED] Eliminando notificaciones de evaluaciones completadas para tarea: ${taskId}, profesor: ${teacherUsername}, ID: ${teacherId}`);
       
       const notifications = this.getNotifications();
       let removedCount = 0;
       
       const filteredNotifications = notifications.filter(notification => {
         const shouldRemove = notification.taskId === taskId && 
-          notification.type === 'task_completed' &&
-          notification.taskType === 'evaluation' &&
-          notification.targetUsernames.includes(teacherUsername);
+          ((notification.type === 'task_completed' && notification.taskType === 'evaluation') ||
+           notification.type === 'evaluation_completed') &&
+          (notification.targetUsernames.includes(teacherUsername) || 
+           (teacherId && notification.targetUsernames.includes(teacherId))); // Verificar por username o ID
         
         if (shouldRemove) {
           console.log(`📭 [REMOVE_EVAL_COMPLETED] Eliminando notificación de evaluación completada:`, {
             id: notification.id,
+            type: notification.type,
+            taskType: notification.taskType,
             taskTitle: notification.taskTitle,
             fromUser: notification.fromUsername,
             targetUsers: notification.targetUsernames
@@ -1426,7 +1574,61 @@ export class TaskNotificationManager {
     }
   }
 
-  // 🔥 NUEVA: Función para eliminar notificaciones de tarea completada cuando el profesor califica
+  // � FUNCIÓN DE MANTENIMIENTO: Reparar notificaciones marcadas incorrectamente como leídas
+  static repairIncorrectlyMarkedNotifications(): number {
+    try {
+      const notifications = this.getNotifications();
+      let repaired = 0;
+      
+      console.log(`[REPAIR] Iniciando reparación de notificaciones mal marcadas...`);
+      
+      const repairedNotifications = notifications.map(notification => {
+        if (notification.type === 'new_task') {
+          // Verificar cada estudiante individualmente
+          const validReadBy = notification.readBy.filter(username => {
+            // Solo mantener como "leído" si realmente entregó y fue calificado (para assignments)
+            // o si completó la evaluación (para evaluations)
+            if (notification.taskType === 'assignment') {
+              const isGraded = this.isTaskAlreadyGraded(notification.taskId, username);
+              return isGraded;
+            } else if (notification.taskType === 'evaluation') {
+              const isCompleted = this.isEvaluationCompletedByStudent(notification.taskId, username);
+              return isCompleted;
+            }
+            return false; // Por defecto, quitar de readBy si no se puede verificar
+          });
+          
+          if (validReadBy.length !== notification.readBy.length) {
+            repaired++;
+            console.log(`[REPAIR] Reparando notificación ${notification.id}: readBy ${notification.readBy.length} -> ${validReadBy.length}`);
+            return {
+              ...notification,
+              readBy: validReadBy,
+              read: validReadBy.length >= notification.targetUsernames.length
+            };
+          }
+        }
+        return notification;
+      });
+      
+      if (repaired > 0) {
+        this.saveNotifications(repairedNotifications);
+        console.log(`🔧 [REPAIR] Reparadas ${repaired} notificaciones mal marcadas`);
+        
+        // Disparar evento para actualizar la UI
+        window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+      } else {
+        console.log(`ℹ️ [REPAIR] No se encontraron notificaciones que necesiten reparación`);
+      }
+      
+      return repaired;
+    } catch (error) {
+      console.error(`❌ [REPAIR] Error reparando notificaciones:`, error);
+      return 0;
+    }
+  }
+
+  // �🔥 NUEVA: Función para eliminar notificaciones de tarea completada cuando el profesor califica
   static removeTaskCompletedNotifications(taskId: string): void {
     try {
       console.log(`🎯 [REMOVE_COMPLETED] Eliminando notificaciones 'task_completed' para tarea: ${taskId}`);

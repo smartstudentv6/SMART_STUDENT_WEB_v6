@@ -493,11 +493,50 @@ export default function EvaluacionPage() {
                 
                 if (currentTask) {
                   console.log('🔔 Creating evaluation completion notification for evaluation:', currentTask.title);
+                  console.log('🔍 [DEBUG] Current task data:', currentTask);
                   
-                  // Para evaluaciones, usamos 'teacher' como username por defecto o buscamos en el curso
-                  const teacherUsername = currentTask.assignedBy === 'system' || currentTask.assignedBy === 'evaluacion' 
-                    ? 'teacher' // Usar 'teacher' como fallback
-                    : currentTask.assignedBy;
+                  // 🔥 CORRECCIÓN: Lógica mejorada para determinar el profesor
+                  let teacherUsername = 'teacher'; // fallback por defecto
+                  
+                  // Método 1: Usar assignedBy si es válido
+                  if (currentTask.assignedBy && 
+                      currentTask.assignedBy !== 'system' && 
+                      currentTask.assignedBy !== 'evaluacion') {
+                    teacherUsername = currentTask.assignedBy;
+                    console.log('🎯 [DEBUG] Using assignedBy as teacher:', teacherUsername);
+                  } else {
+                    // Método 2: Buscar profesor logueado actualmente
+                    const currentUser = JSON.parse(localStorage.getItem('smart-student-user') || '{}');
+                    if (currentUser.role === 'teacher' && currentUser.username) {
+                      teacherUsername = currentUser.username;
+                      console.log('🎯 [DEBUG] Using current logged teacher:', teacherUsername);
+                    } else {
+                      // Método 3: Buscar primer profesor en usuarios
+                      const usersObj = JSON.parse(localStorage.getItem('smart-student-users') || '{}');
+                      const teachers = Object.entries(usersObj).filter(([_, userData]: [string, any]) => 
+                        userData.role === 'teacher'
+                      );
+                      if (teachers.length > 0) {
+                        teacherUsername = teachers[0][0]; // Usar username del primer profesor
+                        console.log('🎯 [DEBUG] Using first available teacher:', teacherUsername);
+                      } else {
+                        console.log('⚠️ [DEBUG] No teachers found, using fallback:', teacherUsername);
+                      }
+                    }
+                  }
+                  
+                  console.log('✅ [DEBUG] Final teacherUsername determined:', teacherUsername);
+                  
+                  // 🔥 MEJORA: Obtener displayName mejorado del estudiante
+                  let studentDisplayName = user.username; // fallback
+                  if (user.displayName) {
+                    studentDisplayName = user.displayName;
+                  } else if (user.firstName && user.lastName) {
+                    studentDisplayName = `${user.firstName} ${user.lastName}`;
+                  } else if (user.firstName) {
+                    studentDisplayName = user.firstName;
+                  }
+                  console.log('✅ [DEBUG] Student display name:', studentDisplayName);
                   
                   TaskNotificationManager.createEvaluationCompletedNotification(
                     taskId,
@@ -505,7 +544,7 @@ export default function EvaluacionPage() {
                     selectedCourse,
                     selectedBook,
                     user.username,
-                    user.username, // displayName - podríamos mejorarlo con firstName + lastName si está disponible
+                    studentDisplayName, // 🔥 MEJORADO: usar displayName mejorado
                     teacherUsername, // teacherUsername
                     {
                       score: finalScore,

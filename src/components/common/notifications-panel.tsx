@@ -189,6 +189,48 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   };
 
   // 🔧 NUEVA: Función para crear enlaces seguros a tareas
+  // 🔧 NUEVA FUNCIÓN: Crear enlace específico para Ver Resultados que elimine la notificación
+  const createViewResultsLink = (taskId: string, notificationId: string): JSX.Element => {
+    const taskExists = validateTaskExists(taskId);
+    
+    const handleViewResults = () => {
+      // Eliminar la notificación específica de evaluación completada
+      if (user?.username) {
+        console.log(`🔔 [VIEW_RESULTS] Eliminando notificación de evaluación completada: ${notificationId}`);
+        TaskNotificationManager.removeEvaluationCompletedNotifications(taskId, user.username, user.id);
+        
+        // Recargar notificaciones después de eliminar
+        setTimeout(() => {
+          loadTaskNotifications();
+        }, 100);
+      }
+    };
+    
+    if (!taskExists) {
+      return (
+        <button 
+          className="inline-block mt-2 text-xs text-gray-400 cursor-not-allowed"
+          disabled
+          title="Esta tarea ya no existe"
+        >
+          Ver Resultados (No disponible)
+        </button>
+      );
+    }
+    
+    const href = `/dashboard/tareas?taskId=${taskId}&highlight=true`;
+    
+    return (
+      <Link 
+        href={href}
+        onClick={handleViewResults}
+        className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
+      >
+        Ver Resultados
+      </Link>
+    );
+  };
+
   const createSafeTaskLink = (taskId: string, additionalParams: string = '', linkText: string = 'Ver tarea', linkType: 'evaluation' | 'task' = 'task'): JSX.Element => {
     const taskExists = validateTaskExists(taskId);
     
@@ -217,7 +259,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     );
   };
 
-  // 🔧 CORREGIDA: Función para verificar si una tarea ya ha sido calificada
+  //  CORREGIDA: Función para verificar si una tarea ya ha sido calificada
   const isTaskAlreadyGraded = (taskId: string, studentUsername: string): boolean => {
     try {
       console.log(`🔍 [isTaskAlreadyGraded] Verificando si tarea ${taskId} de estudiante ${studentUsername} está calificada`);
@@ -399,9 +441,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   }, [user]);
 
   useEffect(() => {
-    // Load data based on user role
+    // 🔄 NUEVA CARGA INICIAL OPTIMIZADA: Evitar panel vacío inicial
     if (user) {
-      console.log(`[NotificationsPanel] Loading data for user: ${user.username}, role: ${user.role}`);
+      console.log(`[NotificationsPanel] 🚀 OPTIMIZED INITIAL LOAD for user: ${user.username}, role: ${user.role}`);
       
       // 🔧 MIGRACIÓN: Actualizar notificaciones que muestran "Sistema"
       TaskNotificationManager.migrateSystemNotifications();
@@ -409,77 +451,83 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       // 🧹 NUEVO: Ejecutar limpieza automática al cargar
       TaskNotificationManager.cleanupFinalizedTaskNotifications();
       
-      // Clear all states first to avoid residual data when switching users/roles
-      setUnreadComments([]);
-      setPendingTasks([]);
-      setPasswordRequests([]);
-      setStudentSubmissions([]);
-      setUnreadStudentComments([]);
-      setClassTasks([]);
-      setTaskNotifications([]);
-      setPendingGrading([]);
-      
-      if (user.role === 'admin') {
-        loadPasswordRequests();
-      } else if (user.role === 'student') {
-        loadUnreadComments();
-        loadPendingTasks();
-        loadTaskNotifications();
-      } else if (user.role === 'teacher') {
-        console.log(`[NotificationsPanel] Loading teacher-specific data for ${user.username}`);
-        loadStudentSubmissions();
-        loadTaskNotifications();
-        loadPendingGrading();
-        // Clear pending tasks for teachers as they don't have pending tasks, only submissions to review
+      // 🔄 MEJORADO: Función de carga sincronizada para evitar "panel vacío inicial"
+      const loadDataSynchronized = async () => {
+        console.log(`[NotificationsPanel] 🔄 Starting synchronized data load for ${user.username} (${user.role})`);
+        
+        // Clear all states first to avoid residual data when switching users/roles
+        setUnreadComments([]);
         setPendingTasks([]);
-      }
+        setPasswordRequests([]);
+        setStudentSubmissions([]);
+        setUnreadStudentComments([]);
+        setClassTasks([]);
+        setTaskNotifications([]);
+        setPendingGrading([]);
+        
+        try {
+          if (user.role === 'admin') {
+            console.log(`[NotificationsPanel] 👑 Loading admin data...`);
+            loadPasswordRequests();
+          } else if (user.role === 'student') {
+            console.log(`[NotificationsPanel] 🎓 Loading student data synchronously...`);
+            
+            // 🔄 NUEVO: Carga sincronizada para estudiantes - evitar delays
+            // Cargar todo en secuencia sin timeouts para evitar panel vacío
+            loadUnreadComments();
+            loadTaskNotifications(); // Primero las notificaciones (más rápido)
+            loadPendingTasks(); // Luego las tareas (puede tardar más por filtrado)
+            
+            console.log(`[NotificationsPanel] ✅ Student data loaded synchronously`);
+          } else if (user.role === 'teacher') {
+            console.log(`[NotificationsPanel] 👨‍🏫 Loading teacher data synchronously...`);
+            
+            // 🔄 NUEVO: Carga sincronizada para profesores
+            loadTaskNotifications(); // Primero las notificaciones
+            loadStudentSubmissions(); // Luego las entregas
+            loadPendingGrading(); // Finalmente las calificaciones pendientes
+            
+            // Clear pending tasks for teachers as they don't have pending tasks, only submissions to review
+            setPendingTasks([]);
+            
+            console.log(`[NotificationsPanel] ✅ Teacher data loaded synchronously`);
+          }
+        } catch (error) {
+          console.error(`[NotificationsPanel] ❌ Error during synchronized load:`, error);
+        }
+      };
+      
+      // 🚀 EJECUTAR CARGA INMEDIATA SIN DELAY
+      loadDataSynchronized();
     }
     
-    // Listener para sincronización automática de notificaciones
+    // 🔄 MEJORADO: Event listeners optimizados para evitar recargas innecesarias
     const handleNotificationSync = () => {
       if (user) {
-        console.log('[NotificationsPanel] Notification sync event detected, reloading data...');
-        // Recargar notificaciones
-        if (user.role === 'teacher') {
-          loadStudentSubmissions();
-          loadTaskNotifications();
-          loadPendingGrading();
-        } else if (user.role === 'student') {
-          loadUnreadComments();
-          loadPendingTasks();
-          loadTaskNotifications();
-        }
+        console.log('[NotificationsPanel] 📡 Essential notification sync triggered, reloading minimal data...');
         
-        // Recargar datos después de sincronización
-        setTimeout(() => {
-          if (user.role === 'student') {
-            loadUnreadComments();
+        // 🔄 OPTIMIZADO: Solo recargar datos esenciales sin redundancia
+        if (user.role === 'teacher') {
+          loadTaskNotifications(); // Solo notificaciones, las demás se actualizan por otros eventos
+        } else if (user.role === 'student') {
+          // 🔄 NUEVO: Para estudiantes, solo recargar si hay cambios específicos
+          loadTaskNotifications();
+          
+          // 🔄 OPTIMIZADO: Recargar tareas pendientes con pequeño delay para evitar múltiples cargas
+          setTimeout(() => {
             loadPendingTasks();
-            loadTaskNotifications();
-          } else if (user.role === 'teacher') {
-            loadStudentSubmissions();
-            loadTaskNotifications();
-            loadPendingGrading();
-          }
-        }, 1000); // Esperar 1 segundo para que la sincronización complete
+          }, 300);
+        }
       }
     };
-
-    // 🔥 NUEVO: Listener para actualizaciones de notificaciones específicas
-    const handleNotificationsUpdated = (event: CustomEvent) => {
-      console.log(`[NotificationsPanel] Notificaciones actualizadas:`, event.detail);
-      // Recargar notificaciones cuando se actualicen
-      handleNotificationSync();
-    };
     
-    window.addEventListener('notificationSync', handleNotificationSync);
-    window.addEventListener('notificationSyncCompleted', handleNotificationSync);
-    window.addEventListener('notificationsUpdated', handleNotificationsUpdated as EventListener);
+    // 🔄 SIMPLIFICADO: Solo los event listeners esenciales
+    window.addEventListener('taskGraded', handleNotificationSync);
+    window.addEventListener('taskNotificationsUpdated', handleNotificationSync);
     
     return () => {
-      window.removeEventListener('notificationSync', handleNotificationSync);
-      window.removeEventListener('notificationSyncCompleted', handleNotificationSync);
-      window.removeEventListener('notificationsUpdated', handleNotificationsUpdated as EventListener);
+      window.removeEventListener('taskGraded', handleNotificationSync);
+      window.removeEventListener('taskNotificationsUpdated', handleNotificationSync);
     };
   }, [user]);
 
@@ -557,8 +605,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     
     // 🔥 NUEVO: Listener para actualizar notificaciones cuando se califique una tarea
     const handleGradingUpdated = () => {
-      console.log('🎯 [handleGradingUpdated] Task graded, reloading notifications');
+      console.log('🎯 [handleGradingUpdated] Task graded, reloading notifications and pending tasks');
       loadTaskNotifications();
+      loadPendingTasks(); // 🔥 AGREGAR: También actualizar tareas pendientes
     };
     window.addEventListener('taskGraded', handleGradingUpdated);
     
@@ -650,16 +699,25 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
             }
           }
           
-          // Para tareas regulares, verificar si ya fueron entregadas
+          // Para tareas regulares, verificar si ya fueron entregadas Y calificadas
           const hasSubmitted = comments.some(comment => 
             comment.taskId === task.id && 
             comment.studentUsername === user?.username && 
             comment.isSubmission
           );
           
-          console.log(`[loadPendingTasks] Task "${task.title}": assigned=${isAssigned}, approaching=${isApproaching}, submitted=${hasSubmitted}`);
+          // 🔥 NUEVO: Verificar si la tarea ya fue calificada (finalizada)
+          // Si está calificada, no debe aparecer en pendientes sin importar el estado de entrega
+          const isGraded = isTaskAlreadyGraded(task.id, user?.username || '');
           
-          return isAssigned && isApproaching && !hasSubmitted;
+          console.log(`[loadPendingTasks] Task "${task.title}": assigned=${isAssigned}, approaching=${isApproaching}, submitted=${hasSubmitted}, graded=${isGraded}`);
+          
+          // Solo mostrar tareas que:
+          // 1. Están asignadas al estudiante
+          // 2. No han vencido
+          // 3. NO han sido entregadas O han sido entregadas pero NO calificadas
+          // 4. NO han sido calificadas (esto es lo más importante)
+          return isAssigned && isApproaching && !isGraded && !hasSubmitted;
         });
         
         // Sort by due date (closest first)
@@ -832,18 +890,20 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
   const loadPendingGrading = () => {
     if (!user || user.role !== 'teacher') return;
     try {
+      console.log('🔍 [DEBUG] Usuario actual para notificaciones:', user);
       const notifications = TaskNotificationManager.getUnreadNotificationsForUser(
         user.username,
-        'teacher'
+        'teacher',
+        user.id // Agregar ID del usuario
       );
       
-      // Filtrar solo notificaciones de pending_grading que NO sean del sistema
-      // Las notificaciones del sistema se manejan en taskNotifications
+      // Filtrar notificaciones de pending_grading (incluir todas, la lógica de duplicación se maneja en el renderizado)
       const pending = notifications.filter(n => 
-        n.type === 'pending_grading' && n.fromUsername !== 'system'
+        n.type === 'pending_grading' && 
+        (n.targetUsernames.includes(user.username) || n.targetUsernames.includes(user.id))
       );
       
-      console.log(`[NotificationsPanel] loadPendingGrading: Found ${pending.length} pending grading notifications (excluding system)`);
+      console.log(`[NotificationsPanel] loadPendingGrading: Found ${pending.length} pending grading notifications`);
       setPendingGrading(pending);
     } catch (error) {
       console.error('Error loading pending grading:', error);
@@ -857,13 +917,89 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     try {
       console.log(`[NotificationsPanel] Loading task notifications for user: ${user.username} (role: ${user.role})`);
       
+      // 🧹 FILTRO DIRECTO MEJORADO: Eliminar TODAS las notificaciones task_completed de AMBOS localStorage
+      if (user.role === 'teacher') {
+        console.log('🚨 [FILTRO DIRECTO] Eliminando task_completed de AMBOS localStorage...');
+        
+        // Limpiar localStorage principal (smart-student-notifications)
+        const allNotifications = JSON.parse(localStorage.getItem('smart-student-notifications') || '[]');
+        const taskCompletedNotifications = allNotifications.filter((n: any) => n.type === 'task_completed');
+        
+        if (taskCompletedNotifications.length > 0) {
+          console.log(`🎯 [FILTRO DIRECTO] Encontradas ${taskCompletedNotifications.length} notificaciones task_completed en localStorage principal`);
+          const cleanedNotifications = allNotifications.filter((n: any) => n.type !== 'task_completed');
+          localStorage.setItem('smart-student-notifications', JSON.stringify(cleanedNotifications));
+          console.log(`✅ [FILTRO DIRECTO] Eliminadas del localStorage principal: ${taskCompletedNotifications.length}`);
+        }
+        
+        // Limpiar localStorage de tareas (smart-student-task-notifications)
+        const taskNotifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
+        const taskCompletedTaskNotifications = taskNotifications.filter((n: any) => n.type === 'task_completed');
+        
+        if (taskCompletedTaskNotifications.length > 0) {
+          console.log(`🎯 [FILTRO DIRECTO] Encontradas ${taskCompletedTaskNotifications.length} notificaciones task_completed en task-notifications`);
+          const cleanedTaskNotifications = taskNotifications.filter((n: any) => n.type !== 'task_completed');
+          localStorage.setItem('smart-student-task-notifications', JSON.stringify(cleanedTaskNotifications));
+          console.log(`✅ [FILTRO DIRECTO] Eliminadas de task-notifications: ${taskCompletedTaskNotifications.length}`);
+        }
+        
+        // Forzar actualización del contador si se eliminaron notificaciones
+        if (taskCompletedNotifications.length > 0 || taskCompletedTaskNotifications.length > 0) {
+          window.dispatchEvent(new CustomEvent('teacher_counters_updated', {
+            detail: { 
+              type: 'auto_cleanup',
+              action: 'task_completed_removed',
+              removedFromMain: taskCompletedNotifications.length,
+              removedFromTask: taskCompletedTaskNotifications.length
+            }
+          }));
+        }
+      }
+      
       // 🧹 NUEVO: Ejecutar limpieza automática antes de cargar notificaciones
+      console.log(`[NotificationsPanel] 🧹 Ejecutando limpieza automática para ${user.role}: ${user.username}`);
       TaskNotificationManager.cleanupFinalizedTaskNotifications();
       
-      const notifications = TaskNotificationManager.getUnreadNotificationsForUser(
-        user.username, 
-        user.role as 'student' | 'teacher'
+      // 🔍 DEBUG: Verificar notificaciones RAW antes del filtrado
+      const rawNotifications = TaskNotificationManager.getNotifications();
+      const rawEvalCompleted = rawNotifications.filter(n => 
+        n.type === 'task_completed' && 
+        n.taskType === 'evaluation' && 
+        n.targetUsernames.includes(user.username)
       );
+      console.log(`[NotificationsPanel] 📊 RAW: ${rawNotifications.length} total, ${rawEvalCompleted.length} eval completadas para ${user.username}`);
+      
+      // 🔥 DEBUG TEMPORAL: Verificar las notificaciones RAW de evaluaciones completadas
+      console.log('🚨 [DEBUG] RAW evaluaciones completadas encontradas:', rawEvalCompleted);
+      rawEvalCompleted.forEach(n => {
+        console.log(`   - ${n.taskTitle} | ReadBy: [${n.readBy?.join(', ')}] | Read: ${n.read} | Target: [${n.targetUsernames?.join(', ')}]`);
+      });
+      
+      let notifications = TaskNotificationManager.getUnreadNotificationsForUser(
+        user.username, 
+        user.role as 'student' | 'teacher',
+        user.id // Agregar ID del usuario
+      );
+      
+      // 🚨 FILTRO ADICIONAL: Filtrar task_completed también después de obtener las notificaciones
+      if (user.role === 'teacher') {
+        const beforeFilter = notifications.length;
+        notifications = notifications.filter(n => n.type !== 'task_completed');
+        const afterFilter = notifications.length;
+        
+        if (beforeFilter !== afterFilter) {
+          console.log(`🚨 [FILTRO ADICIONAL] Filtradas ${beforeFilter - afterFilter} notificaciones task_completed adicionales`);
+        }
+      }
+      
+      // 🔥 DEBUG TEMPORAL: Verificar si las evaluaciones llegan después del filtrado
+      const postFilterEvalCompleted = notifications.filter(n => 
+        n.type === 'task_completed' && n.taskType === 'evaluation'
+      );
+      console.log('🚨 [DEBUG] Evaluaciones completadas DESPUÉS del filtrado:', postFilterEvalCompleted.length);
+      postFilterEvalCompleted.forEach(n => {
+        console.log(`   - ${n.taskTitle} | ID: ${n.id}`);
+      });
       
       console.log(`[NotificationsPanel] Raw notifications count: ${notifications.length}`);
       notifications.forEach((n, index) => {
@@ -872,17 +1008,31 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
       
       // 🔍 DEBUG ESPECÍFICO: Verificar notificaciones de evaluaciones completadas
       const evaluationCompletedNotifications = notifications.filter(n => 
-        n.type === 'task_completed' && n.taskType === 'evaluation'
+        (n.type === 'task_completed' && n.taskType === 'evaluation') ||
+        n.type === 'evaluation_completed'
       );
       console.log(`[NotificationsPanel] 🎯 Evaluaciones completadas encontradas: ${evaluationCompletedNotifications.length}`);
       evaluationCompletedNotifications.forEach((n, index) => {
-        console.log(`[NotificationsPanel] 📝 Eval ${index + 1}: ${n.taskTitle} por ${n.fromDisplayName} para ${n.targetUsernames.join(',')}`);
+        console.log(`[NotificationsPanel] 📝 Eval ${index + 1}: ${n.taskTitle || 'Sin título'} por ${n.fromDisplayName || n.fromUsername} para ${n.targetUsernames?.join(',') || 'Sin destinatarios'} - ID: ${n.id}`);
+        console.log(`   - TaskID: ${n.taskId}, Type: ${n.type}, TaskType: ${n.taskType}, From: ${n.fromUsername}, Target: ${n.targetUsernames}, Read: ${n.read}, ReadBy: [${n.readBy?.join(',') || 'Sin lecturas'}]`);
       });
       
-      // ✅ MEJORA: Filtrar mejor las notificaciones de evaluaciones completadas
+      // 🔍 DEBUG ADICIONAL: Verificar si el usuario actual está en las notificaciones de evaluaciones
+      if (user?.role === 'teacher') {
+        const evalNotificationsForTeacher = evaluationCompletedNotifications.filter(n => 
+          n.targetUsernames.includes(user.username) && !n.readBy.includes(user.username)
+        );
+        console.log(`[NotificationsPanel] 🎯 Evaluaciones completadas PARA ESTE PROFESOR (${user.username}): ${evalNotificationsForTeacher.length}`);
+        evalNotificationsForTeacher.forEach((n, index) => {
+          console.log(`   - ${index + 1}. ${n.taskTitle} por ${n.fromDisplayName} - Timestamp: ${n.timestamp}`);
+        });
+      }
+      
+      // ✅ MEJORA: Filtrar mejor las notificaciones de evaluaciones completadas Y tareas calificadas
       if (user.role === 'student') {
-        // Para estudiantes, filtrar evaluaciones completadas
+        // Para estudiantes, filtrar evaluaciones completadas Y tareas calificadas
         const filteredNotifications = notifications.filter(n => {
+          // 1. Filtrar evaluaciones completadas
           if (n.type === 'new_task' && n.taskType === 'evaluation') {
             const isCompleted = TaskNotificationManager.isEvaluationCompletedByStudent(
               n.taskId, user.username
@@ -893,35 +1043,54 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
               return false; // No mostrar evaluaciones completadas
             }
           }
+          
+          // 🔥 NUEVO: 2. Filtrar tareas regulares que han sido calificadas
+          if (n.type === 'new_task' && n.taskType === 'assignment') {
+            const isGraded = isTaskAlreadyGraded(n.taskId, user.username);
+            
+            if (isGraded) {
+              console.log(`[NotificationsPanel] ✅ Filtering out graded task: ${n.taskTitle} for ${user.username}`);
+              return false; // No mostrar tareas calificadas
+            }
+          }
+          
           return true;
         });
         
-        // 🔥 NUEVO: Si se filtraron evaluaciones completadas, también eliminarlas del localStorage
+        // 🔥 NUEVO: Si se filtraron evaluaciones completadas O tareas calificadas, también eliminarlas del localStorage
         const removedCount = notifications.length - filteredNotifications.length;
         if (removedCount > 0) {
-          console.log(`🧹 [NotificationsPanel] Removing ${removedCount} completed evaluation notifications from storage`);
+          console.log(`🧹 [NotificationsPanel] Removing ${removedCount} completed/graded task notifications from storage`);
+          
+          // Eliminar evaluaciones completadas
           const completedEvaluationIds = notifications
             .filter(n => n.type === 'new_task' && n.taskType === 'evaluation')
             .filter(n => TaskNotificationManager.isEvaluationCompletedByStudent(n.taskId, user.username))
             .map(n => n.taskId);
           
-          completedEvaluationIds.forEach(taskId => {
+          // 🔥 NUEVO: Eliminar tareas calificadas
+          const gradedTaskIds = notifications
+            .filter(n => n.type === 'new_task' && n.taskType === 'assignment')
+            .filter(n => isTaskAlreadyGraded(n.taskId, user.username))
+            .map(n => n.taskId);
+          
+          // Eliminar todas las notificaciones obsoletas
+          [...completedEvaluationIds, ...gradedTaskIds].forEach(taskId => {
             TaskNotificationManager.removeNotificationsForTask(taskId, ['new_task']);
           });
           
-          // Recargar notificaciones después de la limpieza
-          setTimeout(() => {
-            const cleanedNotifications = TaskNotificationManager.getUnreadNotificationsForUser(
-              user.username, 
-              user.role as 'student' | 'teacher'
-            );
-            setTaskNotifications(cleanedNotifications);
-            console.log(`✅ [NotificationsPanel] Reloaded ${cleanedNotifications.length} clean notifications`);
-            
-            // 🔥 NUEVO: También recargar pendingTasks para asegurar consistencia
-            console.log('🔄 [NotificationsPanel] Reloading pendingTasks after notification cleanup...');
-            loadPendingTasks();
-          }, 100);
+          // 🔄 OPTIMIZADO: Recargar inmediatamente sin setTimeout para evitar delays
+          const cleanedNotifications = TaskNotificationManager.getUnreadNotificationsForUser(
+            user.username, 
+            user.role as 'student' | 'teacher',
+            user.id // Agregar ID del usuario
+          );
+          setTaskNotifications(cleanedNotifications);
+          console.log(`✅ [NotificationsPanel] Immediately reloaded ${cleanedNotifications.length} clean notifications`);
+          
+          // � OPTIMIZADO: También recargar pendingTasks inmediatamente para consistencia
+          console.log('🔄 [NotificationsPanel] Immediately reloading pendingTasks after notification cleanup...');
+          loadPendingTasks();
         } else {
           setTaskNotifications(filteredNotifications);
         }
@@ -941,6 +1110,15 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           // ✅ CORRECCIÓN: Para evaluaciones (taskType === 'evaluation'), siempre mostrar la notificación
           // Las evaluaciones no se "califican", solo se revisan resultados
           return true;
+        });
+        
+        // 🔍 DEBUG FINAL: Verificar evaluaciones completadas después del filtrado final
+        const finalEvalCompletedNotifications = filteredNotifications.filter(n => 
+          n.type === 'task_completed' && n.taskType === 'evaluation'
+        );
+        console.log(`[NotificationsPanel] 🎯 FINAL: Evaluaciones completadas después de filtros: ${finalEvalCompletedNotifications.length}`);
+        finalEvalCompletedNotifications.forEach((n, index) => {
+          console.log(`   - ${index + 1}. ${n.taskTitle} por ${n.fromDisplayName} (ID: ${n.id})`);
         });
         
         setTaskNotifications(filteredNotifications);
@@ -1369,7 +1547,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                   {/* 🔥 SIMPLIFICADO: Mostrar mensaje directo sin notificaciones */}
                   {unreadComments.length === 0 && pendingTasks.length === 0 && taskNotifications.length === 0 ? (
                     <>
-                      {console.log('� [NotificationsPanel] MOSTRANDO MENSAJE SIN NOTIFICACIONES')}
+                      {console.log('🎯 [NotificationsPanel] MOSTRANDO MENSAJE SIN NOTIFICACIONES - ESTUDIANTE')}
                       <div className="py-8 text-center">
                         <div className="text-4xl mb-4">🌟</div>
                         <div className="text-gray-600 dark:text-gray-300 text-sm font-medium">
@@ -1648,7 +1826,12 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                         taskNotifications.filter(notif => 
                           notif.type === 'pending_grading' && 
                           notif.fromUsername === 'system' &&
-                          notif.taskType === 'evaluation'
+                          notif.taskType === 'evaluation' &&
+                          // ✅ MISMA CONDICIÓN: Solo mostrar sección si hay del sistema sin entregas
+                          !pendingGrading.some(pendingNotif => 
+                            pendingNotif.taskId === notif.taskId && 
+                            pendingNotif.taskType === 'evaluation'
+                          )
                         ).length > 0) && (
                         <>
                           <div className="px-4 py-2 bg-purple-100 dark:bg-purple-900/10 border-l-4 border-purple-500 dark:border-purple-600">
@@ -1658,18 +1841,28 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 taskNotifications.filter(notif => 
                                   notif.type === 'pending_grading' && 
                                   notif.fromUsername === 'system' &&
-                                  notif.taskType === 'evaluation'
+                                  notif.taskType === 'evaluation' &&
+                                  // ✅ MISMO FILTRO: Solo contar las del sistema si NO hay entregas
+                                  !pendingGrading.some(pendingNotif => 
+                                    pendingNotif.taskId === notif.taskId && 
+                                    pendingNotif.taskType === 'evaluation'
+                                  )
                                 ).length
                               })
                             </h3>
                           </div>
                           
-                          {/* Evaluaciones pendientes del sistema (recién creadas) */}
+                          {/* Evaluaciones pendientes del sistema (recién creadas) - Solo mostrar si NO hay entregas */}
                           {taskNotifications
                             .filter(notif => 
                               notif.type === 'pending_grading' && 
                               notif.fromUsername === 'system' &&
-                              notif.taskType === 'evaluation'
+                              notif.taskType === 'evaluation' &&
+                              // ✅ NUEVA CONDICIÓN: Solo mostrar si NO hay entregas de estudiantes para esta tarea
+                              !pendingGrading.some(pendingNotif => 
+                                pendingNotif.taskId === notif.taskId && 
+                                pendingNotif.taskType === 'evaluation'
+                              )
                             )
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
@@ -1687,7 +1880,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                       {getCourseAbbreviation(notif.subject)}
                                     </Badge>
                                   </div>
-                                  <p className="text-sm text-muted-foreground mt-1">
+                                  <p className="text-xs text-muted-foreground mt-1">
                                     {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
                                   {createSafeTaskLink(notif.taskId, '', translate('viewEvaluation'), 'evaluation')}
@@ -1709,14 +1902,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <p className="font-medium text-sm">
-                                      {notif.fromDisplayName || `${notif.taskTitle} (${TaskNotificationManager.getCourseNameById(notif.course)})`}
+                                      {notif.taskTitle}
                                     </p>
                                     <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-600 text-purple-700 dark:text-purple-300 flex flex-col items-center justify-center text-center leading-tight">
                                       {getCourseAbbreviation(notif.subject)}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {translate('evaluation') || 'Evaluación'}
+                                    {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
                                   </p>
                                   {createSafeTaskLink(notif.taskId, '', translate('reviewEvaluation'), 'evaluation')}
                                 </div>
@@ -1728,8 +1921,8 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
 
                       {/* 2. EVALUACIONES COMPLETADAS POR ESTUDIANTES - SEGUNDO LUGAR */}
                       {taskNotifications.filter(notif => 
-                        notif.type === 'task_completed' && 
-                        notif.taskType === 'evaluation'
+                        (notif.type === 'task_completed' && notif.taskType === 'evaluation') ||
+                        notif.type === 'evaluation_completed'
                         // 🔥 CORREGIDO: Las evaluaciones no se "califican", solo se revisan resultados
                         // Eliminamos el filtro isTaskAlreadyGraded para evaluaciones
                       ).length > 0 && (
@@ -1737,18 +1930,20 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           <div className="px-4 py-2 bg-purple-100 dark:bg-purple-900/10 border-l-4 border-gray-300 dark:border-gray-500">
                             <h3 className="text-sm font-medium text-purple-700 dark:text-purple-300">
                               {translate('evaluationsCompleted') || 'Evaluaciones Completadas'} ({taskNotifications.filter(notif => 
-                                notif.type === 'task_completed' && 
-                                notif.taskType === 'evaluation'
+                                (notif.type === 'task_completed' && notif.taskType === 'evaluation') ||
+                                notif.type === 'evaluation_completed'
                               ).length})
                             </h3>
                           </div>
                           {taskNotifications
                             .filter(notif => 
-                              notif.type === 'task_completed' && 
-                              notif.taskType === 'evaluation'
+                              (notif.type === 'task_completed' && notif.taskType === 'evaluation') ||
+                              notif.type === 'evaluation_completed'
                             )
                             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                            .map(notif => (
+                            .map(notif => {
+                              console.log('🔍 [DEBUG] Rendering evaluation completed notification:', notif);
+                              return (
                             <div key={`teacher-eval-completed-${notif.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-purple-50 dark:bg-purple-700/30 p-2 rounded-full">
@@ -1761,55 +1956,39 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     </p>
                                     <div className="flex items-center gap-2">
                                       <Badge variant="outline" className="text-xs border-purple-200 dark:border-purple-500 text-purple-600 dark:text-purple-400 flex flex-col items-center justify-center text-center leading-tight">
-                                        {getCourseAbbreviation(notif.subject)}
+                                        {getCourseAbbreviation(notif.subject || 'CNT')}
                                       </Badge>
                                     </div>
                                   </div>
                                   <p className="text-sm text-muted-foreground mt-1">
-                                    {translate('studentCompletedEvaluation') || 'Completó la evaluación'}: {notif.taskTitle}
+                                    {translate('studentCompletedEvaluation') || 'Completó la evaluación'}: {notif.taskTitle || 'Evaluación'}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     {formatDate(notif.timestamp)}
                                   </p>
-                                  {createSafeTaskLink(notif.taskId, '', 'Ver Resultados', 'evaluation')}
+                                  {createViewResultsLink(notif.taskId, notif.id)}
                                 </div>
                               </div>
                             </div>
-                          ))}
+                          )})}
                         </>
                       )}
 
-                      {/* 3. TAREAS PENDIENTES DE CALIFICAR - TERCER LUGAR */}
-                      {(pendingGrading.filter(notif => notif.taskType === 'assignment').length > 0 || 
-                        taskNotifications.filter(notif => 
-                          notif.type === 'pending_grading' && 
-                          notif.fromUsername === 'system' &&
-                          notif.taskType === 'assignment'
-                        ).length > 0) && (
+                      {/* 2. TAREAS PENDIENTES DE CALIFICAR - SEGUNDO LUGAR */}
+                      {pendingGrading.filter(notif => notif.taskType === 'assignment').length > 0 && (
                         <>
                           <div className="px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-400 dark:border-orange-500">
                             <h3 className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                              {translate('pendingTasks') || 'Tareas Pendientes'} ({
-                                pendingGrading.filter(notif => notif.taskType === 'assignment').length +
-                                taskNotifications.filter(notif => 
-                                  notif.type === 'pending_grading' && 
-                                  notif.fromUsername === 'system' &&
-                                  notif.taskType === 'assignment'
-                                ).length
-                              })
+                              {translate('pendingTasks') || 'Tareas Pendientes'} ({pendingGrading.filter(notif => notif.taskType === 'assignment').length})
                             </h3>
                           </div>
                           
                           {/* Tareas pendientes del sistema (recién creadas) */}
-                          {taskNotifications
-                            .filter(notif => 
-                              notif.type === 'pending_grading' && 
-                              notif.fromUsername === 'system' &&
-                              notif.taskType === 'assignment'
-                            )
-                            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
+                          {pendingGrading
+                            .filter(notif => notif.taskType === 'assignment')
+                            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                             .map(notif => (
-                            <div key={`teacher-pending-task-system-${notif.id}`} className="p-4 hover:bg-muted/50">
+                            <div key={`teacher-pending-task-${notif.id}`} className="p-4 hover:bg-muted/50">
                               <div className="flex items-start gap-2">
                                 <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
                                   <Clock className="h-4 w-4 text-orange-600 dark:text-orange-300" />
@@ -1831,37 +2010,9 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                               </div>
                             </div>
                           ))}
-
-                          {/* Tareas pendientes de calificar (entregas de estudiantes) */}
-                          {pendingGrading
-                            .filter(notif => notif.taskType === 'assignment')
-                            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Orden por fecha de creación
-                            .map(notif => (
-                            <div key={`teacher-pending-task-grade-${notif.id}`} className="p-4 hover:bg-muted/50">
-                              <div className="flex items-start gap-2">
-                                <div className="bg-orange-100 dark:bg-orange-800 p-2 rounded-full">
-                                  <ClipboardCheck className="h-4 w-4 text-orange-600 dark:text-orange-300" />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <p className="font-medium text-sm">
-                                      {notif.fromDisplayName || `${notif.taskTitle} (${TaskNotificationManager.getCourseNameById(notif.course)})`}
-                                    </p>
-                                    <Badge variant="outline" className="text-xs border-orange-200 dark:border-orange-600 text-orange-700 dark:text-orange-300 flex flex-col items-center justify-center text-center leading-tight">
-                                      {getCourseAbbreviation(notif.subject)}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {TaskNotificationManager.getCourseNameById(notif.course)} • {formatDate(notif.timestamp)}
-                                  </p>
-                                  {createSafeTaskLink(notif.taskId, '', translate('viewTask'), 'task')}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
                         </>
                       )}
-                      
+
                       {/* 4. TAREAS COMPLETADAS POR ESTUDIANTES - CUARTO LUGAR */}
                       {taskNotifications.filter(notif => 
                         notif.type === 'task_completed' && 

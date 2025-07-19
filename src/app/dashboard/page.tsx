@@ -159,8 +159,8 @@ export default function DashboardHomePage() {
           // Filtrar notificaciones no leídas para este profesor usando la misma lógica que funcionó en el debug
           const teacherNotifications = notifications.filter((notif: any) => 
             notif.targetUserRole === 'teacher' &&
-            notif.targetUsernames?.includes(user.username) &&
-            !notif.readBy?.includes(user.username)
+            (notif.targetUsernames?.includes(user.username) || notif.targetUsernames?.includes(user.id)) &&
+            !notif.readBy?.includes(user.username) && !notif.readBy?.includes(user.id)
           );
           
           console.log(`� [Dashboard] DIRECT localStorage calculation for ${user.username}:`);
@@ -171,44 +171,52 @@ export default function DashboardHomePage() {
           const taskSubmissions = teacherNotifications.filter((n: any) => n.type === 'task_submission');
           const pendingGrading = teacherNotifications.filter((n: any) => n.type === 'pending_grading');
           const taskCompleted = teacherNotifications.filter((n: any) => n.type === 'task_completed');
+          const evaluationCompleted = teacherNotifications.filter((n: any) => n.type === 'evaluation_completed'); // 🔥 NUEVO: Agregar evaluaciones completadas
           const teacherComments = teacherNotifications.filter((n: any) => n.type === 'teacher_comment');
           
-          const directCount = teacherNotifications.length;
+          // 🔥 CORRECCIÓN: Usar la misma lógica de filtrado que getUnreadCountForUser
+          const countableTypes = ['pending_grading', 'task_completed', 'task_submission', 'evaluation_completed', 'teacher_comment'];
+          const countableNotifications = teacherNotifications.filter((n: any) => countableTypes.includes(n.type));
+          const directCount = countableNotifications.length;
           
           console.log(`🔍 [Dashboard] DIRECT Breakdown:`, {
             'task_submission (Tareas Completadas)': taskSubmissions.length,
             'pending_grading': pendingGrading.length,
             'task_completed': taskCompleted.length, 
+            'evaluation_completed': evaluationCompleted.length, // 🔥 NUEVO: Mostrar conteo de evaluaciones completadas
             'teacher_comment': teacherComments.length,
+            'COUNTABLE NOTIFICATIONS': countableNotifications.length,
             'DIRECT TOTAL': directCount
           });
           
           // También intentar el TaskNotificationManager para comparar
           let managerCount = 0;
           try {
-            managerCount = TaskNotificationManager.getUnreadCountForUser(user.username, 'teacher');
+            managerCount = TaskNotificationManager.getUnreadCountForUser(user.username, 'teacher', user.id);
             console.log(`🔍 [Dashboard] TaskNotificationManager returned: ${managerCount}`);
           } catch (error) {
             console.warn(`⚠️ [Dashboard] TaskNotificationManager failed:`, error);
           }
           
-          // Usar el conteo directo si el TaskNotificationManager falla
-          const finalCount = directCount > 0 ? directCount : managerCount;
+          // 🔥 USAR directCount (corregido) como prioritario, managerCount solo como fallback
+          const finalCount = directCount;
           console.log(`🎯 [Dashboard] Using final count: ${finalCount} (direct: ${directCount}, manager: ${managerCount})`);
+          console.log(`🔍 [Dashboard] Prioritizing corrected directCount over TaskNotificationManager`);
           
           setTaskNotificationsCount(finalCount);
           
         } catch (error) {
           console.error('Error in direct notification calculation:', error);
           // Fallback al TaskNotificationManager original
-          const count = TaskNotificationManager.getUnreadCountForUser(user.username, 'teacher');
+          const count = TaskNotificationManager.getUnreadCountForUser(user.username, 'teacher', user.id);
           setTaskNotificationsCount(count);
         }
       } else {
         // Para estudiantes, usar TaskNotificationManager normal
         const count = TaskNotificationManager.getUnreadCountForUser(
           user.username, 
-          user.role as 'student' | 'teacher'
+          user.role as 'student' | 'teacher',
+          user.id
         );
         console.log(`🔔 [Dashboard] TaskNotifications - User ${user.username} (${user.role}) has ${count} unread task notifications`);
         setTaskNotificationsCount(count);
@@ -681,6 +689,19 @@ export default function DashboardHomePage() {
     window.addEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
     window.addEventListener('updateDashboardCounts', handleDashboardCountsUpdate as EventListener);
     
+    // 🔥 NUEVO: Listener para cuando se califica una tarea
+    const handleTaskGraded = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log('🎯 [Dashboard] handleTaskGraded triggered:', customEvent.detail);
+      
+      // Actualizar contadores para estudiantes cuando se califica su tarea
+      if (user?.role === 'student') {
+        loadPendingTasks(); // Actualizar tareas pendientes
+        loadTaskNotifications(); // Actualizar notificaciones
+      }
+    };
+    window.addEventListener('taskGraded', handleTaskGraded);
+    
     // 🔥 NUEVA MEJORA: Listener específico para actualizaciones de comentarios de estudiantes
     const handleStudentCommentsUpdated = (event: Event) => {
       const customEvent = event as CustomEvent;
@@ -776,6 +797,7 @@ export default function DashboardHomePage() {
       window.removeEventListener('updateDashboardCounts', handleDashboardCountsUpdate as EventListener);
       window.removeEventListener('studentCommentsUpdated', handleStudentCommentsUpdated as EventListener);
       window.removeEventListener('taskDialogClosed', handleTaskDialogClosed as EventListener);
+      window.removeEventListener('taskGraded', handleTaskGraded); // 🔥 NUEVO: Remover listener taskGraded
     };
   }, [user]);
 
@@ -852,20 +874,52 @@ export default function DashboardHomePage() {
               {/* Notification Panel */}
               <NotificationsPanel count={
                 (() => {
-                  const totalCount = user.role === 'admin' 
-                    ? pendingPasswordRequestsCount
-                    : user.role === 'teacher'
-                    ? pendingTaskSubmissionsCount + unreadStudentCommentsCount + pendingTasksCount // Para profesores: entregas pendientes + comentarios no leídos + tareas pendientes
-                      : pendingTasksCount + unreadCommentsCount + taskNotificationsCount; // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones de tareas (calificaciones, etc.)
+                  // 🔧 CORRECCIÓN: Evitar duplicación de entregas en el contador del profesor
+                  let totalCount;
+                  
+                  if (user.role === 'admin') {
+                    totalCount = pendingPasswordRequestsCount;
+                  } else if (user.role === 'teacher') {
+                    // Para profesores: solo usar entregas + comentarios + notificaciones del sistema (excluyendo task_submission)
+                    // porque pendingTaskSubmissionsCount ya cuenta las entregas directamente desde localStorage
+                    
+                    // Calcular taskNotificationsCount sin incluir task_submission Y task_completed para evitar duplicación
+                    const notifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
+                    const teacherNotificationsExcludingDuplicates = notifications.filter((notif: any) => 
+                      notif.targetUserRole === 'teacher' &&
+                      (notif.targetUsernames?.includes(user.username) || notif.targetUsernames?.includes(user.id)) &&
+                      (!notif.readBy?.includes(user.username) && !notif.readBy?.includes(user.id)) &&
+                      notif.type !== 'task_submission' && // 🔧 EXCLUIR task_submission para evitar duplicación
+                      notif.type !== 'task_completed' // 🔧 EXCLUIR task_completed para evitar duplicación
+                    ).length;
+                    
+                    totalCount = pendingTaskSubmissionsCount + unreadStudentCommentsCount + teacherNotificationsExcludingDuplicates;
+                  } else {
+                    // Para estudiantes: mantener lógica original
+                    totalCount = pendingTasksCount + unreadCommentsCount + taskNotificationsCount;
+                  }
                   
                   // ✅ LOGS DE DEBUG MEJORADOS
-                  console.log(`🔔 [Dashboard] CALCULATION FOR ${user.username} (${user.role}):`);
+                  console.log(`🔔 [Dashboard] NOTIFICATION PANEL CALCULATION FOR ${user.username} (${user.role}):`);
                   console.log(`  • pendingTaskSubmissionsCount: ${pendingTaskSubmissionsCount}`);
                   console.log(`  • unreadStudentCommentsCount: ${unreadStudentCommentsCount}`);
-                  console.log(`  • taskNotificationsCount: ${taskNotificationsCount}`);
+                  if (user.role === 'teacher') {
+                    const teacherNotificationsExcludingDuplicates = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]')
+                      .filter((notif: any) => 
+                        notif.targetUserRole === 'teacher' &&
+                        (notif.targetUsernames?.includes(user.username) || notif.targetUsernames?.includes(user.id)) &&
+                        (!notif.readBy?.includes(user.username) && !notif.readBy?.includes(user.id)) &&
+                        notif.type !== 'task_submission' &&
+                        notif.type !== 'task_completed'
+                      ).length;
+                    console.log(`  • taskNotificationsCount (excluding task_submission & task_completed): ${teacherNotificationsExcludingDuplicates} ⭐ (FIXED: no duplicates)`);
+                    console.log(`  • taskNotificationsCount (original): ${taskNotificationsCount} ⚠️ (included duplicates)`);
+                  } else {
+                    console.log(`  • taskNotificationsCount: ${taskNotificationsCount} ⭐ (includes evaluation_completed)`);
+                  }
                   console.log(`  • pendingTasksCount: ${pendingTasksCount}`);
                   console.log(`  • unreadCommentsCount: ${unreadCommentsCount}`);
-                  console.log(`  🎯 TOTAL COUNT: ${totalCount}`);
+                  console.log(`  🎯 NOTIFICATION PANEL TOTAL COUNT: ${totalCount}`);
                   
                   // ✅ VERIFICACIÓN ADICIONAL
                   if (totalCount === 0 && user.role === 'teacher') {
@@ -886,20 +940,46 @@ export default function DashboardHomePage() {
             <CardHeader className="items-center relative">
               {card.showBadge && card.titleKey === 'cardTasksTitle' && (
                 (() => {
-                  const totalTaskCount = user?.role === 'student' 
-                    ? pendingTasksCount + unreadCommentsCount + taskNotificationsCount // Para estudiantes: tareas pendientes + comentarios no leídos + notificaciones (calificaciones)
-                    : pendingTaskSubmissionsCount + unreadStudentCommentsCount + pendingTasksCount; // Para profesores: entregas pendientes + comentarios no leídos + tareas pendientes
+                  let totalTaskCount;
+                  
+                  if (user?.role === 'student') {
+                    // Para estudiantes: mantener lógica original
+                    totalTaskCount = pendingTasksCount + unreadCommentsCount + taskNotificationsCount;
+                  } else {
+                    // Para profesores: evitar duplicación de entregas 
+                    // Calcular taskNotificationsCount sin incluir task_submission
+                    const notifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');
+                    const teacherNotificationsExcludingSubmissions = notifications.filter((notif: any) => 
+                      notif.targetUserRole === 'teacher' &&
+                      user && (notif.targetUsernames?.includes(user.username) || notif.targetUsernames?.includes(user.id)) &&
+                      user && (!notif.readBy?.includes(user.username) && !notif.readBy?.includes(user.id)) &&
+                      notif.type !== 'task_submission' // 🔧 EXCLUIR task_submission para evitar duplicación
+                    ).length;
+                    
+                    totalTaskCount = pendingTaskSubmissionsCount + unreadStudentCommentsCount + teacherNotificationsExcludingSubmissions;
+                  }
 
+                  
                   // ✅ LOGS DE DEBUG PARA TARJETA DE TAREAS
                   console.log(`📋 [Dashboard] TASK CARD CALCULATION FOR ${user?.username} (${user?.role}):`);
-                  console.log(`  • pendingTaskSubmissionsCount: ${pendingTaskSubmissionsCount}`);
-                  console.log(`  • unreadStudentCommentsCount: ${unreadStudentCommentsCount}`);
-                  console.log(`  • taskNotificationsCount: ${taskNotificationsCount}`);
-                  console.log(`  • pendingTasksCount: ${pendingTasksCount}`);
-                  console.log(`  • unreadCommentsCount: ${unreadCommentsCount}`);
-                  console.log(`  🎯 TOTAL TASK CARD COUNT: ${totalTaskCount}`);
-
-                  return totalTaskCount > 0 && (
+                  if (user?.role === 'student') {
+                    console.log(`  • pendingTasksCount: ${pendingTasksCount}`);
+                    console.log(`  • unreadCommentsCount: ${unreadCommentsCount}`);
+                    console.log(`  • taskNotificationsCount: ${taskNotificationsCount}`);
+                  } else {
+                    console.log(`  • pendingTaskSubmissionsCount: ${pendingTaskSubmissionsCount}`);
+                    console.log(`  • unreadStudentCommentsCount: ${unreadStudentCommentsCount}`);
+                    const teacherNotificationsExcludingSubmissions = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]')
+                      .filter((notif: any) => 
+                        notif.targetUserRole === 'teacher' &&
+                        user && (notif.targetUsernames?.includes(user.username) || notif.targetUsernames?.includes(user.id)) &&
+                        user && (!notif.readBy?.includes(user.username) && !notif.readBy?.includes(user.id)) &&
+                        notif.type !== 'task_submission'
+                      ).length;
+                    console.log(`  • taskNotificationsCount (excluding task_submission): ${teacherNotificationsExcludingSubmissions} ⭐ (FIXED: no duplicates)`);
+                    console.log(`  • taskNotificationsCount (original): ${taskNotificationsCount} ⚠️ (included duplicates)`);
+                  }
+                  console.log(`  🎯 TOTAL TASK CARD COUNT: ${totalTaskCount}`);                  return totalTaskCount > 0 && (
                     user?.role === 'student' ? (
                       <Badge 
                         className="absolute -top-2 -right-2 bg-red-500 text-white hover:bg-red-600 text-xs px-2 rounded-full"
