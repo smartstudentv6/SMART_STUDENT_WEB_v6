@@ -259,17 +259,29 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     );
   };
 
-  //  CORREGIDA: Función para verificar si una tarea ya ha sido calificada
+  // ✅ CORREGIDA Y MEJORADA: Función para verificar si CUALQUIER tarea está finalizada
   const isTaskAlreadyGraded = (taskId: string, studentUsername: string): boolean => {
     try {
-      console.log(`🔍 [isTaskAlreadyGraded] Verificando si tarea ${taskId} de estudiante ${studentUsername} está calificada`);
-      
-      // ✅ CORRECCIÓN: Buscar en smart-student-task-comments, no en smart-student-submissions
+      console.log(`🔍 [isTaskAlreadyGraded] Verificando si tarea ${taskId} de estudiante ${studentUsername} está finalizada...`);
+
+      // 1. PRIMERA VERIFICACIÓN: ¿Es una evaluación con resultado guardado?
+      const storedResults = localStorage.getItem('smart-student-evaluation-results');
+      if (storedResults) {
+        const results = JSON.parse(storedResults);
+        const evaluationResult = results.find((result: any) => 
+          result.taskId === taskId && result.studentUsername === studentUsername
+        );
+        if (evaluationResult) {
+          console.log(`[isTaskAlreadyGraded] ✅ Encontrado resultado de EVALUACIÓN para ${studentUsername}. Tarea finalizada.`);
+          return true;
+        }
+      }
+
+      // 2. SEGUNDA VERIFICACIÓN: ¿Es una tarea normal con calificación (grade)?
       const commentsData = localStorage.getItem('smart-student-task-comments');
       if (commentsData) {
         const comments = JSON.parse(commentsData);
         
-        // Buscar la entrega (isSubmission = true) del estudiante para esta tarea
         const studentSubmission = comments.find((comment: any) => 
           comment.taskId === taskId && 
           comment.studentUsername === studentUsername && 
@@ -278,16 +290,16 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         
         if (studentSubmission) {
           const isGraded = studentSubmission.grade !== undefined && studentSubmission.grade !== null;
-          console.log(`🔍 [isTaskAlreadyGraded] Estudiante ${studentUsername}, Tarea ${taskId}: ${isGraded ? 'CALIFICADA' : 'NO CALIFICADA'} (grade: ${studentSubmission.grade})`);
-          return isGraded;
-        } else {
-          console.log(`🔍 [isTaskAlreadyGraded] No se encontró entrega del estudiante ${studentUsername} para tarea ${taskId}`);
+          if (isGraded) {
+            console.log(`[isTaskAlreadyGraded] ✅ Encontrada CALIFICACIÓN para ${studentUsername}. Tarea finalizada.`);
+            return true;
+          }
         }
-      } else {
-        console.log(`🔍 [isTaskAlreadyGraded] No se encontraron comentarios en localStorage`);
       }
       
+      console.log(`[isTaskAlreadyGraded] ❌ No se encontró resultado ni calificación para ${studentUsername}. Tarea pendiente.`);
       return false;
+      
     } catch (error) {
       console.error('❌ [isTaskAlreadyGraded] Error verificando si la tarea está calificada:', error);
       return false;
@@ -611,12 +623,28 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
     };
     window.addEventListener('taskGraded', handleGradingUpdated);
     
+    // 🚀 NUEVO: Listener específico para cuando un estudiante completa una evaluación
+    const handleEvaluationCompleted = (event: CustomEvent) => {
+      console.log('🎯 [handleEvaluationCompleted] Evaluation completed event received:', event.detail);
+      console.log('🔄 [handleEvaluationCompleted] Reloading all notification components...');
+      
+      // Forzar recarga de todos los componentes de notificación
+      setTimeout(() => {
+        loadUnreadComments();
+        loadPendingTasks();
+        loadTaskNotifications();
+        console.log('✅ [handleEvaluationCompleted] All notification components reloaded');
+      }, 100); // Pequeño delay para asegurar que el localStorage se actualice primero
+    };
+    window.addEventListener('evaluationCompleted', handleEvaluationCompleted as EventListener);
+    
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       document.removeEventListener('commentsUpdated', handleCommentsUpdated);
       window.removeEventListener('taskNotificationsUpdated', handleTaskNotificationsUpdated);
       window.removeEventListener('pendingTasksUpdated', handlePendingTasksUpdated);
       window.removeEventListener('taskGraded', handleGradingUpdated);
+      window.removeEventListener('evaluationCompleted', handleEvaluationCompleted as EventListener);
     };
   }, [user, open]); // Reload data when the panel is opened or user changes
 
@@ -684,40 +712,56 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           const dueDate = new Date(task.dueDate);
           const isApproaching = dueDate > now; // Only include not overdue tasks
           
-          // 🔥 NUEVO: Para evaluaciones, verificar si ya fueron completadas
-          // Detectar evaluaciones tanto por taskType como por nombre que contenga "eval"
-          const isEvaluation = task.taskType === 'evaluation' || task.title.toLowerCase().includes('eval');
+          // 🔥 MEJORADO: Lógica unificada para todas las tareas
+          // Detectar evaluaciones de múltiples formas
+          const isEvaluation = task.taskType === 'evaluation' || 
+                              task.title.toLowerCase().includes('eval') ||
+                              task.title.toLowerCase().includes('evaluación') ||
+                              task.title.toLowerCase().includes('examen');
+          
+          // ✅ CLAVE: Verificar si la tarea ya fue calificada (aplica a TODAS las tareas)
+          const isGraded = isTaskAlreadyGraded(task.id, user?.username || '');
+          
           if (isEvaluation) {
-            const isCompleted = TaskNotificationManager.isEvaluationCompletedByStudent(
-              task.id, 
-              user?.username || ''
-            );
-            console.log(`[loadPendingTasks] 🔍 Evaluation "${task.title}" (taskType: ${task.taskType}) for ${user?.username}: completed=${isCompleted}`);
-            if (isCompleted) {
-              console.log(`[loadPendingTasks] ✅ Filtering out completed evaluation: ${task.title} for ${user?.username}`);
-              return false; // No mostrar evaluaciones completadas
+            console.log(`[loadPendingTasks] 🔍 Detected evaluation "${task.title}" (ID: ${task.id}, taskType: ${task.taskType}) for ${user?.username}`);
+            
+            // Verificar si la evaluación fue completada a través de notificaciones
+            let isCompletedByNotification = false;
+            try {
+              if (TaskNotificationManager && TaskNotificationManager.isEvaluationCompletedByStudent) {
+                isCompletedByNotification = TaskNotificationManager.isEvaluationCompletedByStudent(
+                  task.id, 
+                  user?.username || ''
+                );
+                console.log(`[loadPendingTasks] 🔍 Evaluation "${task.title}" completion status for ${user?.username}: ${isCompletedByNotification}`);
+              } else {
+                console.log(`[loadPendingTasks] ⚠️ TaskNotificationManager.isEvaluationCompletedByStudent not available`);
+              }
+            } catch (error) {
+              console.error(`[loadPendingTasks] ❌ Error checking evaluation completion:`, error);
+            }
+            
+            // ✅ CORRECCIÓN: Una evaluación se considera finalizada si está CALIFICADA o si se marcó como completada
+            if (isGraded || isCompletedByNotification) {
+              console.log(`[loadPendingTasks] ✅ FILTERING OUT completed evaluation: "${task.title}" (Graded: ${isGraded}, NotifCompleted: ${isCompletedByNotification})`);
+              return false; // No mostrar evaluaciones ya finalizadas o calificadas
+            } else {
+              console.log(`[loadPendingTasks] ⏳ Evaluation "${task.title}" still pending for ${user?.username}`);
             }
           }
           
-          // Para tareas regulares, verificar si ya fueron entregadas Y calificadas
+          // Para tareas regulares, verificar entregas
           const hasSubmitted = comments.some(comment => 
             comment.taskId === task.id && 
             comment.studentUsername === user?.username && 
             comment.isSubmission
           );
           
-          // 🔥 NUEVO: Verificar si la tarea ya fue calificada (finalizada)
-          // Si está calificada, no debe aparecer en pendientes sin importar el estado de entrega
-          const isGraded = isTaskAlreadyGraded(task.id, user?.username || '');
-          
           console.log(`[loadPendingTasks] Task "${task.title}": assigned=${isAssigned}, approaching=${isApproaching}, submitted=${hasSubmitted}, graded=${isGraded}`);
           
-          // Solo mostrar tareas que:
-          // 1. Están asignadas al estudiante
-          // 2. No han vencido
-          // 3. NO han sido entregadas O han sido entregadas pero NO calificadas
-          // 4. NO han sido calificadas (esto es lo más importante)
-          return isAssigned && isApproaching && !isGraded && !hasSubmitted;
+          // ✅ UNIFICADO: La condición final es igual para TODAS las tareas:
+          // Asignada, no vencida y NO CALIFICADA
+          return isAssigned && isApproaching && !isGraded;
         });
         
         // Sort by due date (closest first)
@@ -1028,29 +1072,28 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         });
       }
       
-      // ✅ MEJORA: Filtrar mejor las notificaciones de evaluaciones completadas Y tareas calificadas
+      // ✅ MEJORADO: Lógica unificada de filtrado para notificaciones
       if (user.role === 'student') {
-        // Para estudiantes, filtrar evaluaciones completadas Y tareas calificadas
+        // Para estudiantes, filtrar CUALQUIER tarea que ya esté calificada
         const filteredNotifications = notifications.filter(n => {
-          // 1. Filtrar evaluaciones completadas
-          if (n.type === 'new_task' && n.taskType === 'evaluation') {
-            const isCompleted = TaskNotificationManager.isEvaluationCompletedByStudent(
-              n.taskId, user.username
-            );
-            
-            if (isCompleted) {
-              console.log(`[NotificationsPanel] ✅ Filtering out completed evaluation: ${n.taskTitle} for ${user.username}`);
-              return false; // No mostrar evaluaciones completadas
-            }
-          }
-          
-          // 🔥 NUEVO: 2. Filtrar tareas regulares que han sido calificadas
-          if (n.type === 'new_task' && n.taskType === 'assignment') {
+          // ✅ MEJORA: Unificar la lógica de filtrado para CUALQUIER tarea nueva
+          if (n.type === 'new_task') {
             const isGraded = isTaskAlreadyGraded(n.taskId, user.username);
             
             if (isGraded) {
-              console.log(`[NotificationsPanel] ✅ Filtering out graded task: ${n.taskTitle} for ${user.username}`);
-              return false; // No mostrar tareas calificadas
+              console.log(`[NotificationsPanel] ✅ Filtering out notification for already graded task: ${n.taskTitle}`);
+              return false; // No mostrar notificación de NINGUNA tarea (evaluación o no) que ya esté calificada
+            }
+
+            // Lógica adicional específica para evaluaciones basadas en notificaciones (mantenemos por compatibilidad)
+            if (n.taskType === 'evaluation') {
+               const isCompletedByNotification = TaskNotificationManager.isEvaluationCompletedByStudent(
+                   n.taskId, user.username
+               );
+               if (isCompletedByNotification) {
+                   console.log(`[NotificationsPanel] ✅ Filtering out notification for completed evaluation: ${n.taskTitle}`);
+                   return false;
+               }
             }
           }
           
@@ -1548,13 +1591,77 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                   {unreadComments.length === 0 && pendingTasks.length === 0 && taskNotifications.length === 0 ? (
                     <>
                       {console.log('🎯 [NotificationsPanel] MOSTRANDO MENSAJE SIN NOTIFICACIONES - ESTUDIANTE')}
-                      <div className="py-8 text-center">
-                        <div className="text-4xl mb-4">🌟</div>
-                        <div className="text-gray-600 dark:text-gray-300 text-sm font-medium">
-                          ¡Excelente! No tienes notificaciones pendientes.
-                        </div>
-                        <div className="text-gray-500 dark:text-gray-400 text-xs mt-2">
-                          Disfruta de este momento de tranquilidad
+                      <div className="py-8 px-6 text-center">
+                        {/* Contenedor principal con animación sutil */}
+                        <div className="relative">
+                          {/* Círculo de fondo con gradiente */}
+                          <div className="mx-auto w-24 h-24 mb-6 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-full flex items-center justify-center shadow-lg">
+                            <div className="w-16 h-16 bg-gradient-to-br from-green-200 to-emerald-200 dark:from-green-800/40 dark:to-emerald-800/40 rounded-full flex items-center justify-center">
+                              <span className="text-2xl animate-bounce">�</span>
+                            </div>
+                          </div>
+                          
+                          {/* Mensaje principal */}
+                          <div className="space-y-3 mb-6">
+                            <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
+                              ¡Todo al día!
+                            </h3>
+                            <p className="text-gray-600 dark:text-gray-300 text-sm">
+                              No tienes notificaciones pendientes.
+                            </p>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs">
+                              Disfruta de este momento de tranquilidad académica ✨
+                            </p>
+                          </div>
+                          
+                          {/* Iconos con checks - representando todo completado */}
+                          <div className="flex justify-center items-center space-x-6 mb-4">
+                            {/* Evaluaciones completadas */}
+                            <div className="flex flex-col items-center space-y-2">
+                              <div className="relative">
+                                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
+                                  <ClipboardList className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs">✓</span>
+                                </div>
+                              </div>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Evaluaciones</span>
+                            </div>
+                            
+                            {/* Tareas completadas */}
+                            <div className="flex flex-col items-center space-y-2">
+                              <div className="relative">
+                                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center">
+                                  <Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                                </div>
+                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs">✓</span>
+                                </div>
+                              </div>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Tareas</span>
+                            </div>
+                            
+                            {/* Comentarios al día */}
+                            <div className="flex flex-col items-center space-y-2">
+                              <div className="relative">
+                                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center">
+                                  <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs">✓</span>
+                                </div>
+                              </div>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Comentarios</span>
+                            </div>
+                          </div>
+                          
+                          {/* Mensaje motivacional */}
+                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                            <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                              ¡Sigue así! Tu dedicación académica es admirable.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </>
@@ -1816,8 +1923,78 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
               {user?.role === 'teacher' && (
                 <div>
                   {(studentSubmissions.length === 0 && pendingGrading.length === 0 && unreadStudentComments.length === 0 && taskNotifications.length === 0) ? (
-                    <div className="py-6 text-center text-muted-foreground">
-                      {translate('noSubmissionsToReview')}
+                    <div className="py-8 px-6 text-center">
+                      {/* Contenedor principal con animación sutil */}
+                      <div className="relative">
+                        {/* Círculo de fondo con gradiente profesional */}
+                        <div className="mx-auto w-24 h-24 mb-6 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full flex items-center justify-center shadow-lg">
+                          <div className="w-16 h-16 bg-gradient-to-br from-blue-200 to-indigo-200 dark:from-blue-800/40 dark:to-indigo-800/40 rounded-full flex items-center justify-center">
+                            <span className="text-2xl animate-bounce">👨‍🏫</span>
+                          </div>
+                        </div>
+                        
+                        {/* Mensaje principal */}
+                        <div className="space-y-3 mb-6">
+                          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">
+                            ¡Trabajo completado!
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-300 text-sm">
+                            No hay entregas pendientes de revisar.
+                          </p>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">
+                            Tiempo perfecto para planificar nuevas actividades 📚
+                          </p>
+                        </div>
+                        
+                        {/* Iconos con checks - representando todo gestionado */}
+                        <div className="flex justify-center items-center space-x-6 mb-4">
+                          {/* Evaluaciones revisadas */}
+                          <div className="flex flex-col items-center space-y-2">
+                            <div className="relative">
+                              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
+                                <ClipboardCheck className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                              </div>
+                              <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs">✓</span>
+                              </div>
+                            </div>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Evaluaciones</span>
+                          </div>
+                          
+                          {/* Entregas calificadas */}
+                          <div className="flex flex-col items-center space-y-2">
+                            <div className="relative">
+                              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center">
+                                <ClipboardList className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                              </div>
+                              <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs">✓</span>
+                              </div>
+                            </div>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Entregas</span>
+                          </div>
+                          
+                          {/* Comentarios respondidos */}
+                          <div className="flex flex-col items-center space-y-2">
+                            <div className="relative">
+                              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
+                                <MessageSquare className="h-6 w-6 text-green-600 dark:text-green-400" />
+                              </div>
+                              <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs">✓</span>
+                              </div>
+                            </div>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Comentarios</span>
+                          </div>
+                        </div>
+                        
+                        {/* Mensaje motivacional para profesores */}
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                          <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                            ¡Excelente gestión académica! Tu compromiso con la educación es inspirador.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
