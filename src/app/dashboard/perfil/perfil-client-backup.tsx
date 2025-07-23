@@ -67,6 +67,12 @@ export default function PerfilClient() {
   // Crear perfil dinámico basado en el usuario autenticado
   const [dynamicUserProfileData, setDynamicUserProfileData] = useState<UserProfile>(userProfileData);
 
+  // Estados para datos del backend
+  const [backendUserProfile, setBackendUserProfile] = useState<BackendUserProfile | null>(null);
+  const [userCourses, setUserCourses] = useState<Course[]>([]);
+  const [userSubjects, setUserSubjects] = useState<Subject[]>([]);
+  const [backendLoading, setBackendLoading] = useState(false);
+
   // Function to translate book titles based on current language
   const translateBookTitle = (bookTitle: string): string => {
     try {
@@ -189,148 +195,73 @@ export default function PerfilClient() {
     );
   };
 
-  // ✨ FUNCIÓN PARA CONVERTIR IDS A NOMBRES DE CURSO ✨
-  const convertCourseIdToName = (courseId: string): string => {
-    if (!courseId) return courseId;
-    
-    // Si ya es un nombre legible (no contiene guiones ni números largos), devolverlo tal como está
-    if (!courseId.includes('-') && !courseId.match(/\d{10,}/)) {
-      return courseId;
-    }
-    
-    console.log('🔄 [CONVERSIÓN] Convirtiendo ID:', courseId);
-    
-    // Mapeo de patrones comunes de IDs a nombres de curso
-    const courseMapping: Record<string, string> = {
-      // Patrones para identificar cursos básicos
-      '1ro-basico': '1ro Básico',
-      '2do-basico': '2do Básico', 
-      '3ro-basico': '3ro Básico',
-      '4to-basico': '4to Básico',
-      '5to-basico': '5to Básico',
-      '6to-basico': '6to Básico',
-      '7mo-basico': '7mo Básico',
-      '8vo-basico': '8vo Básico',
-      // Patrones para identificar cursos medios
-      '1ro-medio': '1ro Medio',
-      '2do-medio': '2do Medio',
-      '3ro-medio': '3ro Medio', 
-      '4to-medio': '4to Medio',
-    };
-
-    // Buscar patrones en el ID
-    const lowerCourseId = courseId.toLowerCase();
-    for (const [pattern, name] of Object.entries(courseMapping)) {
-      if (lowerCourseId.includes(pattern)) {
-        console.log('✅ [CONVERSIÓN] Encontrado patrón:', pattern, '->', name);
-        return name;
-      }
-    }
-
-    // Si contiene números, intentar extraer el nivel
-    const basicMatch = courseId.match(/(\d+).*b[aá]sico/i);
-    if (basicMatch) {
-      const num = parseInt(basicMatch[1]);
-      const ordinals = ['', '1ro', '2do', '3ro', '4to', '5to', '6to', '7mo', '8vo'];
-      const result = `${ordinals[num] || num + 'to'} Básico`;
-      console.log('✅ [CONVERSIÓN] Extraído de número básico:', result);
-      return result;
-    }
-
-    const medioMatch = courseId.match(/(\d+).*medio/i);
-    if (medioMatch) {
-      const num = parseInt(medioMatch[1]);
-      const ordinals = ['', '1ro', '2do', '3ro', '4to'];
-      const result = `${ordinals[num] || num + 'to'} Medio`;
-      console.log('✅ [CONVERSIÓN] Extraído de número medio:', result);
-      return result;
-    }
-
-    // Casos especiales para IDs largos como 'id-1753226643520-0g1a322hy'
-    if (courseId.length > 15 && courseId.includes('-')) {
-      const parts = courseId.split('-');
-      const lastPart = parts[parts.length - 1];
-      
-      console.log('🔍 [CONVERSIÓN] Analizando ID largo. Última parte:', lastPart);
-      
-      // Intentar deducir de patrones en la última parte
-      if (lastPart.includes('1') && lastPart.includes('a')) {
-        console.log('✅ [CONVERSIÓN] Deducido como 1ro Básico por patrón 1a');
-        return '1ro Básico';
-      }
-      if (lastPart.includes('2') && lastPart.includes('a')) {
-        return '2do Básico';
-      }
-      if (lastPart.includes('3') && lastPart.includes('a')) {
-        return '3ro Básico';
-      }
-      
-      // Si no se puede deducir específicamente, usar un nombre genérico pero descriptivo
-      console.log('⚠️ [CONVERSIÓN] No se pudo deducir nivel específico, usando genérico');
-      return 'Curso Asignado';
-    }
-
-    console.log('❌ [CONVERSIÓN] No se pudo convertir, manteniendo original');
-    return courseId; // Devolver el original si no se puede convertir
-  };
-
-  // ✨ FUNCIÓN PARA OBTENER NOMBRES DE CURSOS POR ID ✨
-  const getCourseNameById = (courseId: string): string => {
-    try {
-      const storedCourses = localStorage.getItem('smart-student-courses');
-      if (!storedCourses) return courseId; // Devuelve el ID si no hay cursos
-
-      const coursesData = JSON.parse(storedCourses);
-      const course = coursesData.find((c: any) => c.id === courseId);
-
-      return course ? course.name : courseId; // Devuelve el nombre si lo encuentra
-    } catch {
-      return courseId; // En caso de error, devuelve el ID
-    }
-  };
-
-  // ✨ FUNCIÓN PARA CONTAR ESTUDIANTES POR CURSO - VERSIÓN MEJORADA ✨
-  const getStudentCountForCourse = (courseName: string): number => {
-    try {
-      const storedUsers = localStorage.getItem('smart-student-users');
-      const storedCourses = localStorage.getItem('smart-student-courses');
-      if (!storedUsers || !storedCourses) return 0;
-
-      const usersData = JSON.parse(storedUsers);
-      const coursesData = JSON.parse(storedCourses);
-
-      // 1. Busca el curso en la lista para obtener su ID
-      const course = coursesData.find((c: any) => c.name === courseName);
-      const courseId = course ? course.id : null;
-
-      if (!courseId) {
-        console.warn(`[Contador] No se encontró un ID para el curso "${courseName}". El conteo podría ser 0.`);
-      }
-
-      // 2. Filtra los estudiantes que coincidan por NOMBRE o por ID
-      const studentCount = usersData.filter((user: any) => {
-        if (user.role !== 'student' || !Array.isArray(user.activeCourses)) {
-          return false;
-        }
-        // Un estudiante es contado si en su lista de cursos tiene
-        // el NOMBRE del curso O el ID del curso.
-        return user.activeCourses.includes(courseName) || (courseId && user.activeCourses.includes(courseId));
-      }).length;
-
-      console.log(`[Contador] Estudiantes encontrados para "${courseName}" (ID: ${courseId}): ${studentCount}`);
-      return studentCount;
-
-    } catch (error) {
-      console.error(`Error al contar estudiantes para el curso ${courseName}:`, error);
-      return 0;
-    }
-  };
-
   // Ensure this only runs on client-side
   useEffect(() => {
     setMounted(true);
     setLoading(false);
   }, []);
+
+  // Nuevo useEffect para cargar datos del backend
+  useEffect(() => {
+    const loadUserDataFromBackend = async () => {
+      if (!user?.username || !mounted) {
+        console.log('❌ [PERFIL BACKEND] No se puede cargar - user:', user?.username, 'mounted:', mounted);
+        return;
+      }
+      
+      console.log('🚀 [PERFIL BACKEND] ===== INICIO CARGA BACKEND =====');
+      console.log('🚀 [PERFIL BACKEND] Usuario:', user.username);
+      console.log('🚀 [PERFIL BACKEND] Mounted:', mounted);
+      setBackendLoading(true);
+
+      try {
+        // Obtener instancia del UserService
+        const userService = UserService.getInstance();
+        console.log('🔧 [PERFIL BACKEND] UserService obtenido');
+        
+        // Cargar perfil del usuario
+        console.log('📊 [PERFIL BACKEND] Cargando perfil...');
+        const profile = await userService.getUserProfile(user.username);
+        if (profile) {
+          setBackendUserProfile(profile);
+          console.log('✅ [PERFIL BACKEND] ✨ PERFIL CARGADO ✨:', profile);
+          console.log('✅ [PERFIL BACKEND] activeCourseNames:', profile.activeCourseNames);
+          console.log('✅ [PERFIL BACKEND] teachingSubjects:', profile.teachingSubjects);
+        } else {
+          console.log('⚠️ [PERFIL BACKEND] Perfil nulo');
+        }
+
+        // Cargar cursos del usuario
+        console.log('📚 [PERFIL BACKEND] Cargando cursos...');
+        const courses = await userService.getUserCourses(user.username);
+        setUserCourses(courses);
+        console.log('✅ [PERFIL BACKEND] ✨ CURSOS CARGADOS ✨:', courses);
+        console.log('✅ [PERFIL BACKEND] Número de cursos:', courses?.length || 0);
+
+        // Cargar asignaturas del usuario
+        console.log('📖 [PERFIL BACKEND] Cargando asignaturas...');
+        const subjects = await userService.getUserSubjects(user.username);
+        setUserSubjects(subjects);
+        console.log('✅ [PERFIL BACKEND] ✨ ASIGNATURAS CARGADAS ✨:', subjects);
+        console.log('✅ [PERFIL BACKEND] Número de asignaturas:', subjects?.length || 0);
+
+        console.log('🚀 [PERFIL BACKEND] ===== FIN CARGA BACKEND =====');
+
+      } catch (error) {
+        console.error('❌ [PERFIL BACKEND] Error cargando datos del backend:', error);
+        toast({
+          title: "Aviso",
+          description: "No se pudo conectar con el servidor. Usando datos locales.",
+          variant: "default",
+        });
+      } finally {
+        setBackendLoading(false);
+        console.log('🔄 [PERFIL BACKEND] Loading finalizado');
+      }
+    };
+
+    loadUserDataFromBackend();
+  }, [user?.username, mounted, toast]);
 
   // Initialize learning stats with filtered template when component mounts
   useEffect(() => {
@@ -473,48 +404,110 @@ export default function PerfilClient() {
 
   }, [evaluationHistory, language, translate, mounted, user]);
 
-  // ✨ ACTUALIZAR PERFIL CON CONVERSIÓN DE IDS A NOMBRES - VERSIÓN DEFINITIVA ✨
+  // ✨ ACTUALIZAR PERFIL CON DATOS DIRECTOS DE LOCALSTORAGE ✨
   useEffect(() => {
-    if (!user || !mounted) return;
-
-    const loadProfileData = () => {
-      try {
-        console.log(`[Perfil] Cargando datos para: ${user.username}`);
-        const storedUsers = localStorage.getItem('smart-student-users');
-        if (!storedUsers) {
-          console.error("[Perfil] Error: 'smart-student-users' no encontrado en localStorage.");
-          return;
-        }
-
+    if (!user) return;
+    
+    console.log('📝 [PERFIL LOCAL] Actualizando perfil con datos directos de localStorage para:', user.username);
+    
+    // Leer datos directamente de localStorage (fuente de verdad)
+    let updatedUserData = user;
+    try {
+      const storedUsers = localStorage.getItem('smart-student-users');
+      if (storedUsers) {
         const usersData = JSON.parse(storedUsers);
-        const fullUserData = usersData.find((u: any) => u.username === user.username);
-
-        if (!fullUserData) {
-          console.error(`[Perfil] Error: Usuario "${user.username}" no fue encontrado.`);
-          return;
+        const currentUserData = usersData.find((u: any) => u.username === user.username);
+        if (currentUserData) {
+          updatedUserData = { ...user, ...currentUserData };
+          console.log('✅ [PERFIL LOCAL] Datos del usuario encontrados en localStorage:', currentUserData);
         }
+      }
+    } catch (localError) {
+      console.error("❌ [PERFIL LOCAL] Error al cargar datos del localStorage:", localError);
+    }
+    
+    // Obtener cursos activos desde localStorage
+    const activeCourses = updatedUserData.activeCourseNames || updatedUserData.activeCourses || [];
+    console.log('🎓 [PERFIL LOCAL] Cursos activos:', activeCourses);
+    
+    // Función para obtener asignaturas según el curso
+    const getSubjectsForCourse = (course: string) => {
+      if (course.includes('Medio')) {
+        return [
+          { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+          { tag: "FIS", nameKey: "subjectPhysics", colorClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300" },
+          { tag: "QUI", nameKey: "subjectChemistry", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+          { tag: "BIO", nameKey: "subjectBiology", colorClass: "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300" },
+          { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+          { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+          { tag: "ING", nameKey: "subjectEnglish", colorClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300" },
+        ];
+      }
+      return [ // Cursos básicos y por defecto
+        { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+        { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+        { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+        { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+      ];
+    };
 
-        console.log("[Perfil] Datos completos del usuario encontrados:", fullUserData);
+    // Determinar asignaturas basadas en los cursos
+    let allSubjects = [];
+    if (user.role === 'teacher') {
+      // Para profesores: unificar asignaturas de todos los cursos
+      const subjectsMap = new Map();
+      activeCourses.forEach(course => {
+        const subjectsForCourse = getSubjectsForCourse(course);
+        subjectsForCourse.forEach(subject => {
+          if (!subjectsMap.has(subject.tag)) {
+            subjectsMap.set(subject.tag, subject);
+          }
+        });
+      });
+      allSubjects = Array.from(subjectsMap.values());
+      console.log('🎓 [PERFIL LOCAL] Asignaturas del profesor unificadas:', allSubjects);
+    } else {
+      // Para estudiantes: usar el primer curso
+      const firstCourse = activeCourses.length > 0 ? activeCourses[0] : '';
+      allSubjects = getSubjectsForCourse(firstCourse);
+      console.log('🎓 [PERFIL LOCAL] Asignaturas del estudiante:', allSubjects);
+    }
 
-        // ✨ PASO CLAVE: Convertir IDs de cursos a Nombres de cursos ✨
-        const courseIds = fullUserData.activeCourses || [];
-        const activeCourseNames = courseIds.map((id: string) => getCourseNameById(id));
+    // Actualizar el estado del perfil
+    setDynamicUserProfileData(prevData => ({
+      ...prevData,
+      name: updatedUserData.displayName || updatedUserData.username,
+      roleKey: updatedUserData.role === 'teacher' ? 'profileRoleTeacher' : 'profileRoleStudent',
+      activeCourses: activeCourses,
+      subjects: allSubjects,
+      evaluationsCompleted: evaluationHistory.length,
+    }));
+    
+    console.log('✅ [PERFIL LOCAL] Perfil actualizado exitosamente con datos directos de localStorage');
+
+  }, [user, evaluationHistory.length]);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    console.log('� [PERFIL API] Iniciando actualización de perfil desde API para:', user.username);
+    
+    // Función para obtener los datos del perfil del usuario desde la API
+    const fetchProfileData = async () => {
+      try {
+        console.log('📡 [PERFIL API] Llamando a la nueva API para obtener cursos...');
         
-        console.log("[Perfil] IDs de curso encontrados:", courseIds);
-        console.log("[Perfil] Nombres de curso convertidos:", activeCourseNames);
+        // 1. ✨ LLAMAR A LA NUEVA API PARA OBTENER LOS CURSOS ✨
+        const response = await fetch(`/api/users/${user.username}/courses`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch user courses');
+        }
+        const fetchedCourses: any[] = await response.json();
+        const activeCourses = fetchedCourses.map(course => course.name); // Extraemos solo los nombres
+        
+        console.log('✅ [PERFIL API] Cursos obtenidos de la API:', activeCourses);
 
-        // Mapear los nombres de los cursos a la estructura con conteo
-        const activeCoursesWithCount = user.role === 'teacher' 
-          ? activeCourseNames.map((name: string, index: number) => ({
-              name: name,
-              originalId: courseIds[index], // Mantener el ID original para referencia
-              studentCount: getStudentCountForCourse(name)
-            }))
-          : activeCourseNames;
-
-        console.log("[Perfil] Cursos con conteo de estudiantes:", activeCoursesWithCount);
-
-        // Función para obtener asignaturas según el curso
+        // 2. Función para obtener asignaturas según el curso (sin cambios)
         const getSubjectsForCourse = (course: string) => {
           if (course.includes('Medio')) {
             return [
@@ -534,13 +527,12 @@ export default function PerfilClient() {
             { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
           ];
         };
-        
-        // Determinar asignaturas basadas en los cursos convertidos
+
+        // 3. ✨ USAR LOS DATOS DE LA API PARA DETERMINAR LAS ASIGNATURAS ✨
         let allSubjects = [];
         if (user.role === 'teacher') {
-          // Para profesores: unificar asignaturas de todos los cursos
           const subjectsMap = new Map();
-          activeCourseNames.forEach((course: string) => {
+          activeCourses.forEach(course => {
             const subjectsForCourse = getSubjectsForCourse(course);
             subjectsForCourse.forEach(subject => {
               if (!subjectsMap.has(subject.tag)) {
@@ -549,31 +541,89 @@ export default function PerfilClient() {
             });
           });
           allSubjects = Array.from(subjectsMap.values());
+          console.log('🎓 [PERFIL API] Asignaturas del profesor unificadas:', allSubjects);
         } else {
-          // Para estudiantes: usar el primer curso
-          const firstCourse = activeCourseNames.length > 0 ? activeCourseNames[0] : '';
+          const firstCourse = activeCourses.length > 0 ? activeCourses[0] : '';
           allSubjects = getSubjectsForCourse(firstCourse);
+          console.log('🎓 [PERFIL API] Asignaturas del estudiante:', allSubjects);
         }
-        console.log("[Perfil] Asignaturas unificadas:", allSubjects);
 
-        // Actualizar el estado con toda la información obtenida
-        setDynamicUserProfileData({
-          name: fullUserData.displayName || fullUserData.username,
-          roleKey: fullUserData.role === 'teacher' ? 'profileRoleTeacher' : 'profileRoleStudent',
-          activeCourses: activeCoursesWithCount,
+        // 4. Actualizar el estado del perfil con la información correcta y centralizada
+        console.log('🔄 [PERFIL API] Actualizando estado del perfil...');
+        setDynamicUserProfileData(prevData => ({
+          ...prevData,
+          name: user.displayName || user.username,
+          roleKey: user.role === 'teacher' ? 'profileRoleTeacher' : 'profileRoleStudent',
+          activeCourses: activeCourses,
           subjects: allSubjects,
           evaluationsCompleted: evaluationHistory.length,
-        });
-        console.log("[Perfil] ¡Estado del perfil actualizado correctamente!");
+        }));
+        
+        console.log('✅ [PERFIL API] Perfil actualizado exitosamente con datos de la API');
 
       } catch (error) {
-        console.error("[Perfil] Error crítico al cargar los datos del perfil:", error);
+        console.error("❌ [PERFIL API] Error al obtener datos del perfil:", error);
+        
+        // Fallback a datos locales si la API falla
+        console.log('🔄 [PERFIL API] Usando fallback a datos locales...');
+        let updatedUserData = user;
+        try {
+          const storedUsers = localStorage.getItem('smart-student-users');
+          if (storedUsers) {
+            const usersData = JSON.parse(storedUsers);
+            const currentUserData = usersData.find((u: any) => u.username === user.username);
+            if (currentUserData) {
+              updatedUserData = { ...user, ...(currentUserData as any) };
+            }
+          }
+        } catch (localError) {
+          console.error("Error loading local user data:", localError);
+        }
+        
+        // Usar datos locales como fallback
+        const activeCourses = (updatedUserData as any).activeCourseNames || updatedUserData.activeCourses || [];
+        const getSubjectsForCourse = (course: string) => {
+          if (course.includes('Medio')) {
+            return [
+              { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+              { tag: "FIS", nameKey: "subjectPhysics", colorClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300" },
+              { tag: "QUI", nameKey: "subjectChemistry", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+              { tag: "BIO", nameKey: "subjectBiology", colorClass: "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300" },
+              { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+              { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+              { tag: "ING", nameKey: "subjectEnglish", colorClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300" },
+            ];
+          }
+          return [
+            { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+            { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+            { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+            { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+          ];
+        };
+        
+        const firstCourse = activeCourses.length > 0 ? activeCourses[0] : '';
+        const subjects = getSubjectsForCourse(firstCourse);
+        
+        setDynamicUserProfileData({
+          name: updatedUserData.displayName || updatedUserData.username,
+          roleKey: updatedUserData.role === 'teacher' ? 'profileRoleTeacher' : 'profileRoleStudent',
+          activeCourses: activeCourses,
+          subjects: subjects,
+          evaluationsCompleted: evaluationHistory.length,
+        });
+        
+        toast({
+          title: "Error de Carga",
+          description: "No se pudo cargar la información de los cursos del perfil.",
+          variant: "destructive"
+        });
       }
     };
 
-    loadProfileData();
+    fetchProfileData();
 
-  }, [user, mounted, evaluationHistory.length]);
+  }, [user, evaluationHistory.length, toast]);
 
   const handleDeleteHistory = () => {
     if (!mounted) return;
@@ -742,7 +792,7 @@ export default function PerfilClient() {
               <div>
                 <span className="font-semibold">{translate('profileName')}</span>
                 <span className="ml-2">
-                  {dynamicUserProfileData.name}
+                  {backendUserProfile?.fullName || backendUserProfile?.username || dynamicUserProfileData.name}
                 </span>
               </div>
               
@@ -750,88 +800,127 @@ export default function PerfilClient() {
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="font-semibold">{translate('profileRole')}</span>
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer hover:scale-105 hover:shadow-md ${
-                  dynamicUserProfileData.roleKey === 'profileRoleStudent'
+                  (backendUserProfile?.role || dynamicUserProfileData.roleKey) === 'student' || dynamicUserProfileData.roleKey === 'profileRoleStudent'
                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800'
                     : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800'
                 }`}>
-                  {translate(dynamicUserProfileData.roleKey)}
+                  {backendUserProfile?.role === 'teacher' ? translate('profileRoleTeacher') : 
+                   backendUserProfile?.role === 'student' ? translate('profileRoleStudent') : 
+                   translate(dynamicUserProfileData.roleKey)}
                 </span>
               </div>
 
-              {/* ✨ CURSOS ACTIVOS CON DISEÑO VERTICAL ELEGANTE ✨ */}
-              <div className="space-y-3">
-                <span className="font-semibold text-base">{user?.role === 'teacher' 
-                  ? (dynamicUserProfileData.activeCourses && dynamicUserProfileData.activeCourses.length > 1 
-                      ? translate('profileCoursesPlural') 
-                      : translate('profileCoursesSingular'))
-                  : (dynamicUserProfileData.activeCourses && dynamicUserProfileData.activeCourses.length > 1 
-                      ? translate('profileCourses') 
-                      : translate('profileCourse'))}
+              {/* ✨ CURSOS ACTIVOS DESDE BACKEND ✨ */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-semibold">
+                  {backendUserProfile?.role === 'teacher' || user?.role === 'teacher' 
+                    ? 'Cursos Asignados' 
+                    : translate('profileCourse')}
                 </span>
-                
-                {/* Lista de cursos con diseño card elegante */}
-                {dynamicUserProfileData.activeCourses && Array.isArray(dynamicUserProfileData.activeCourses) && dynamicUserProfileData.activeCourses.length > 0 ? (
-                  <div className="grid gap-2">
-                    {user?.role === 'teacher' ? (
-                      // Para profesores: diseño card con nombre y contador
-                      dynamicUserProfileData.activeCourses.map((course: any, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 
-                                   dark:border-gray-700 dark:from-blue-900/20 dark:to-indigo-900/20 
-                                   hover:shadow-md transition-all duration-200 cursor-pointer 
-                                   hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></div>
-                            <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {course.name || course}
-                            </span>
-                          </div>
-                          {course.studentCount !== undefined && (
-                            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500 text-white text-sm font-semibold shadow-sm ml-1.5 flex-shrink-0">
-                              <UserCircle className="w-4 h-4" />
-                              <span>{course.studentCount} estudiantes</span>
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      // Para estudiantes: diseño simple y elegante
-                      dynamicUserProfileData.activeCourses.map((courseName: any, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 
-                                   dark:border-gray-700 dark:from-green-900/20 dark:to-emerald-900/20 
-                                   hover:shadow-md transition-all duration-200 cursor-pointer 
-                                   hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900/30 dark:hover:to-emerald-900/30"
-                        >
-                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                          <span className="font-medium text-gray-900 dark:text-gray-100">
-                            {typeof courseName === 'string' ? courseName : courseName.name || courseName}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800/50">
-                    <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                    <span className="text-gray-500 text-sm italic">No asignado</span>
-                  </div>
-                )}
+                {backendLoading ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-600 animate-pulse">
+                    Cargando...
+                  </span>
+                ) : (() => {
+                  console.log('🔍 [DEBUG CURSOS] ======================');
+                  console.log('🔍 [DEBUG CURSOS] userCourses:', userCourses);
+                  console.log('🔍 [DEBUG CURSOS] userCourses.length:', userCourses?.length);
+                  console.log('🔍 [DEBUG CURSOS] backendUserProfile:', backendUserProfile);
+                  console.log('🔍 [DEBUG CURSOS] activeCourseNames:', backendUserProfile?.activeCourseNames);
+                  console.log('🔍 [DEBUG CURSOS] activeCourses length:', backendUserProfile?.activeCourseNames?.length);
+                  console.log('🔍 [DEBUG CURSOS] dynamicUserProfileData.activeCourses:', dynamicUserProfileData.activeCourses);
+                  console.log('🔍 [DEBUG CURSOS] ======================');
+                  
+                  // Prioridad 1: Cursos específicos del backend
+                  if (userCourses && Array.isArray(userCourses) && userCourses.length > 0) {
+                    console.log('✅ [DEBUG] Usando userCourses del backend');
+                    return userCourses.map((course, index) => (
+                      <span
+                        key={course.id || index}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 transition-all duration-200 cursor-pointer hover:bg-green-200 dark:hover:bg-green-800 hover:scale-105"
+                      >
+                        {course.name}
+                      </span>
+                    ));
+                  }
+                  
+                  // Prioridad 2: Cursos del perfil del backend
+                  if (backendUserProfile?.activeCourseNames && Array.isArray(backendUserProfile.activeCourseNames) && backendUserProfile.activeCourseNames.length > 0) {
+                    console.log('✅ [DEBUG] Usando activeCourseNames del backend profile');
+                    return backendUserProfile.activeCourseNames.map((courseName, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 transition-all duration-200 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 hover:scale-105"
+                      >
+                        {courseName}
+                      </span>
+                    ));
+                  }
+                  
+                  // Prioridad 3: Datos locales como fallback
+                  if (dynamicUserProfileData.activeCourses && Array.isArray(dynamicUserProfileData.activeCourses) && dynamicUserProfileData.activeCourses.length > 0) {
+                    console.log('✅ [DEBUG] Usando datos locales como fallback');
+                    return dynamicUserProfileData.activeCourses.map((courseName, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 transition-all duration-200 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 hover:scale-105"
+                      >
+                        {courseName}
+                      </span>
+                    ));
+                  }
+                  
+                  // Si no hay datos disponibles
+                  console.log('❌ [DEBUG] No hay cursos disponibles');
+                  return <span className="text-gray-500 text-sm">No asignado</span>;
+                })()}
               </div>
             </div>
             
             <div className="space-y-4">
-              {/* ✨ ASIGNATURAS DESDE LOCALSTORAGE ✨ */}
+              {/* ✨ ASIGNATURAS DESDE BACKEND ✨ */}
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="font-semibold">{translate('profileSubjects')}</span>
-                {dynamicUserProfileData.subjects.map((subject, index) => (
-                  <span key={index} className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", subject.colorClass)}>
-                    {subject.tag}
+                {backendLoading ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 animate-pulse">
+                    Cargando...
                   </span>
-                ))}
+                ) : userSubjects && userSubjects.length > 0 ? (
+                  // 🎯 PRIORIDAD 1: Asignaturas específicas del backend
+                  userSubjects.map((subject, index) => (
+                    <span key={subject.id || index} className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", subject.colorClass)}>
+                      {subject.tag}
+                    </span>
+                  ))
+                ) : backendUserProfile?.teachingSubjects && backendUserProfile.teachingSubjects.length > 0 ? (
+                  // 🎯 PRIORIDAD 2: Asignaturas del perfil del profesor
+                  backendUserProfile.teachingSubjects.map((subjectName, index) => {
+                    const subjectMap: Record<string, { tag: string; colorClass: string }> = {
+                      'Matemáticas': { tag: "MAT", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+                      'Ciencias Naturales': { tag: "CIE", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+                      'Historia': { tag: "HIS", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+                      'Lenguaje y Comunicación': { tag: "LEN", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+                      'Lenguaje': { tag: "LEN", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+                      'Física': { tag: "FIS", colorClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300" },
+                      'Química': { tag: "QUI", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+                      'Biología': { tag: "BIO", colorClass: "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300" },
+                      'Inglés': { tag: "ING", colorClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300" },
+                    };
+                    const subject = subjectMap[subjectName];
+                    return subject ? (
+                      <span key={index} className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", subject.colorClass)}>
+                        {subject.tag}
+                      </span>
+                    ) : null;
+                  })
+                ) : (
+                  // 🎯 PRIORIDAD 3: Datos locales como fallback
+                  dynamicUserProfileData.subjects.map((subject, index) => (
+                    <span key={index} className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", subject.colorClass)}>
+                      {subject.tag}
+                    </span>
+                  ))
+                )}
               </div>
               <div>
                 <span className="font-semibold">{translate('profileEvalsCompleted')}</span>

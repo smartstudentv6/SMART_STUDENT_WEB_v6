@@ -189,143 +189,6 @@ export default function PerfilClient() {
     );
   };
 
-  // ✨ FUNCIÓN PARA CONVERTIR IDS A NOMBRES DE CURSO ✨
-  const convertCourseIdToName = (courseId: string): string => {
-    if (!courseId) return courseId;
-    
-    // Si ya es un nombre legible (no contiene guiones ni números largos), devolverlo tal como está
-    if (!courseId.includes('-') && !courseId.match(/\d{10,}/)) {
-      return courseId;
-    }
-    
-    console.log('🔄 [CONVERSIÓN] Convirtiendo ID:', courseId);
-    
-    // Mapeo de patrones comunes de IDs a nombres de curso
-    const courseMapping: Record<string, string> = {
-      // Patrones para identificar cursos básicos
-      '1ro-basico': '1ro Básico',
-      '2do-basico': '2do Básico', 
-      '3ro-basico': '3ro Básico',
-      '4to-basico': '4to Básico',
-      '5to-basico': '5to Básico',
-      '6to-basico': '6to Básico',
-      '7mo-basico': '7mo Básico',
-      '8vo-basico': '8vo Básico',
-      // Patrones para identificar cursos medios
-      '1ro-medio': '1ro Medio',
-      '2do-medio': '2do Medio',
-      '3ro-medio': '3ro Medio', 
-      '4to-medio': '4to Medio',
-    };
-
-    // Buscar patrones en el ID
-    const lowerCourseId = courseId.toLowerCase();
-    for (const [pattern, name] of Object.entries(courseMapping)) {
-      if (lowerCourseId.includes(pattern)) {
-        console.log('✅ [CONVERSIÓN] Encontrado patrón:', pattern, '->', name);
-        return name;
-      }
-    }
-
-    // Si contiene números, intentar extraer el nivel
-    const basicMatch = courseId.match(/(\d+).*b[aá]sico/i);
-    if (basicMatch) {
-      const num = parseInt(basicMatch[1]);
-      const ordinals = ['', '1ro', '2do', '3ro', '4to', '5to', '6to', '7mo', '8vo'];
-      const result = `${ordinals[num] || num + 'to'} Básico`;
-      console.log('✅ [CONVERSIÓN] Extraído de número básico:', result);
-      return result;
-    }
-
-    const medioMatch = courseId.match(/(\d+).*medio/i);
-    if (medioMatch) {
-      const num = parseInt(medioMatch[1]);
-      const ordinals = ['', '1ro', '2do', '3ro', '4to'];
-      const result = `${ordinals[num] || num + 'to'} Medio`;
-      console.log('✅ [CONVERSIÓN] Extraído de número medio:', result);
-      return result;
-    }
-
-    // Casos especiales para IDs largos como 'id-1753226643520-0g1a322hy'
-    if (courseId.length > 15 && courseId.includes('-')) {
-      const parts = courseId.split('-');
-      const lastPart = parts[parts.length - 1];
-      
-      console.log('🔍 [CONVERSIÓN] Analizando ID largo. Última parte:', lastPart);
-      
-      // Intentar deducir de patrones en la última parte
-      if (lastPart.includes('1') && lastPart.includes('a')) {
-        console.log('✅ [CONVERSIÓN] Deducido como 1ro Básico por patrón 1a');
-        return '1ro Básico';
-      }
-      if (lastPart.includes('2') && lastPart.includes('a')) {
-        return '2do Básico';
-      }
-      if (lastPart.includes('3') && lastPart.includes('a')) {
-        return '3ro Básico';
-      }
-      
-      // Si no se puede deducir específicamente, usar un nombre genérico pero descriptivo
-      console.log('⚠️ [CONVERSIÓN] No se pudo deducir nivel específico, usando genérico');
-      return 'Curso Asignado';
-    }
-
-    console.log('❌ [CONVERSIÓN] No se pudo convertir, manteniendo original');
-    return courseId; // Devolver el original si no se puede convertir
-  };
-
-  // ✨ FUNCIÓN PARA OBTENER NOMBRES DE CURSOS POR ID ✨
-  const getCourseNameById = (courseId: string): string => {
-    try {
-      const storedCourses = localStorage.getItem('smart-student-courses');
-      if (!storedCourses) return courseId; // Devuelve el ID si no hay cursos
-
-      const coursesData = JSON.parse(storedCourses);
-      const course = coursesData.find((c: any) => c.id === courseId);
-
-      return course ? course.name : courseId; // Devuelve el nombre si lo encuentra
-    } catch {
-      return courseId; // En caso de error, devuelve el ID
-    }
-  };
-
-  // ✨ FUNCIÓN PARA CONTAR ESTUDIANTES POR CURSO - VERSIÓN MEJORADA ✨
-  const getStudentCountForCourse = (courseName: string): number => {
-    try {
-      const storedUsers = localStorage.getItem('smart-student-users');
-      const storedCourses = localStorage.getItem('smart-student-courses');
-      if (!storedUsers || !storedCourses) return 0;
-
-      const usersData = JSON.parse(storedUsers);
-      const coursesData = JSON.parse(storedCourses);
-
-      // 1. Busca el curso en la lista para obtener su ID
-      const course = coursesData.find((c: any) => c.name === courseName);
-      const courseId = course ? course.id : null;
-
-      if (!courseId) {
-        console.warn(`[Contador] No se encontró un ID para el curso "${courseName}". El conteo podría ser 0.`);
-      }
-
-      // 2. Filtra los estudiantes que coincidan por NOMBRE o por ID
-      const studentCount = usersData.filter((user: any) => {
-        if (user.role !== 'student' || !Array.isArray(user.activeCourses)) {
-          return false;
-        }
-        // Un estudiante es contado si en su lista de cursos tiene
-        // el NOMBRE del curso O el ID del curso.
-        return user.activeCourses.includes(courseName) || (courseId && user.activeCourses.includes(courseId));
-      }).length;
-
-      console.log(`[Contador] Estudiantes encontrados para "${courseName}" (ID: ${courseId}): ${studentCount}`);
-      return studentCount;
-
-    } catch (error) {
-      console.error(`Error al contar estudiantes para el curso ${courseName}:`, error);
-      return 0;
-    }
-  };
-
   // Ensure this only runs on client-side
   useEffect(() => {
     setMounted(true);
@@ -473,107 +336,88 @@ export default function PerfilClient() {
 
   }, [evaluationHistory, language, translate, mounted, user]);
 
-  // ✨ ACTUALIZAR PERFIL CON CONVERSIÓN DE IDS A NOMBRES - VERSIÓN DEFINITIVA ✨
+  // ✨ ACTUALIZAR PERFIL CON DATOS DIRECTOS DE LOCALSTORAGE ✨
   useEffect(() => {
-    if (!user || !mounted) return;
-
-    const loadProfileData = () => {
-      try {
-        console.log(`[Perfil] Cargando datos para: ${user.username}`);
-        const storedUsers = localStorage.getItem('smart-student-users');
-        if (!storedUsers) {
-          console.error("[Perfil] Error: 'smart-student-users' no encontrado en localStorage.");
-          return;
-        }
-
+    if (!user) return;
+    
+    console.log('📝 [PERFIL LOCAL] Actualizando perfil con datos directos de localStorage para:', user.username);
+    
+    // Leer datos directamente de localStorage (fuente de verdad)
+    let updatedUserData = user;
+    try {
+      const storedUsers = localStorage.getItem('smart-student-users');
+      if (storedUsers) {
         const usersData = JSON.parse(storedUsers);
-        const fullUserData = usersData.find((u: any) => u.username === user.username);
-
-        if (!fullUserData) {
-          console.error(`[Perfil] Error: Usuario "${user.username}" no fue encontrado.`);
-          return;
+        const currentUserData = usersData.find((u: any) => u.username === user.username);
+        if (currentUserData) {
+          updatedUserData = { ...user, ...currentUserData };
+          console.log('✅ [PERFIL LOCAL] Datos del usuario encontrados en localStorage:', currentUserData);
         }
-
-        console.log("[Perfil] Datos completos del usuario encontrados:", fullUserData);
-
-        // ✨ PASO CLAVE: Convertir IDs de cursos a Nombres de cursos ✨
-        const courseIds = fullUserData.activeCourses || [];
-        const activeCourseNames = courseIds.map((id: string) => getCourseNameById(id));
-        
-        console.log("[Perfil] IDs de curso encontrados:", courseIds);
-        console.log("[Perfil] Nombres de curso convertidos:", activeCourseNames);
-
-        // Mapear los nombres de los cursos a la estructura con conteo
-        const activeCoursesWithCount = user.role === 'teacher' 
-          ? activeCourseNames.map((name: string, index: number) => ({
-              name: name,
-              originalId: courseIds[index], // Mantener el ID original para referencia
-              studentCount: getStudentCountForCourse(name)
-            }))
-          : activeCourseNames;
-
-        console.log("[Perfil] Cursos con conteo de estudiantes:", activeCoursesWithCount);
-
-        // Función para obtener asignaturas según el curso
-        const getSubjectsForCourse = (course: string) => {
-          if (course.includes('Medio')) {
-            return [
-              { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
-              { tag: "FIS", nameKey: "subjectPhysics", colorClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300" },
-              { tag: "QUI", nameKey: "subjectChemistry", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
-              { tag: "BIO", nameKey: "subjectBiology", colorClass: "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300" },
-              { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
-              { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
-              { tag: "ING", nameKey: "subjectEnglish", colorClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300" },
-            ];
-          }
-          return [ // Cursos básicos y por defecto
-            { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
-            { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
-            { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
-            { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
-          ];
-        };
-        
-        // Determinar asignaturas basadas en los cursos convertidos
-        let allSubjects = [];
-        if (user.role === 'teacher') {
-          // Para profesores: unificar asignaturas de todos los cursos
-          const subjectsMap = new Map();
-          activeCourseNames.forEach((course: string) => {
-            const subjectsForCourse = getSubjectsForCourse(course);
-            subjectsForCourse.forEach(subject => {
-              if (!subjectsMap.has(subject.tag)) {
-                subjectsMap.set(subject.tag, subject);
-              }
-            });
-          });
-          allSubjects = Array.from(subjectsMap.values());
-        } else {
-          // Para estudiantes: usar el primer curso
-          const firstCourse = activeCourseNames.length > 0 ? activeCourseNames[0] : '';
-          allSubjects = getSubjectsForCourse(firstCourse);
-        }
-        console.log("[Perfil] Asignaturas unificadas:", allSubjects);
-
-        // Actualizar el estado con toda la información obtenida
-        setDynamicUserProfileData({
-          name: fullUserData.displayName || fullUserData.username,
-          roleKey: fullUserData.role === 'teacher' ? 'profileRoleTeacher' : 'profileRoleStudent',
-          activeCourses: activeCoursesWithCount,
-          subjects: allSubjects,
-          evaluationsCompleted: evaluationHistory.length,
-        });
-        console.log("[Perfil] ¡Estado del perfil actualizado correctamente!");
-
-      } catch (error) {
-        console.error("[Perfil] Error crítico al cargar los datos del perfil:", error);
       }
+    } catch (localError) {
+      console.error("❌ [PERFIL LOCAL] Error al cargar datos del localStorage:", localError);
+    }
+    
+    // Obtener cursos activos desde localStorage
+    const activeCourses = (updatedUserData as any).activeCourseNames || (updatedUserData as any).activeCourses || [];
+    console.log('🎓 [PERFIL LOCAL] Cursos activos:', activeCourses);
+    
+    // Función para obtener asignaturas según el curso
+    const getSubjectsForCourse = (course: string) => {
+      if (course.includes('Medio')) {
+        return [
+          { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+          { tag: "FIS", nameKey: "subjectPhysics", colorClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300" },
+          { tag: "QUI", nameKey: "subjectChemistry", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+          { tag: "BIO", nameKey: "subjectBiology", colorClass: "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300" },
+          { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+          { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+          { tag: "ING", nameKey: "subjectEnglish", colorClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300" },
+        ];
+      }
+      return [ // Cursos básicos y por defecto
+        { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+        { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+        { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+        { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+      ];
     };
 
-    loadProfileData();
+    // Determinar asignaturas basadas en los cursos
+    let allSubjects = [];
+    if (user.role === 'teacher') {
+      // Para profesores: unificar asignaturas de todos los cursos
+      const subjectsMap = new Map();
+      activeCourses.forEach((course: string) => {
+        const subjectsForCourse = getSubjectsForCourse(course);
+        subjectsForCourse.forEach(subject => {
+          if (!subjectsMap.has(subject.tag)) {
+            subjectsMap.set(subject.tag, subject);
+          }
+        });
+      });
+      allSubjects = Array.from(subjectsMap.values());
+      console.log('🎓 [PERFIL LOCAL] Asignaturas del profesor unificadas:', allSubjects);
+    } else {
+      // Para estudiantes: usar el primer curso
+      const firstCourse = activeCourses.length > 0 ? activeCourses[0] : '';
+      allSubjects = getSubjectsForCourse(firstCourse);
+      console.log('🎓 [PERFIL LOCAL] Asignaturas del estudiante:', allSubjects);
+    }
 
-  }, [user, mounted, evaluationHistory.length]);
+    // Actualizar el estado del perfil
+    setDynamicUserProfileData(prevData => ({
+      ...prevData,
+      name: updatedUserData.displayName || updatedUserData.username,
+      roleKey: updatedUserData.role === 'teacher' ? 'profileRoleTeacher' : 'profileRoleStudent',
+      activeCourses: activeCourses,
+      subjects: allSubjects,
+      evaluationsCompleted: evaluationHistory.length,
+    }));
+    
+    console.log('✅ [PERFIL LOCAL] Perfil actualizado exitosamente con datos directos de localStorage');
+
+  }, [user, evaluationHistory.length]);
 
   const handleDeleteHistory = () => {
     if (!mounted) return;
@@ -758,67 +602,24 @@ export default function PerfilClient() {
                 </span>
               </div>
 
-              {/* ✨ CURSOS ACTIVOS CON DISEÑO VERTICAL ELEGANTE ✨ */}
-              <div className="space-y-3">
-                <span className="font-semibold text-base">{user?.role === 'teacher' 
-                  ? (dynamicUserProfileData.activeCourses && dynamicUserProfileData.activeCourses.length > 1 
-                      ? translate('profileCoursesPlural') 
-                      : translate('profileCoursesSingular'))
-                  : (dynamicUserProfileData.activeCourses && dynamicUserProfileData.activeCourses.length > 1 
-                      ? translate('profileCourses') 
-                      : translate('profileCourse'))}
+              {/* ✨ CURSOS ACTIVOS DESDE LOCALSTORAGE ✨ */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-semibold">
+                  {user?.role === 'teacher' 
+                    ? 'Cursos Asignados' 
+                    : translate('profileCourse')}
                 </span>
-                
-                {/* Lista de cursos con diseño card elegante */}
                 {dynamicUserProfileData.activeCourses && Array.isArray(dynamicUserProfileData.activeCourses) && dynamicUserProfileData.activeCourses.length > 0 ? (
-                  <div className="grid gap-2">
-                    {user?.role === 'teacher' ? (
-                      // Para profesores: diseño card con nombre y contador
-                      dynamicUserProfileData.activeCourses.map((course: any, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 
-                                   dark:border-gray-700 dark:from-blue-900/20 dark:to-indigo-900/20 
-                                   hover:shadow-md transition-all duration-200 cursor-pointer 
-                                   hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></div>
-                            <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {course.name || course}
-                            </span>
-                          </div>
-                          {course.studentCount !== undefined && (
-                            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500 text-white text-sm font-semibold shadow-sm ml-1.5 flex-shrink-0">
-                              <UserCircle className="w-4 h-4" />
-                              <span>{course.studentCount} estudiantes</span>
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      // Para estudiantes: diseño simple y elegante
-                      dynamicUserProfileData.activeCourses.map((courseName: any, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 
-                                   dark:border-gray-700 dark:from-green-900/20 dark:to-emerald-900/20 
-                                   hover:shadow-md transition-all duration-200 cursor-pointer 
-                                   hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900/30 dark:hover:to-emerald-900/30"
-                        >
-                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                          <span className="font-medium text-gray-900 dark:text-gray-100">
-                            {typeof courseName === 'string' ? courseName : courseName.name || courseName}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                  dynamicUserProfileData.activeCourses.map((courseName, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 transition-all duration-200 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 hover:scale-105"
+                    >
+                      {courseName}
+                    </span>
+                  ))
                 ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800/50">
-                    <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                    <span className="text-gray-500 text-sm italic">No asignado</span>
-                  </div>
+                  <span className="text-gray-500 text-sm">No asignado</span>
                 )}
               </div>
             </div>

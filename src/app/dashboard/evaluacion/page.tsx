@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ClipboardList, PlayCircle, ChevronLeft, ChevronRight, PartyPopper, Award, Timer } from 'lucide-react';
@@ -46,6 +47,7 @@ export default function EvaluacionPage() {
   const [selectedBook, setSelectedBook] = useState('');
   const [topic, setTopic] = useState('');
   const [currentTopicForDisplay, setCurrentTopicForDisplay] = useState('');
+  const [selectedQuestionCount, setSelectedQuestionCount] = useState(15);
   
   // Evaluation state
   const [evaluationTitle, setEvaluationTitle] = useState('');
@@ -650,7 +652,7 @@ export default function EvaluacionPage() {
     let courseToUse = courseFromQuery ? decodeURIComponent(courseFromQuery) : selectedCourse;
     let bookToUse = bookFromQuery ? decodeURIComponent(bookFromQuery) : selectedBook;
     let topicToUse = topicFromQuery ? decodeURIComponent(topicFromQuery) : topic;
-    let questionCountToUse = questionCountFromQuery ? parseInt(questionCountFromQuery) : 15;
+    let questionCountToUse = questionCountFromQuery ? parseInt(questionCountFromQuery) : selectedQuestionCount;
     // Convertir minutos a segundos para timeLimitToUse
     let timeLimitToUse = timeLimitFromQuery ? parseInt(timeLimitFromQuery) * 60 : 120;
     
@@ -915,7 +917,7 @@ export default function EvaluacionPage() {
     // Obtener parámetros originales de la evaluación
     const questionCountFromQuery = searchParams.get('questionCount');
     const timeLimitFromQuery = searchParams.get('timeLimit');
-    let questionCountToUse = questionCountFromQuery ? parseInt(questionCountFromQuery) : 15;
+    let questionCountToUse = questionCountFromQuery ? parseInt(questionCountFromQuery) : selectedQuestionCount;
     // Convertir minutos a segundos para timeLimitToUse
     let timeLimitToUse = timeLimitFromQuery ? parseInt(timeLimitFromQuery) * 60 : 120;
     
@@ -1076,6 +1078,7 @@ export default function EvaluacionPage() {
     setTopic('');
     setSelectedCourse(''); 
     setSelectedBook(''); 
+    setSelectedQuestionCount(15);
     setInitialBookFromQuery(undefined);
     setCurrentTopicForDisplay('');
     setShowResultDialog(false); 
@@ -1125,6 +1128,7 @@ export default function EvaluacionPage() {
     setSelectedCourse('');
     setSelectedBook('');
     setTopic('');
+    setSelectedQuestionCount(15);
     setCurrentTopicForDisplay('');
     setInitialBookFromQuery(undefined);
     
@@ -1345,6 +1349,27 @@ export default function EvaluacionPage() {
               onBookChange={setSelectedBook}
               initialBookNameToSelect={initialBookFromQuery}
             />
+            <div className="space-y-2">
+              <Label htmlFor="question-count-select" className="text-left block">
+                {translate('evalQuestionCountLabel', { defaultValue: 'Cantidad de preguntas' })}
+              </Label>
+              <Select 
+                value={selectedQuestionCount.toString()} 
+                onValueChange={(value) => setSelectedQuestionCount(parseInt(value))}
+              >
+                <SelectTrigger id="question-count-select" className="text-base md:text-sm">
+                  <SelectValue placeholder={translate('evalQuestionCountPlaceholder', { defaultValue: 'Selecciona la cantidad de preguntas' })} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 preguntas</SelectItem>
+                  <SelectItem value="10">10 preguntas</SelectItem>
+                  <SelectItem value="15">15 preguntas</SelectItem>
+                  <SelectItem value="20">20 preguntas</SelectItem>
+                  <SelectItem value="25">25 preguntas</SelectItem>
+                  <SelectItem value="30">30 preguntas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="eval-topic-input" className="text-left block">{translate('evalTopicPlaceholder')}</Label>
               <Textarea

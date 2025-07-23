@@ -14,8 +14,8 @@ export interface RawFaqItem {
 
 export interface UserProfile {
   name: string;
-  levelKey: string;
-  activeCoursesKey: string;
+  roleKey: string; // Cambio de levelKey a roleKey para "Estudiante"/"Profesor"
+  activeCourses: string[]; // Cambio de activeCoursesKey a array de cursos
   subjects: Array<{ tag: string; nameKey: string; colorClass: string }>; // e.g. { tag: "MAT", nameKey: "subjectMath" }
   evaluationsCompleted: number;
 }
