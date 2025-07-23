@@ -1418,216 +1418,92 @@
       }
     };
 
-    // Funciones para la evaluación mejorada
-    const generateEvaluationQuestions = (topic: string, numQuestions: number) => {
-      const getQuestionTemplates = () => {
-        // Preguntas en español
-        const spanishQuestions = {
-          'sistema respiratorio': [
-            {
-              question: "¿Cuál es la función principal del sistema respiratorio?",
-              options: ["Bombear sangre", "Intercambio de gases", "Filtrar toxinas", "Producir hormonas"],
-              correct: 1,
-              explanation: "El sistema respiratorio tiene como función principal el intercambio de gases, permitiendo que el oxígeno entre al cuerpo y se elimine el dióxido de carbono."
-            },
-            {
-              question: "¿Qué órgano es el principal del sistema respiratorio?",
-              options: ["Corazón", "Hígado", "Pulmones", "Riñones"],
-              correct: 2,
-              explanation: "Los pulmones son los órganos principales del sistema respiratorio, donde ocurre el intercambio de gases entre el aire y la sangre."
-            },
-            {
-              question: "¿Cuál de estas estructuras NO forma parte del sistema respiratorio?",
-              options: ["Tráquea", "Bronquios", "Estómago", "Alvéolos"],
-              correct: 2,
-              explanation: "El estómago es parte del sistema digestivo, no del sistema respiratorio. Las otras estructuras (tráquea, bronquios y alvéolos) sí forman parte del sistema respiratorio."
-            },
-            {
-              question: "¿Qué gas se elimina durante la exhalación?",
-              options: ["Oxígeno", "Dióxido de carbono", "Nitrógeno", "Hidrógeno"],
-              correct: 1,
-              explanation: "Durante la exhalación se elimina el dióxido de carbono (CO₂), que es un producto de desecho del metabolismo celular."
-            },
-            {
-              question: "¿Dónde ocurre el intercambio gaseoso en los pulmones?",
-              options: ["Bronquios", "Tráquea", "Alvéolos", "Laringe"],
-              correct: 2,
-              explanation: "El intercambio gaseoso ocurre en los alvéolos, que son pequeñas bolsas de aire rodeadas de capilares sanguíneos donde se intercambian oxígeno y dióxido de carbono."
-            }
-          ],
-          'matemáticas': [
-            {
-              question: "¿Cuánto es 2 + 2?",
-              options: ["3", "4", "5", "6"],
-              correct: 1,
-              explanation: "2 + 2 = 4. Esta es una suma básica donde agregamos 2 unidades a 2 unidades existentes."
-            },
-            {
-              question: "¿Cuál es la raíz cuadrada de 16?",
-              options: ["2", "4", "6", "8"],
-              correct: 1,
-              explanation: "La raíz cuadrada de 16 es 4, porque 4 × 4 = 16."
-            },
-            {
-              question: "¿Cuánto es 5 × 7?",
-              options: ["30", "35", "40", "45"],
-              correct: 1,
-              explanation: "5 × 7 = 35. Podemos verificarlo sumando 5 siete veces: 5+5+5+5+5+5+5 = 35."
-            },
-            {
-              question: "¿Cuál es el resultado de 100 ÷ 4?",
-              options: ["20", "25", "30", "35"],
-              correct: 1,
-              explanation: "100 ÷ 4 = 25. Esto significa dividir 100 en 4 partes iguales, cada parte tiene 25 unidades."
-            },
-            {
-              question: "¿Cuánto es 3³ (3 elevado al cubo)?",
-              options: ["9", "18", "27", "36"],
-              correct: 2,
-              explanation: "3³ = 3 × 3 × 3 = 27. Un cubo significa multiplicar el número por sí mismo tres veces."
-            }
-          ],
-          'ciencias': [
-            {
-              question: "¿Cuál es el planeta más cercano al Sol?",
-              options: ["Venus", "Mercurio", "Tierra", "Marte"],
-              correct: 1,
-              explanation: "Mercurio es el planeta más cercano al Sol en nuestro sistema solar, con una distancia promedio de aproximadamente 58 millones de kilómetros."
-            },
-            {
-              question: "¿Qué elemento químico tiene el símbolo 'O'?",
-              options: ["Oro", "Osmio", "Oxígeno", "Ozono"],
-              correct: 2,
-              explanation: "El símbolo 'O' representa al oxígeno en la tabla periódica. Es un elemento esencial para la respiración y la combustión."
-            }
-          ]
-        };
+    // Funciones para la evaluación mejorada con IA de Gemini
+    const generateEvaluationQuestions = async (topic: string, numQuestions: number): Promise<any[]> => {
+      try {
+        console.log(`🤖 Solicitando ${numQuestions} preguntas sobre "${topic}" a nuestra API...`);
 
-        // Preguntas en inglés
-        const englishQuestions = {
-          'respiratory system': [
-            {
-              question: "What is the main function of the respiratory system?",
-              options: ["Pump blood", "Gas exchange", "Filter toxins", "Produce hormones"],
-              correct: 1,
-              explanation: "The respiratory system's main function is gas exchange, allowing oxygen to enter the body and carbon dioxide to be removed."
-            },
-            {
-              question: "What is the main organ of the respiratory system?",
-              options: ["Heart", "Liver", "Lungs", "Kidneys"],
-              correct: 2,
-              explanation: "The lungs are the main organs of the respiratory system, where gas exchange occurs between air and blood."
-            },
-            {
-              question: "Which of these structures is NOT part of the respiratory system?",
-              options: ["Trachea", "Bronchi", "Stomach", "Alveoli"],
-              correct: 2,
-              explanation: "The stomach is part of the digestive system, not the respiratory system. The other structures (trachea, bronchi, and alveoli) are part of the respiratory system."
-            },
-            {
-              question: "What gas is eliminated during exhalation?",
-              options: ["Oxygen", "Carbon dioxide", "Nitrogen", "Hydrogen"],
-              correct: 1,
-              explanation: "During exhalation, carbon dioxide (CO₂) is eliminated, which is a waste product of cellular metabolism."
-            },
-            {
-              question: "Where does gas exchange occur in the lungs?",
-              options: ["Bronchi", "Trachea", "Alveoli", "Larynx"],
-              correct: 2,
-              explanation: "Gas exchange occurs in the alveoli, which are small air sacs surrounded by blood capillaries where oxygen and carbon dioxide are exchanged."
-            }
-          ],
-          'mathematics': [
-            {
-              question: "What is 2 + 2?",
-              options: ["3", "4", "5", "6"],
-              correct: 1,
-              explanation: "2 + 2 = 4. This is a basic addition where we add 2 units to 2 existing units."
-            },
-            {
-              question: "What is the square root of 16?",
-              options: ["2", "4", "6", "8"],
-              correct: 1,
-              explanation: "The square root of 16 is 4, because 4 × 4 = 16."
-            },
-            {
-              question: "What is 5 × 7?",
-              options: ["30", "35", "40", "45"],
-              correct: 1,
-              explanation: "5 × 7 = 35. We can verify this by adding 5 seven times: 5+5+5+5+5+5+5 = 35."
-            },
-            {
-              question: "What is the result of 100 ÷ 4?",
-              options: ["20", "25", "30", "35"],
-              correct: 1,
-              explanation: "100 ÷ 4 = 25. This means dividing 100 into 4 equal parts, each part has 25 units."
-            },
-            {
-              question: "What is 3³ (3 to the power of 3)?",
-              options: ["9", "18", "27", "36"],
-              correct: 2,
-              explanation: "3³ = 3 × 3 × 3 = 27. Cubing means multiplying the number by itself three times."
-            }
-          ],
-          'science': [
-            {
-              question: "Which is the closest planet to the Sun?",
-              options: ["Venus", "Mercury", "Earth", "Mars"],
-              correct: 1,
-              explanation: "Mercury is the closest planet to the Sun in our solar system, with an average distance of approximately 58 million kilometers."
-            },
-            {
-              question: "What chemical element has the symbol 'O'?",
-              options: ["Gold", "Osmium", "Oxygen", "Ozone"],
-              correct: 2,
-              explanation: "The symbol 'O' represents oxygen in the periodic table. It is an essential element for respiration and combustion."
-            }
-          ]
-        };
+        // 1. Hacer una petición POST a tu API Route
+        const response = await fetch('/api/generate-questions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ topic, numQuestions }),
+        });
 
-        // Determinar idioma actual
-        const currentLanguage = localStorage.getItem('smart-student-lang') || 'es';
-        
-        if (currentLanguage === 'en') {
-          return englishQuestions;
-        } else {
-          return spanishQuestions;
+        console.log('📡 Respuesta del servidor recibida. Status:', response.status);
+
+        // Verificar si la respuesta tiene contenido antes de parsear
+        const responseText = await response.text();
+        console.log('📄 Contenido de la respuesta:', responseText);
+
+        if (!response.ok) {
+          // Si la respuesta del servidor no es exitosa, lanza un error
+          let errorData;
+          try {
+            errorData = JSON.parse(responseText);
+          } catch {
+            errorData = { error: responseText || `Error ${response.status}: ${response.statusText}` };
+          }
+          console.error('❌ Error del servidor:', errorData);
+          throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
         }
-      };
 
-      const questionTemplates = getQuestionTemplates();
-      
-      // Mapear temas al idioma correcto
-      const currentLanguage = localStorage.getItem('smart-student-lang') || 'es';
-      console.log('🔍 GENERATING QUESTIONS - Current language:', currentLanguage);
-      console.log('🔍 GENERATING QUESTIONS - Topic:', topic, 'Num questions:', numQuestions);
-      
-      let topicKey = topic.toLowerCase();
-      
-      if (currentLanguage === 'en') {
-        // Mapear temas de español a inglés
-        const topicMapping: { [key: string]: string } = {
-          'sistema respiratorio': 'respiratory system',
-          'matemáticas': 'mathematics',
-          'ciencias': 'science'
-        };
-        topicKey = topicMapping[topicKey] || topicKey;
+        // 2. Convertir la respuesta a JSON (con validación mejorada)
+        if (!responseText.trim()) {
+          throw new Error("La respuesta del servidor está vacía");
+        }
+
+        let questions;
+        try {
+          questions = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ Error al parsear JSON:', parseError);
+          console.error('❌ Contenido que falló al parsear:', responseText);
+          throw new Error("Respuesta del servidor no es un JSON válido");
+        }
+        console.log('✅ Preguntas recibidas desde la API:', questions.length, questions);
+
+        // Validar que se recibieron preguntas válidas
+        if (!Array.isArray(questions) || questions.length === 0) {
+          throw new Error("No se recibieron preguntas válidas de la API");
+        }
+
+        console.log('✅ Preguntas recibidas y validadas correctamente:', questions.length);
+
+        // 3. ¡Randomizar el orden de las preguntas!
+        // Esto asegura que cada vez que se inicie la evaluación, las preguntas aparezcan en un orden diferente.
+        const shuffledQuestions = [...questions].sort(() => 0.5 - Math.random());
+
+        console.log('🔀 Preguntas randomizadas y validadas correctamente');
+        return shuffledQuestions;
+
+      } catch (error: any) {
+        console.error("❌ Error completo al solicitar o procesar las preguntas:", error);
+        console.error("❌ Stack trace:", error.stack);
+        
+        // Mostrar mensaje de error más específico al usuario
+        let errorMessage = "No se pudieron generar las preguntas. Por favor, inténtalo de nuevo.";
+        
+        if (error.message.includes("fetch")) {
+          errorMessage = "Error de conexión con el servidor. Verifica tu conexión a internet.";
+        } else if (error.message.includes("API Key")) {
+          errorMessage = "Error de configuración del servidor. Contacta al administrador.";
+        } else if (error.message.includes("estructura")) {
+          errorMessage = "Error en el formato de las preguntas generadas. Inténtalo nuevamente.";
+        }
+        
+        toast({
+          title: "Error de IA",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        return []; // Devolver un array vacío en caso de error
       }
-      
-      // Obtener las preguntas del tema o usar matemáticas por defecto
-      let templates = questionTemplates[topicKey as keyof typeof questionTemplates];
-      if (!templates) {
-        // Fallback a matemáticas/mathematics según el idioma
-        const fallbackKey = currentLanguage === 'en' ? 'mathematics' : 'matemáticas';
-        templates = questionTemplates[fallbackKey as keyof typeof questionTemplates] || Object.values(questionTemplates)[0];
-      }
-      
-      // Mezclar preguntas y tomar solo las necesarias
-      const shuffled = [...templates].sort(() => 0.5 - Math.random());
-      return shuffled.slice(0, Math.min(numQuestions, shuffled.length));
     };
 
-    const handleStartEvaluation = (task: Task) => {
+    const handleStartEvaluation = async (task: Task) => {
       // Verificar si ya completó la evaluación
       if (evaluationResults[task.id]) {
         toast({
@@ -1656,59 +1532,70 @@
       setLoadingProgress(0);
       setLoadingStatus('Inicializando evaluación...');
 
-      // Simular proceso de carga con diferentes etapas usando criterios del profesor
-      const loadingSteps = [
-        { progress: 15, status: 'Verificando configuración del profesor...' },
-        { progress: 30, status: `Cargando preguntas sobre: ${topic}` },
-        { progress: 50, status: `Preparando ${numQuestions} preguntas...` },
-        { progress: 70, status: `Configurando tiempo límite: ${timeLimit} minutos` },
-        { progress: 85, status: 'Generando evaluación personalizada...' },
-        { progress: 100, status: `Evaluación lista: ${topic} | ${numQuestions} preguntas | ${timeLimit} min` }
+      // --- LÓGICA DE CARGA MEJORADA ---
+      // 1. Simulación rápida de los pasos iniciales (hasta el 80%)
+      const initialSteps = [
+        { progress: 20, status: 'Verificando configuración...' },
+        { progress: 50, status: `Preparando IA para el tema: ${topic}` },
+        { progress: 80, status: `Generando ${numQuestions} preguntas distribuidas...` }
       ];
 
       let stepIndex = 0;
-      const interval = setInterval(() => {
-        if (stepIndex < loadingSteps.length) {
-          const step = loadingSteps[stepIndex];
+      const initialInterval = setInterval(() => {
+        if (stepIndex < initialSteps.length) {
+          const step = initialSteps[stepIndex];
           setLoadingProgress(step.progress);
           setLoadingStatus(step.status);
           stepIndex++;
         } else {
-          clearInterval(interval);
-          
-          setTimeout(() => {
-            setShowLoadingDialog(false);
-            
-            // Generar preguntas usando criterios del profesor
-            const questions = generateEvaluationQuestions(topic, numQuestions);
-            console.log('🔍 GENERATED QUESTIONS:', questions.map(q => ({ question: q.question?.substring(0, 50), options: q.options?.map(o => o?.substring(0, 20)) })));
-            const timeInSeconds = timeLimit * 60;
-            
-            setCurrentEvaluation({
-              task,
-              questions,
-              startTime: new Date(),
-              answers: {},
-              timeRemaining: timeInSeconds,
-              currentQuestionIndex: 0
-            });
-            
-            setShowEvaluationDialog(true);
-            
-            // Iniciar countdown del timer
-            console.log('🔥 [startEvaluation] Iniciando evaluación con tiempo límite:', timeLimit, 'minutos');
-            startEvaluationTimer(timeInSeconds);
-            
-            // PRUEBA: Si el tiempo es menor a 1 minuto, usar 10 segundos para testing
-            if (timeLimit < 1) {
-              console.log('🔥 [startEvaluation] MODO DE PRUEBA: Usando 10 segundos para testing');
-              startEvaluationTimer(10);
-            } else {
+          clearInterval(initialInterval);
+
+          // 2. Paso final: La llamada real a la IA
+          setLoadingProgress(90);
+          setLoadingStatus('Consultando a la IA, esto puede tardar unos segundos...');
+
+          // Llamamos a la función de generación y esperamos a que termine
+          generateEvaluationQuestions(topic, numQuestions).then(questions => {
+            // 3. Cuando las preguntas llegan, completamos al 100% y cerramos
+            setLoadingProgress(100);
+            setLoadingStatus(`¡Evaluación lista!`);
+
+            // Pequeña pausa para que el usuario vea el 100%
+            setTimeout(() => {
+              setShowLoadingDialog(false);
+
+              if (questions.length === 0) {
+                // El toast de error ya se muestra dentro de generateEvaluationQuestions
+                return;
+              }
+
+              console.log('🔍 GENERATED QUESTIONS:', questions.map(q => ({ 
+                question: q.question?.substring(0, 50), 
+                options: q.options?.map((o: any) => o?.substring(0, 20)) 
+              })));
+
+              const timeInSeconds = timeLimit * 60;
+              setCurrentEvaluation({
+                task,
+                questions,
+                startTime: new Date(),
+                answers: {},
+                timeRemaining: timeInSeconds,
+                currentQuestionIndex: 0
+              });
+              setShowEvaluationDialog(true);
+              
+              // Iniciar countdown del timer
+              console.log('🔥 [startEvaluation] Iniciando evaluación con tiempo límite:', timeLimit, 'minutos');
               startEvaluationTimer(timeInSeconds);
-            }
-          }, 500);
+            }, 500); // 0.5 segundos de pausa en el 100%
+          }).catch(error => {
+            // Manejar errores de la IA
+            console.error('Error al generar preguntas:', error);
+            setShowLoadingDialog(false);
+          });
         }
-      }, 800);
+      }, 400); // Intervalo más rápido para la simulación
     };
 
     const startEvaluationTimer = (initialTime: number) => {
@@ -1744,18 +1631,18 @@
       }, 1000);
     };
 
-    const handleReviewEvaluation = (task: Task) => {
+    const handleReviewEvaluation = async (task: Task) => {
       const evaluationResult = evaluationResults[task.id];
       if (evaluationResult) {
         // Traducir las preguntas dinámicamente según el idioma actual
-        const translatedResult = translateEvaluationResult(evaluationResult, task);
+        const translatedResult = await translateEvaluationResult(evaluationResult, task);
         setCurrentEvaluationReview(translatedResult);
         setShowReviewEvaluationDialog(true);
       }
     };
 
     // Función para traducir los resultados de evaluación según el idioma actual
-    const translateEvaluationResult = (result: any, task: Task) => {
+    const translateEvaluationResult = async (result: any, task: Task) => {
       const currentLanguage = localStorage.getItem('smart-student-lang') || 'es';
       
       console.log('🔍 TRANSLATION DEBUG - Current language:', currentLanguage);
@@ -1779,8 +1666,8 @@
       console.log('Original topic:', task.topic);
       console.log('Original questions sample:', result.questions[0]?.question?.substring(0, 100));
       
-      // Generar preguntas en inglés para el mismo tema
-      const englishQuestions = generateEvaluationQuestions(task.topic || 'mathematics', result.questions.length);
+      // Generar preguntas en inglés para el mismo tema usando la nueva función asíncrona
+      const englishQuestions = await generateEvaluationQuestions(task.topic || 'mathematics', result.questions.length);
       
       console.log('Generated English questions:', englishQuestions.length);
       console.log('English questions sample:', englishQuestions[0]?.question?.substring(0, 100));
@@ -1847,7 +1734,20 @@
       // Calcular respuestas correctas y procesar cada pregunta
       const processedQuestions = currentEvaluation.questions.map((question, index) => {
         const studentAnswer = currentEvaluation.answers[index];
-        const isCorrect = studentAnswer === question.correct;
+        const correctAnswer = question.correct;
+        let isCorrect = false;
+
+        // --- ✅ LÓGICA DE CALIFICACIÓN PARA TODOS LOS TIPOS ---
+        if (question.type === 'multiple_select') {
+          // Para selección múltiple, la respuesta correcta y del estudiante son arrays.
+          // Los ordenamos y comparamos para ver si son idénticos.
+          const studentSelection = Array.isArray(studentAnswer) ? studentAnswer.sort() : [];
+          const correctSelection = Array.isArray(correctAnswer) ? correctAnswer.sort() : [];
+          isCorrect = JSON.stringify(studentSelection) === JSON.stringify(correctSelection);
+        } else {
+          // Para selección única y V/F, la comparación es directa.
+          isCorrect = studentAnswer === correctAnswer;
+        }
         
         if (isCorrect) {
           correctAnswers++;
@@ -1856,9 +1756,13 @@
         return {
           ...question,
           studentAnswer: studentAnswer,
-          studentAnswerText: question.options[studentAnswer], // Texto de la alternativa elegida
-          correctAnswer: question.options[question.correct],
-          isCorrect: isCorrect
+          studentAnswerText: Array.isArray(studentAnswer)
+            ? studentAnswer.map(i => question.options[i]).join(', ')
+            : question.options[studentAnswer],
+          correctAnswer: Array.isArray(correctAnswer)
+            ? correctAnswer.map(i => question.options[i]).join(', ')
+            : question.options[correctAnswer],
+          isCorrect: isCorrect,
         };
       });
 
@@ -5029,49 +4933,89 @@
                     {translate('navEvaluation').toUpperCase()} - {currentEvaluation.task?.topic?.toUpperCase() || translate('navEvaluation').toUpperCase()}
                   </CardTitle>
                   <CardDescription className="flex items-center justify-center space-x-4">
-                    <span>{translate('evalQuestionProgress', { 
-                      current: (currentEvaluation.currentQuestionIndex || 0) + 1, 
-                      total: currentEvaluation.questions.length 
-                    })}</span>
+                    <span>{translate('evalQuestionProgress').replace('{current}', ((currentEvaluation.currentQuestionIndex || 0) + 1).toString()).replace('{total}', currentEvaluation.questions.length.toString())}</span>
                     <span className={`font-mono text-base text-primary tabular-nums flex items-center ${currentEvaluation.timeRemaining <= 60 ? 'text-red-500 animate-pulse' : ''}`}>
                       <Timer className="w-4 h-4 mr-1.5" />
-                      {translate('evalTimeLeft', { 
-                        time: `${Math.floor(currentEvaluation.timeRemaining / 60)}:${(currentEvaluation.timeRemaining % 60).toString().padStart(2, '0')}` 
-                      })}
+                      {translate('evalTimeLeft').replace('{time}', `${Math.floor(currentEvaluation.timeRemaining / 60)}:${(currentEvaluation.timeRemaining % 60).toString().padStart(2, '0')}`)}
                     </span>
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="p-6 min-h-[250px] flex flex-col justify-between">
+                <CardContent className="p-6 min-h-[300px] flex flex-col justify-between">
                   {currentEvaluation.questions.length > 0 && (
                     <div>
-                      <p className="text-lg font-medium mb-6 text-left md:text-center">
-                        {currentEvaluation.questions[(currentEvaluation.currentQuestionIndex || 0)]?.question}
-                      </p>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {currentEvaluation.questions[(currentEvaluation.currentQuestionIndex || 0)]?.options.map((option: string, index: number) => (
-                          <Button
-                            key={index}
-                            variant="ghost"
-                            className={`py-3 text-base justify-start text-left h-auto whitespace-normal w-full ${
-                              currentEvaluation.answers[currentEvaluation.currentQuestionIndex || 0] === index
-                                ? 'bg-purple-600 text-white hover:bg-purple-700' 
-                                : 'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
-                            }`}
-                            onClick={() => {
-                              const newAnswers = { ...currentEvaluation.answers };
-                              newAnswers[currentEvaluation.currentQuestionIndex || 0] = index;
-                              setCurrentEvaluation({
-                                ...currentEvaluation,
-                                answers: newAnswers
-                              });
-                            }}
-                            disabled={currentEvaluation.timeRemaining === 0}
-                          >
-                            <span className="mr-2 font-semibold">{String.fromCharCode(65 + index)}.</span> {option}
-                          </Button>
-                        ))}
-                      </div>
+                      {(() => {
+                        // Obtenemos la pregunta actual y su tipo
+                        const question = currentEvaluation.questions[currentEvaluation.currentQuestionIndex || 0];
+                        const questionType = question?.type || 'multiple_choice';
+                        const currentAnswer = currentEvaluation.answers[currentEvaluation.currentQuestionIndex || 0];
+
+                        // Lógica para manejar respuestas de selección múltiple (checkboxes)
+                        const handleMultipleSelect = (selectedIndex: number) => {
+                          const newAnswers = { ...currentEvaluation.answers };
+                          const currentSelection = (currentAnswer as number[] | undefined) || [];
+                          
+                          if (currentSelection.includes(selectedIndex)) {
+                            newAnswers[currentEvaluation.currentQuestionIndex || 0] = currentSelection.filter(item => item !== selectedIndex);
+                          } else {
+                            newAnswers[currentEvaluation.currentQuestionIndex || 0] = [...currentSelection, selectedIndex].sort();
+                          }
+                          setCurrentEvaluation({ ...currentEvaluation, answers: newAnswers });
+                        };
+
+                        // Lógica para respuestas de selección única (alternativas y V/F)
+                        const handleSingleSelect = (selectedIndex: number) => {
+                            const newAnswers = { ...currentEvaluation.answers };
+                            newAnswers[currentEvaluation.currentQuestionIndex || 0] = selectedIndex;
+                            setCurrentEvaluation({ ...currentEvaluation, answers: newAnswers });
+                        };
+
+                        return (
+                          <>
+                            <p className="text-lg font-medium mb-4 text-left md:text-center">
+                              {question?.question}
+                            </p>
+                            {questionType === 'multiple_select' && (
+                                <p className="text-sm text-center text-purple-600 mb-4">
+                                  (Selecciona todas las respuestas que consideres correctas)
+                                </p>
+                            )}
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {question?.options.map((option: string, index: number) => (
+                                // --- ✨ AQUÍ ESTÁ LA CORRECCIÓN CLAVE ✨ ---
+                                questionType === 'multiple_select' ? (
+                                  // Si es selección múltiple, renderizamos un Checkbox
+                                  <div key={index} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-primary/10">
+                                    <Checkbox
+                                      id={`option-${index}`}
+                                      checked={Array.isArray(currentAnswer) && currentAnswer.includes(index)}
+                                      onCheckedChange={() => handleMultipleSelect(index)}
+                                    />
+                                    <Label htmlFor={`option-${index}`} className="text-base font-normal cursor-pointer w-full">
+                                      {String.fromCharCode(65 + index)}. {option}
+                                    </Label>
+                                  </div>
+                                ) : (
+                                  // Si no, renderizamos un Botón (para alternativas o V/F)
+                                  <Button
+                                    key={index}
+                                    variant="ghost"
+                                    className={`py-3 text-base justify-start text-left h-auto whitespace-normal w-full ${
+                                      currentAnswer === index
+                                        ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                                        : 'border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20'
+                                    }`}
+                                    onClick={() => handleSingleSelect(index)}
+                                    disabled={currentEvaluation.timeRemaining === 0}
+                                  >
+                                    <span className="mr-2 font-semibold">{String.fromCharCode(65 + index)}.</span> {option}
+                                  </Button>
+                                )
+                              ))}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                   
