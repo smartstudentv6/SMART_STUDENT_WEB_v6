@@ -25,7 +25,7 @@ export default function LoginPage() {
               <p className="text-muted-foreground">{translate('appSlogan')}</p>
             </div>
             <img 
-              src="/graduation-cap.svg" 
+              src="/favicon.ico" 
               alt="SMART STUDENT" 
               className="w-10 h-10"
             /> {/* Logo moved to the right */}
