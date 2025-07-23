@@ -3,10 +3,11 @@
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { UserCircle, BarChart3, History as HistoryIcon, Download, Trash2, Edit3, Award, Percent, Newspaper, Network, FileQuestion } from 'lucide-react';
+import { UserCircle, BarChart3, History as HistoryIcon, Download, Trash2, Edit3, Award, Percent, Newspaper, Network, FileQuestion, Upload, Camera, Shield, Crown, GraduationCap } from 'lucide-react';
 import type { UserProfile, SubjectProgress, EvaluationHistoryItem } from '@/lib/types';
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -66,6 +67,60 @@ export default function PerfilClient() {
   
   // Crear perfil dinámico basado en el usuario autenticado
   const [dynamicUserProfileData, setDynamicUserProfileData] = useState<UserProfile>(userProfileData);
+
+  // Estado para imagen de perfil
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  // Estados para edición de perfil
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editingName, setEditingName] = useState('');
+  const [editingEmail, setEditingEmail] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Función para renderizar el badge del rol (idéntico al UserRoleBadge)
+  const renderRoleBadge = () => {
+    if (!user) return null;
+
+    const roleConfig = {
+      admin: {
+        labelKey: 'adminRole',
+        variant: 'outline' as const,
+        className: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100 hover:text-red-800',
+        icon: Crown,
+        iconClassName: 'text-red-700'
+      },
+      teacher: {
+        labelKey: 'teacherRole',
+        variant: 'outline' as const,
+        className: 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 hover:text-blue-800',
+        icon: Shield,
+        iconClassName: 'text-blue-700'
+      },
+      student: {
+        labelKey: 'studentRole',
+        variant: 'outline' as const,
+        className: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100 hover:text-green-800',
+        icon: GraduationCap,
+        iconClassName: 'text-green-700'
+      }
+    };
+
+    const config = roleConfig[user.role];
+    if (!config) return null;
+
+    const IconComponent = config.icon;
+
+    return (
+      <Badge 
+        variant={config.variant}
+        className={`${config.className} text-xs font-medium px-2 py-1 inline-flex items-center gap-1.5`}
+      >
+        <IconComponent className={`w-3 h-3 flex-shrink-0 ${config.iconClassName}`} />
+        {translate(config.labelKey)}
+      </Badge>
+    );
+  };
 
   // Function to translate book titles based on current language
   const translateBookTitle = (bookTitle: string): string => {
@@ -267,7 +322,7 @@ export default function PerfilClient() {
       
       // Si no se puede deducir específicamente, usar un nombre genérico pero descriptivo
       console.log('⚠️ [CONVERSIÓN] No se pudo deducir nivel específico, usando genérico');
-      return 'Curso Asignado';
+      return translate('profileCourseAssigned');
     }
 
     console.log('❌ [CONVERSIÓN] No se pudo convertir, manteniendo original');
@@ -608,8 +663,8 @@ export default function PerfilClient() {
     } catch (error) {
       console.error("Error deleting history:", error);
       toast({
-        title: "Error",
-        description: "No se pudo eliminar el historial",
+        title: translate('profileError'),
+        description: translate('profileDeleteHistoryError'),
         variant: "destructive"
       });
     }
@@ -618,8 +673,8 @@ export default function PerfilClient() {
   const handleDownloadHistoryXlsx = async () => {
     if (!mounted) {
       toast({
-        title: "Error",
-        description: "La página aún se está cargando. Intenta de nuevo.",
+        title: translate('profileError'),
+        description: translate('profileLoadingError'),
         variant: "destructive"
       });
       return;
@@ -678,15 +733,15 @@ export default function PerfilClient() {
       XLSX.writeFile(wb, "historial_evaluaciones_smart_student.xlsx");
       
       toast({
-        title: "Descarga exitosa",
-        description: "El archivo Excel se ha descargado correctamente",
+        title: translate('profileDownloadSuccess'),
+        description: translate('profileDownloadSuccessDesc'),
         variant: "default"
       });
     } catch (error) {
       console.error('Error downloading XLSX:', error);
       toast({
-        title: "Error en descarga",
-        description: "No se pudo descargar el archivo Excel. Intenta de nuevo.",
+        title: translate('profileDownloadError'),
+        description: translate('profileDownloadErrorDesc'),
         variant: "destructive"
       });
     }
@@ -695,6 +750,178 @@ export default function PerfilClient() {
   const handleRepasar = (item: EvaluationHistoryItem) => {
     router.push(`/dashboard/evaluacion?course=${encodeURIComponent(item.courseName)}&book=${encodeURIComponent(item.bookTitle)}&topic=${encodeURIComponent(item.topic)}`);
   };
+
+  // Funciones para manejo de imagen de perfil
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de archivo
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: translate('profileError'),
+        description: translate('profileImageError'),
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validar tamaño (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: translate('profileError'), 
+        description: translate('profileImageSizeError'),
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsUploadingImage(true);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setProfileImage(result);
+      
+      // Guardar en localStorage
+      if (user?.username) {
+        localStorage.setItem(`profile-image-${user.username}`, result);
+      }
+      
+      setIsUploadingImage(false);
+      toast({
+        title: translate('profileImageUploaded'),
+        description: translate('profileImageUploadedDesc'),
+        variant: "default"
+      });
+    };
+
+    reader.onerror = () => {
+      setIsUploadingImage(false);
+      toast({
+        title: translate('profileError'),
+        description: translate('profileImageUploadError'),
+        variant: "destructive"
+      });
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setProfileImage(null);
+    if (user?.username) {
+      localStorage.removeItem(`profile-image-${user.username}`);
+    }
+    toast({
+      title: translate('profileImageRemoved'),
+      description: translate('profileImageRemovedDesc'),
+      variant: "default"
+    });
+  };
+
+  // Funciones para edición de perfil
+  const handleStartEditing = () => {
+    setEditingName(user?.displayName || user?.username || '');
+    setEditingEmail(user?.email || '');
+    setIsEditingProfile(true);
+  };
+
+  const handleCancelEditing = () => {
+    setIsEditingProfile(false);
+    setEditingName('');
+    setEditingEmail('');
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user?.username || !editingName.trim() || !editingEmail.trim()) {
+      toast({
+        title: translate('profileError'),
+        description: translate('profileSaveError'),
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editingEmail)) {
+      toast({
+        title: translate('profileError'),
+        description: translate('profileEmailError'),
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSavingProfile(true);
+
+    try {
+      // Obtener usuarios actuales del localStorage
+      const storedUsers = localStorage.getItem('smart-student-users');
+      if (!storedUsers) {
+        throw new Error('No se encontraron datos de usuarios');
+      }
+
+      const usersData = JSON.parse(storedUsers);
+      const userIndex = usersData.findIndex((u: any) => u.username === user.username);
+      
+      if (userIndex === -1) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      // Actualizar los datos del usuario
+      usersData[userIndex] = {
+        ...usersData[userIndex],
+        displayName: editingName.trim(),
+        email: editingEmail.trim()
+      };
+
+      // Guardar de vuelta en localStorage
+      localStorage.setItem('smart-student-users', JSON.stringify(usersData));
+
+      // Actualizar el perfil dinámico inmediatamente
+      setDynamicUserProfileData(prev => ({
+        ...prev,
+        name: editingName.trim()
+      }));
+
+      // Finalizar edición ANTES de hacer toast para que se vean los cambios
+      setIsEditingProfile(false);
+      setIsSavingProfile(false);
+
+      toast({
+        title: translate('profileSaveSuccess'),
+        description: translate('profileSaveSuccessDesc'),
+        variant: "default"
+      });
+
+      // Recargar los datos del perfil inmediatamente
+      setTimeout(() => {
+        // Forzar recarga completa del perfil
+        window.location.reload();
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error al guardar perfil:', error);
+      setIsSavingProfile(false);
+      toast({
+        title: translate('profileError'),
+        description: translate('profileSaveErrorDesc'),
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Cargar imagen desde localStorage al montar
+  useEffect(() => {
+    if (user?.username && mounted) {
+      const savedImage = localStorage.getItem(`profile-image-${user.username}`);
+      if (savedImage) {
+        setProfileImage(savedImage);
+      }
+    }
+  }, [user?.username, mounted]);
   
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -728,139 +955,280 @@ export default function PerfilClient() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <Card className="shadow-lg">
-        <CardHeader>
-          <div className="flex items-center gap-4 mb-2">
-            <UserCircle className="w-8 h-8 text-primary" />
-            <CardTitle className="text-2xl font-headline">{translate('profilePersonalTitle')}</CardTitle>
+      {/* ✨ SECCIÓN DE PERFIL PERSONAL MODERNA CON GRADIENTE NEGRO A AZUL ✨ */}
+      <Card className="shadow-lg bg-gradient-to-br from-gray-100 via-blue-50 to-indigo-100 dark:from-black dark:via-gray-900 dark:to-blue-900 text-gray-800 dark:text-white border-0">
+        <CardContent className="p-8">
+          <div className="flex items-center gap-4 mb-8">
+            <UserCircle className="w-8 h-8 text-blue-600 dark:text-blue-300" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{translate('profilePersonalTitle')}</h1>
+              <p className="text-gray-600 dark:text-blue-200 text-sm">{translate('profilePersonalSub')}</p>
+            </div>
           </div>
-          <CardDescription>{translate('profilePersonalSub')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <span className="font-semibold">{translate('profileName')}</span>
-                <span className="ml-2">
-                  {dynamicUserProfileData.name}
-                </span>
-              </div>
-              
-              {/* ✨ ROL COMO BADGE CON COLOR DINÁMICO Y HOVER ✨ */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-semibold">{translate('profileRole')}</span>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer hover:scale-105 hover:shadow-md ${
-                  dynamicUserProfileData.roleKey === 'profileRoleStudent'
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800'
-                    : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800'
-                }`}>
-                  {translate(dynamicUserProfileData.roleKey)}
-                </span>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* 📸 FOTO DE PERFIL - Columna izquierda - EXTRA GRANDE */}
+            <div className="lg:col-span-3 flex flex-col items-center justify-start space-y-4">
+              <div className="relative group">
+                <div className="relative w-56 h-56 rounded-full overflow-hidden ring-4 ring-blue-300 shadow-xl bg-gradient-to-br from-blue-400 to-purple-500">
+                  {profileImage ? (
+                    <img 
+                      src={profileImage} 
+                      alt="Foto de perfil" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
+                      <UserCircle className="w-32 h-32 text-white" />
+                    </div>
+                  )}
+                  
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    <Camera className="w-14 h-14 text-white" />
+                  </div>
+                </div>
+
+                <input
+                  type="file"
+                  id="profile-image-upload"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
               </div>
 
-              {/* ✨ CURSOS ACTIVOS CON DISEÑO VERTICAL ELEGANTE ✨ */}
-              <div className="space-y-3">
-                <span className="font-semibold text-base">{user?.role === 'teacher' 
-                  ? (dynamicUserProfileData.activeCourses && dynamicUserProfileData.activeCourses.length > 1 
-                      ? translate('profileCoursesPlural') 
-                      : translate('profileCoursesSingular'))
-                  : (dynamicUserProfileData.activeCourses && dynamicUserProfileData.activeCourses.length > 1 
-                      ? translate('profileCourses') 
-                      : translate('profileCourse'))}
-                </span>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => document.getElementById('profile-image-upload')?.click()}
+                disabled={isUploadingImage}
+                className="bg-blue-500 border-blue-500 text-white hover:bg-transparent hover:border-blue-500 hover:text-blue-600 dark:bg-blue-600 dark:border-blue-600 dark:text-white dark:hover:bg-transparent dark:hover:border-blue-400 dark:hover:text-blue-300 transition-all duration-300"
+              >
+                {isUploadingImage ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-blue-500 dark:border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+                    {translate('profileUploading')}
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    {translate('profileChangePhoto')}
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* 👤 DATOS PERSONALES - Columna central */}
+            <div className="lg:col-span-4">
+              <div className="bg-gray-200/50 dark:bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-gray-300 dark:border-white/20">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white">{translate('profilePersonalData')}</h3>
+                  </div>
+                  {!isEditingProfile && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleStartEditing}
+                      className="text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-white/20 transition-all duration-300"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
                 
-                {/* Lista de cursos con diseño card elegante */}
-                {dynamicUserProfileData.activeCourses && Array.isArray(dynamicUserProfileData.activeCourses) && dynamicUserProfileData.activeCourses.length > 0 ? (
-                  <div className="grid gap-2">
-                    {user?.role === 'teacher' ? (
-                      // Para profesores: diseño card con nombre y contador
-                      dynamicUserProfileData.activeCourses.map((course: any, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 
-                                   dark:border-gray-700 dark:from-blue-900/20 dark:to-indigo-900/20 
-                                   hover:shadow-md transition-all duration-200 cursor-pointer 
-                                   hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></div>
-                            <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {course.name || course}
-                            </span>
-                          </div>
-                          {course.studentCount !== undefined && (
-                            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500 text-white text-sm font-semibold shadow-sm ml-1.5 flex-shrink-0">
-                              <UserCircle className="w-4 h-4" />
-                              <span>{course.studentCount} estudiantes</span>
-                            </div>
-                          )}
-                        </div>
-                      ))
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-blue-200 uppercase tracking-wider mb-2">
+                      {translate('profileName')}
+                    </label>
+                    {isEditingProfile ? (
+                      <input
+                        type="text"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        className="w-full text-lg font-bold bg-white/50 dark:bg-white/20 text-gray-800 dark:text-white placeholder-gray-500 dark:placeholder-blue-200 border border-gray-400 dark:border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 dark:focus:border-blue-100 transition-colors"
+                        placeholder={translate('profileEnterName')}
+                      />
                     ) : (
-                      // Para estudiantes: diseño simple y elegante
-                      dynamicUserProfileData.activeCourses.map((courseName: any, index: number) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 
-                                   dark:border-gray-700 dark:from-green-900/20 dark:to-emerald-900/20 
-                                   hover:shadow-md transition-all duration-200 cursor-pointer 
-                                   hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900/30 dark:hover:to-emerald-900/30"
-                        >
-                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                          <span className="font-medium text-gray-900 dark:text-gray-100">
-                            {typeof courseName === 'string' ? courseName : courseName.name || courseName}
+                      <div className="flex items-center justify-between bg-gray-100 dark:bg-blue-50/10 rounded-lg p-3 border border-gray-300 dark:border-blue-300/30">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                          <span className="text-gray-800 dark:text-white font-medium">
+                            {user?.displayName || user?.username || dynamicUserProfileData.name}
                           </span>
                         </div>
-                      ))
+                      </div>
                     )}
                   </div>
-                ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800/50">
-                    <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                    <span className="text-gray-500 text-sm italic">No asignado</span>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-blue-200 uppercase tracking-wider mb-2">
+                      {translate('profileEmail')}
+                    </label>
+                    {isEditingProfile ? (
+                      <input
+                        type="email"
+                        value={editingEmail}
+                        onChange={(e) => setEditingEmail(e.target.value)}
+                        className="w-full text-lg font-bold bg-white/50 dark:bg-white/20 text-gray-800 dark:text-white placeholder-gray-500 dark:placeholder-blue-200 border border-gray-400 dark:border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 dark:focus:border-blue-100 transition-colors"
+                        placeholder={translate('profileEmailPlaceholder')}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-between bg-gray-100 dark:bg-blue-50/10 rounded-lg p-3 border border-gray-300 dark:border-blue-300/30">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                          <span className="text-gray-800 dark:text-white font-medium">
+                            {user?.email || 'jorge@gmail.com'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-blue-200 uppercase tracking-wider mb-1">
+                      {translate('profileSystemRole')}
+                    </label>
+                    {renderRoleBadge()}
+                  </div>
+
+                  {isEditingProfile && (
+                    <div className="flex gap-3 pt-4 border-t border-gray-300 dark:border-white/20">
+                      <Button
+                        onClick={handleSaveProfile}
+                        disabled={isSavingProfile}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white transition-colors"
+                      >
+                        {isSavingProfile ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                            {translate('profileSaving')}
+                          </>
+                        ) : (
+                          translate('profileSave')
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleCancelEditing}
+                        disabled={isSavingProfile}
+                        className="bg-transparent border-gray-400 dark:border-white/30 text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
+                      >
+                        {translate('profileCancel')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            
-            <div className="space-y-4">
-              {/* ✨ ASIGNATURAS DESDE LOCALSTORAGE ✨ */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-semibold">{translate('profileSubjects')}</span>
-                {dynamicUserProfileData.subjects.map((subject, index) => (
-                  <span key={index} className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", subject.colorClass)}>
-                    {subject.tag}
-                  </span>
-                ))}
+
+            {/* 🎓 DATOS ACADÉMICOS - Columna derecha */}
+            <div className="lg:col-span-5">
+              <div className="bg-gray-200/50 dark:bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-gray-300 dark:border-white/20">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-white">{translate('profileAcademicData')}</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-blue-200 uppercase tracking-wider mb-2">
+                      {translate('profileAssignedCourse')}
+                    </label>
+                    
+                    {dynamicUserProfileData.activeCourses && Array.isArray(dynamicUserProfileData.activeCourses) && dynamicUserProfileData.activeCourses.length > 0 ? (
+                      <div className="flex items-center justify-between bg-gray-100 dark:bg-blue-50/10 rounded-lg p-3 border border-gray-300 dark:border-blue-300/30">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                          <span className="text-gray-800 dark:text-white font-medium">
+                            {(() => {
+                              const firstCourse = dynamicUserProfileData.activeCourses[0] as any;
+                              if (typeof firstCourse === 'string') {
+                                return firstCourse;
+                              } else if (firstCourse && firstCourse.name) {
+                                return firstCourse.name;
+                              }
+                              return translate('profileCourseNotDefined');
+                            })()}
+                          </span>
+                        </div>
+                        {user?.role === 'teacher' && (() => {
+                          const firstCourse = dynamicUserProfileData.activeCourses[0] as any;
+                          return firstCourse && firstCourse.studentCount !== undefined;
+                        })() && (
+                          <div className="flex items-center gap-1 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                            <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                            {(dynamicUserProfileData.activeCourses[0] as any)?.studentCount || 0}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-600 dark:text-blue-200 italic">{translate('profileNoCourseAssigned')}</div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-blue-200 uppercase tracking-wider mb-2">
+                      {translate('profileMySubjects')}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {dynamicUserProfileData.subjects.map((subject, index) => (
+                        <span 
+                          key={index} 
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold 
+                                   hover:scale-105 transition-all duration-300 cursor-pointer shadow-md hover:shadow-lg ${subject.colorClass}`}
+                        >
+                          <div className="w-1.5 h-1.5 bg-current rounded-full"></div>
+                          {subject.tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="font-semibold">{translate('profileEvalsCompleted')}</span>
-                <span className="ml-2">{evaluationHistory.length}</span>
-              </div>
+            </div>
+
+          </div>
+
+          {/* 🛠️ ACCIONES RÁPIDAS */}
+          <div className="mt-8 bg-gray-200/30 dark:bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-gray-300 dark:border-white/10">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="w-2 h-2 rounded-full bg-pink-400"></div>
+              <h4 className="text-sm font-bold text-gray-600 dark:text-blue-200 uppercase tracking-wider">
+                {translate('profileQuickActions')}
+              </h4>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="bg-blue-500 border-blue-500 text-white hover:bg-transparent hover:border-blue-500 hover:text-blue-600 dark:bg-blue-600 dark:border-blue-600 dark:text-white dark:hover:bg-transparent dark:hover:border-blue-400 dark:hover:text-blue-300 transition-all duration-300"
+              >
+                <Edit3 className="w-4 h-4 mr-2" />
+                {translate('profileChangePass')}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleDownloadHistoryXlsx}
+                className="bg-blue-500 border-blue-500 text-white hover:bg-transparent hover:border-blue-500 hover:text-blue-600 dark:bg-blue-600 dark:border-blue-600 dark:text-white dark:hover:bg-transparent dark:hover:border-blue-400 dark:hover:text-blue-300 transition-all duration-300"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {translate('profileDownloadHistory')}
+              </Button>
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <Button variant="outline" className="flex items-center gap-2 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors">
-              <Edit3 className="w-4 h-4" />
-              {translate('profileChangePass')}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={handleDownloadHistoryXlsx}
-              className="flex items-center gap-2 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              {translate('profileDownloadHistory')}
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
       {/* Profile Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {dynamicProfileCards.map((card, index) => (
-          <Card key={index} className="relative overflow-hidden group hover:scale-105 hover:shadow-xl transition-all duration-300 cursor-pointer border-2 hover:border-primary/20">
+          <Card key={index} className="shadow-lg bg-gradient-to-br from-gray-100 via-blue-50 to-indigo-100 dark:from-black dark:via-gray-900 dark:to-blue-900 text-gray-800 dark:text-white border-0 relative overflow-hidden group hover:scale-105 hover:shadow-xl transition-all duration-300 cursor-pointer">
             <div className={cn("absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300", card.bgClass)}></div>
             <CardContent className="p-6 relative z-10 text-center">
               <div className="flex items-center justify-center gap-4 mb-3">
@@ -880,13 +1248,13 @@ export default function PerfilClient() {
       </div>
 
       {/* Learning Progress */}
-      <Card className="shadow-lg">
+      <Card className="shadow-lg bg-gradient-to-br from-gray-100 via-blue-50 to-indigo-100 dark:from-black dark:via-gray-900 dark:to-blue-900 text-gray-800 dark:text-white border-0">
         <CardHeader>
           <div className="flex items-center gap-4 mb-2">
-            <BarChart3 className="w-8 h-8 text-primary" />
-            <CardTitle className="text-2xl font-headline">{translate('learningProgressTitle')}</CardTitle>
+            <BarChart3 className="w-8 h-8 text-blue-600 dark:text-blue-300" />
+            <CardTitle className="text-2xl font-headline text-gray-800 dark:text-white">{translate('learningProgressTitle')}</CardTitle>
           </div>
-          <CardDescription>{translate('learningProgressSub')}</CardDescription>
+          <CardDescription className="text-gray-600 dark:text-blue-200">{translate('learningProgressSub')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
@@ -910,15 +1278,15 @@ export default function PerfilClient() {
       </Card>
 
       {/* Evaluation History */}
-      <Card className="shadow-lg">
+      <Card className="shadow-lg bg-gradient-to-br from-gray-100 via-blue-50 to-indigo-100 dark:from-black dark:via-gray-900 dark:to-blue-900 text-gray-800 dark:text-white border-0">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-4 mb-2">
-                <HistoryIcon className="w-8 h-8 text-primary" />
-                <CardTitle className="text-2xl font-headline">{translate('evaluationHistoryTitle')}</CardTitle>
+                <HistoryIcon className="w-8 h-8 text-blue-600 dark:text-blue-300" />
+                <CardTitle className="text-2xl font-headline text-gray-800 dark:text-white">{translate('evaluationHistoryTitle')}</CardTitle>
               </div>
-              <CardDescription>{translate('evaluationHistorySub')}</CardDescription>
+              <CardDescription className="text-gray-600 dark:text-blue-200">{translate('evaluationHistorySub')}</CardDescription>
             </div>
             {evaluationHistory.length > 0 && (
               <Button 
