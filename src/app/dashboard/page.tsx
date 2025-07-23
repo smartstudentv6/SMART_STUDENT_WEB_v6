@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuth } from '@/contexts/auth-context';
-import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Users, Settings, ClipboardCheck, MessageSquare, GraduationCap, Crown, Shield } from 'lucide-react';
+import { Library, Newspaper, Network, FileQuestion, ClipboardList, Home, Users, Settings, ClipboardCheck, MessageSquare, GraduationCap, Crown, Shield, UserCheck, TrendingUp, Megaphone } from 'lucide-react';
 import NotificationsPanel from '@/components/common/notifications-panel';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -75,6 +75,15 @@ const featureCards = [
     colorClass: 'orange',
     showBadge: true, // Para mostrar la burbuja de notificación
   },
+  {
+    titleKey: 'cardCommunicationsStudentTitle',
+    descKey: 'cardCommunicationsStudentDesc',
+    btnKey: 'cardCommunicationsStudentBtn',
+    targetPage: '/dashboard/comunicaciones',
+    icon: Megaphone,
+    colorClass: 'red',
+    showBadge: false,
+  },
 ];
 
 const adminCards = [
@@ -95,6 +104,37 @@ const adminCards = [
     icon: ClipboardCheck,
     colorClass: 'red',
     showBadge: true, // Para mostrar la burbuja de notificación de solicitudes de contraseña
+  },
+];
+
+// Tarjetas específicas para profesores
+const teacherCards = [
+  {
+    titleKey: 'cardCommunicationsTitle',
+    descKey: 'cardCommunicationsDesc',
+    btnKey: 'cardCommunicationsBtn',
+    targetPage: '/dashboard/comunicaciones',
+    icon: Megaphone,
+    colorClass: 'red',
+    showBadge: false,
+  },
+  {
+    titleKey: 'cardAttendanceTitle', 
+    descKey: 'cardAttendanceDesc',
+    btnKey: 'cardAttendanceBtn',
+    targetPage: '/dashboard/asistencia',
+    icon: UserCheck,
+    colorClass: 'indigo',
+    showBadge: false,
+  },
+  {
+    titleKey: 'cardStatisticsTitle',
+    descKey: 'cardStatisticsDesc', 
+    btnKey: 'cardStatisticsBtn',
+    targetPage: '/dashboard/estadisticas',
+    icon: TrendingUp,
+    colorClass: 'emerald',
+    showBadge: false,
   },
 ];
 
@@ -821,6 +861,8 @@ export default function DashboardHomePage() {
       case 'red': return 'home-card-button-red';
       case 'indigo': return 'home-card-button-indigo';
       case 'teal': return 'home-card-button-teal';
+      case 'rose': return 'home-card-button-rose';
+      case 'emerald': return 'home-card-button-emerald';
       default: return '';
     }
   };
@@ -836,6 +878,8 @@ export default function DashboardHomePage() {
       case 'red': return 'text-red-500 dark:text-red-400';
       case 'indigo': return 'text-indigo-500 dark:text-indigo-400';
       case 'teal': return 'text-teal-500 dark:text-teal-400';
+      case 'rose': return 'text-rose-500 dark:text-rose-400';
+      case 'emerald': return 'text-emerald-500 dark:text-emerald-400';
       default: return 'text-muted-foreground';
     }
   };
@@ -1039,6 +1083,51 @@ export default function DashboardHomePage() {
                   title={translate('pendingPasswordRequests', { count: String(pendingPasswordRequestsCount) })}
                 >
                   {pendingPasswordRequestsCount > 99 ? '99+' : pendingPasswordRequestsCount}
+                </Badge>
+              )}
+              <card.icon className={`w-10 h-10 mb-3 ${getIconColorClass(card.colorClass)}`} />
+              <CardTitle className="text-lg font-semibold font-headline">{translate(card.titleKey)}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col flex-grow">
+              <CardDescription className="text-sm mb-4 flex-grow">
+                {translate(card.descKey)}
+              </CardDescription>
+              <Button
+                variant="outline"
+                asChild
+                className={cn(
+                  "home-card-button",
+                  getButtonColorClass(card.colorClass),
+                  "hover:shadow-lg transition-shadow duration-200"
+                )}
+              >
+                <Link href={card.targetPage}>{translate(card.btnKey)}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+
+        {/* Teacher specific cards */}
+        {user?.role === 'teacher' && teacherCards.map((card) => (
+          <Card 
+            key={card.titleKey} 
+            className={`flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300 ${
+              card.colorClass === 'rose' 
+                ? 'border-rose-200 dark:border-rose-800' 
+                : card.colorClass === 'indigo' 
+                  ? 'border-indigo-200 dark:border-indigo-800'
+                  : card.colorClass === 'emerald'
+                    ? 'border-emerald-200 dark:border-emerald-800'
+                    : 'border-gray-200 dark:border-gray-800'
+            }`}
+          >
+            <CardHeader className="items-center relative">
+              {card.showBadge && card.titleKey === 'cardCommunicationsTitle' && (
+                <Badge 
+                  className="absolute -top-2 -right-2 bg-rose-500 text-white hover:bg-rose-600 text-xs px-2 rounded-full"
+                  title="Nuevas comunicaciones"
+                >
+                  3
                 </Badge>
               )}
               <card.icon className={`w-10 h-10 mb-3 ${getIconColorClass(card.colorClass)}`} />

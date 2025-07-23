@@ -75,7 +75,7 @@
 
   export default function TareasPage() {
     const { user } = useAuth();
-    const { translate } = useLanguage();
+    const { translate, language } = useLanguage();
     const router = useRouter();
     const { toast } = useToast();
 
@@ -228,7 +228,7 @@
           if (evaluationResult) {
             return {
               status: 'reviewed',
-              statusText: `Finalizado (${evaluationResult.percentage}%)`,
+              statusText: `${translate('statusFinished')} (${evaluationResult.percentage}%)`,
               statusClass: 'bg-green-500 hover:bg-green-600 text-white'
             };
           } else {
@@ -1429,7 +1429,7 @@
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ topic, numQuestions }),
+          body: JSON.stringify({ topic, numQuestions, language }),
         });
 
         console.log('📡 Respuesta del servidor recibida. Status:', response.status);
@@ -1446,8 +1446,12 @@
           } catch {
             errorData = { error: responseText || `Error ${response.status}: ${response.statusText}` };
           }
+          
           console.error('❌ Error del servidor:', errorData);
-          throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+          
+          // Mejorar el mensaje de error
+          const errorMessage = errorData?.error || errorData?.message || `Error ${response.status}: ${response.statusText}`;
+          throw new Error(errorMessage);
         }
 
         // 2. Convertir la respuesta a JSON (con validación mejorada)
@@ -1482,16 +1486,25 @@
       } catch (error: any) {
         console.error("❌ Error completo al solicitar o procesar las preguntas:", error);
         console.error("❌ Stack trace:", error.stack);
+        console.error("❌ Error name:", error.name);
+        console.error("❌ Error message:", error.message);
         
         // Mostrar mensaje de error más específico al usuario
         let errorMessage = "No se pudieron generar las preguntas. Por favor, inténtalo de nuevo.";
         
-        if (error.message.includes("fetch")) {
-          errorMessage = "Error de conexión con el servidor. Verifica tu conexión a internet.";
-        } else if (error.message.includes("API Key")) {
-          errorMessage = "Error de configuración del servidor. Contacta al administrador.";
-        } else if (error.message.includes("estructura")) {
-          errorMessage = "Error en el formato de las preguntas generadas. Inténtalo nuevamente.";
+        if (error.message) {
+          if (error.message.includes("fetch") || error.message.includes("network")) {
+            errorMessage = "Error de conexión con el servidor. Verifica tu conexión a internet.";
+          } else if (error.message.includes("API Key") || error.message.includes("GEMINI_API_KEY")) {
+            errorMessage = "Error de configuración del servidor. Contacta al administrador.";
+          } else if (error.message.includes("estructura") || error.message.includes("JSON")) {
+            errorMessage = "Error en el formato de las preguntas generadas. Inténtalo nuevamente.";
+          } else if (error.message.includes("500")) {
+            errorMessage = "Error interno del servidor. Inténtalo en unos momentos.";
+          } else {
+            // Usar el mensaje de error específico si está disponible
+            errorMessage = error.message;
+          }
         }
         
         toast({
@@ -1530,14 +1543,14 @@
 
       setShowLoadingDialog(true);
       setLoadingProgress(0);
-      setLoadingStatus('Inicializando evaluación...');
+      setLoadingStatus(translate('evalLoadingInitializing'));
 
       // --- LÓGICA DE CARGA MEJORADA ---
       // 1. Simulación rápida de los pasos iniciales (hasta el 80%)
       const initialSteps = [
-        { progress: 20, status: 'Verificando configuración...' },
-        { progress: 50, status: `Preparando IA para el tema: ${topic}` },
-        { progress: 80, status: `Generando ${numQuestions} preguntas distribuidas...` }
+        { progress: 20, status: translate('evalLoadingVerifyingConfig') },
+        { progress: 50, status: translate('evalLoadingPreparingAI', { topic }) },
+        { progress: 80, status: translate('evalLoadingGeneratingQuestions', { count: numQuestions.toString() }) }
       ];
 
       let stepIndex = 0;
@@ -1552,13 +1565,13 @@
 
           // 2. Paso final: La llamada real a la IA
           setLoadingProgress(90);
-          setLoadingStatus('Consultando a la IA, esto puede tardar unos segundos...');
+          setLoadingStatus(translate('evalLoadingConsultingAI'));
 
           // Llamamos a la función de generación y esperamos a que termine
           generateEvaluationQuestions(topic, numQuestions).then(questions => {
             // 3. Cuando las preguntas llegan, completamos al 100% y cerramos
             setLoadingProgress(100);
-            setLoadingStatus(`¡Evaluación lista!`);
+            setLoadingStatus(translate('evalLoadingReady'));
 
             // Pequeña pausa para que el usuario vea el 100%
             setTimeout(() => {
@@ -2992,7 +3005,7 @@
                                   return (
                                     <>
                                       <Badge className={getStatusColor('submitted') + ' font-bold mr-1'}>
-                                        Finalizado
+                                        {translate('statusFinished')}
                                       </Badge>
                                       <Badge className={evaluationResult.percentage >= 70 ? 'bg-green-100 text-green-700 font-bold ml-2' : 'bg-red-100 text-red-700 font-bold ml-2'}>
                                         {evaluationResult.percentage}%
@@ -3307,7 +3320,7 @@
                   </div>
                   
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="numQuestions" className="text-right">Cantidad de Preguntas <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="numQuestions" className="text-right">{translate('questionCountLabel')} <span className="text-red-500">*</span></Label>
                     <Select 
                       value={formData.numQuestions?.toString() || ''} 
                       onValueChange={(value) => setFormData(prev => ({ ...prev, numQuestions: parseInt(value) }))}
@@ -3531,7 +3544,7 @@
                           return (
                             <>
                               <Badge className={getStatusColor('submitted') + ' font-bold ml-1'}>
-                                Finalizado
+                                {translate('statusFinished')}
                               </Badge>
                               <Badge className={`ml-2 ${evaluationResult.percentage >= 70 ? 'bg-green-100 text-green-700 font-bold' : 'bg-red-100 text-red-700 font-bold'}`}>
                                 {evaluationResult.percentage}%
@@ -3645,7 +3658,7 @@
                                   size="sm"
                                 >
                                   <Eye className="w-3 h-3 mr-1" />
-                                  Resultados
+                                  {translate('resultsButton')}
                                 </Button>
                               ) : (
                                 <Button
@@ -4292,7 +4305,7 @@
                   </div>
                   
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="numQuestions-edit" className="text-right">Cantidad de Preguntas <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="numQuestions-edit" className="text-right">{translate('questionCountLabel')} <span className="text-red-500">*</span></Label>
                     <Select 
                       value={formData.numQuestions?.toString() || ''} 
                       onValueChange={(value) => setFormData(prev => ({ ...prev, numQuestions: parseInt(value) }))}
@@ -4874,7 +4887,7 @@
             <DialogHeader>
               <DialogTitle className="text-center text-purple-700 flex items-center justify-center space-x-2">
                 <ClipboardCheck className="w-5 h-5" />
-                <span>Preparando Evaluación</span>
+                <span>{translate('evalLoadingPreparingEvaluation')}</span>
               </DialogTitle>
             </DialogHeader>
             <div className="flex flex-col items-center space-y-6 py-6">
@@ -4933,10 +4946,10 @@
                     {translate('navEvaluation').toUpperCase()} - {currentEvaluation.task?.topic?.toUpperCase() || translate('navEvaluation').toUpperCase()}
                   </CardTitle>
                   <CardDescription className="flex items-center justify-center space-x-4">
-                    <span>{translate('evalQuestionProgress').replace('{current}', ((currentEvaluation.currentQuestionIndex || 0) + 1).toString()).replace('{total}', currentEvaluation.questions.length.toString())}</span>
+                    <span>{translate('evalQuestionProgress', { current: ((currentEvaluation.currentQuestionIndex || 0) + 1).toString(), total: currentEvaluation.questions.length.toString() })}</span>
                     <span className={`font-mono text-base text-primary tabular-nums flex items-center ${currentEvaluation.timeRemaining <= 60 ? 'text-red-500 animate-pulse' : ''}`}>
                       <Timer className="w-4 h-4 mr-1.5" />
-                      {translate('evalTimeLeft').replace('{time}', `${Math.floor(currentEvaluation.timeRemaining / 60)}:${(currentEvaluation.timeRemaining % 60).toString().padStart(2, '0')}`)}
+                      {translate('evalTimeLeft', { time: `${Math.floor(currentEvaluation.timeRemaining / 60)}:${(currentEvaluation.timeRemaining % 60).toString().padStart(2, '0')}` })}
                     </span>
                   </CardDescription>
                 </CardHeader>
@@ -4976,7 +4989,7 @@
                             </p>
                             {questionType === 'multiple_select' && (
                                 <p className="text-sm text-center text-purple-600 mb-4">
-                                  (Selecciona todas las respuestas que consideres correctas)
+                                  ({translate('multipleSelectInstruction')})
                                 </p>
                             )}
                             
@@ -5081,10 +5094,10 @@
                     
                     {timeExpiredResult && (
                       <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg border border-red-200 dark:border-red-800 mb-6">
-                        <h4 className="font-medium text-red-800 dark:text-red-200 mb-6 text-center text-lg">Resultados Obtenidos</h4>
+                        <h4 className="font-medium text-red-800 dark:text-red-200 mb-6 text-center text-lg">{translate('resultsObtained')}</h4>
                         <div className="flex justify-center space-x-12">
                           <div className="text-center">
-                            <span className="font-medium text-red-700 dark:text-red-300 block mb-2">Respuestas Correctas:</span>
+                            <span className="font-medium text-red-700 dark:text-red-300 block mb-2">{translate('correctAnswersLabel')}</span>
                             <p className="text-red-600 dark:text-red-400 text-2xl font-bold">
                               {timeExpiredResult.correctAnswers}/{timeExpiredResult.totalQuestions}
                             </p>
@@ -5121,7 +5134,7 @@
                         className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 text-lg font-medium rounded-lg"
                       >
                         <Eye className="w-5 h-5 mr-2" />
-                        Resultados
+                        {translate('resultsButton')}
                       </Button>
                     </div>
                   </div>

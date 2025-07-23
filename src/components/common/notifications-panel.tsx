@@ -213,7 +213,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
           disabled
           title="Esta tarea ya no existe"
         >
-          Ver Resultados (No disponible)
+          {translate('viewResultsUnavailable')}
         </button>
       );
     }
@@ -226,22 +226,30 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         onClick={handleViewResults}
         className="inline-block mt-2 text-xs text-purple-600 dark:text-purple-400 hover:underline"
       >
-        Ver Resultados
+        {translate('viewResultsButton')}
       </Link>
     );
   };
 
-  const createSafeTaskLink = (taskId: string, additionalParams: string = '', linkText: string = 'Ver tarea', linkType: 'evaluation' | 'task' = 'task'): JSX.Element => {
+  const createSafeTaskLink = (taskId: string, additionalParams: string = '', linkText?: string, linkType: 'evaluation' | 'task' = 'task'): JSX.Element => {
     const taskExists = validateTaskExists(taskId);
     
+    // Determinar el texto del enlace usando traducciones
+    const defaultLinkText = linkType === 'evaluation' ? translate('viewEvaluationButton') : translate('viewTaskButton');
+    const finalLinkText = linkText || defaultLinkText;
+    
     if (!taskExists) {
+      const unavailableText = linkType === 'evaluation' 
+        ? translate('viewResultsUnavailable') 
+        : translate('viewTaskUnavailable');
+      
       return (
         <button 
           className="inline-block mt-2 text-xs text-gray-400 cursor-not-allowed"
           disabled
-          title="Esta tarea ya no existe"
+          title={translate('taskNoLongerExists') || 'Esta tarea ya no existe'}
         >
-          {linkText} (No disponible)
+          {unavailableText}
         </button>
       );
     }
@@ -254,7 +262,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
         href={href}
         className={`inline-block mt-2 text-xs ${colorClass} hover:underline`}
       >
-        {linkText}
+        {finalLinkText}
       </Link>
     );
   };
@@ -1701,7 +1709,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {TaskNotificationManager.getCourseNameById(task.course)} • {formatDate(task.dueDate)}
                                   </p>
                                   <div className="mt-2">
-                                    {createSafeTaskLink(task.id, '', 'Ver Evaluación', 'evaluation')}
+                                    {createSafeTaskLink(task.id, '', translate('viewEvaluationButton'), 'evaluation')}
                                   </div>
                                 </div>
                               </div>
@@ -1731,7 +1739,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {TaskNotificationManager.getCourseNameById(notification.course)} • {formatDate(notification.timestamp)}
                                   </p>
                                   <div className="mt-2">
-                                    {createSafeTaskLink(notification.taskId, '', 'Ver Evaluación', 'evaluation')}
+                                    {createSafeTaskLink(notification.taskId, '', translate('viewEvaluationButton'), 'evaluation')}
                                   </div>
                                 </div>
                               </div>
@@ -1774,7 +1782,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {TaskNotificationManager.getCourseNameById(task.course)} • {formatDate(task.dueDate)}
                                   </p>
                                   <div className="mt-2">
-                                    {createSafeTaskLink(task.id, '', 'Ver Tarea', 'task')}
+                                    {createSafeTaskLink(task.id, '', undefined, 'task')}
                                   </div>
                                 </div>
                               </div>
@@ -1804,7 +1812,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                     {TaskNotificationManager.getCourseNameById(notification.course)} • {formatDate(notification.timestamp)}
                                   </p>
                                   <div className="mt-2">
-                                    {createSafeTaskLink(notification.taskId, '', 'Ver Tarea', 'task')}
+                                    {createSafeTaskLink(notification.taskId, '', undefined, 'task')}
                                   </div>
                                 </div>
                               </div>

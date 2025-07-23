@@ -8,8 +8,17 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function POST(request: Request) {
   try {
+    // Verificar que la API Key esté configurada
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("[API Route] ❌ GEMINI_API_KEY no está configurada");
+      return NextResponse.json(
+        { error: "La API Key de Gemini no está configurada en el servidor." },
+        { status: 500 }
+      );
+    }
+
     // 1. Extraer los parámetros del cuerpo de la petición
-    const { topic, numQuestions } = await request.json();
+    const { topic, numQuestions, language = 'es' } = await request.json();
 
     if (!topic || !numQuestions) {
       return NextResponse.json(
@@ -39,12 +48,31 @@ export async function POST(request: Request) {
     console.log(`[API Route] Petición para ${numQuestions} preguntas sobre "${topic}"`);
     console.log(`[API Route] Distribución: ${mcCount} Alternativas, ${msCount} Selección Múltiple, ${tfCount} V/F`);
 
-    // 2. PROMPT MEJORADO CON INSTRUCCIONES MATEMÁTICAS EXACTAS
+    // 2. PROMPT MEJORADO CON INSTRUCCIONES MATEMÁTICAS EXACTAS Y SOPORTE MULTIIDIOMA
+    const languageInstructions = {
+      es: {
+        trueLabel: "Verdadero",
+        falseLabel: "Falso",
+        generateText: "Genera un cuestionario",
+        languageNote: "IMPORTANTE: Todas las preguntas, opciones y explicaciones deben estar en ESPAÑOL."
+      },
+      en: {
+        trueLabel: "True", 
+        falseLabel: "False",
+        generateText: "Generate a quiz",
+        languageNote: "IMPORTANT: All questions, options and explanations must be in ENGLISH."
+      }
+    };
+
+    const lang = languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.es;
+
     const userPrompt = `
-      Genera un cuestionario de exactamente ${numQuestions} preguntas sobre "${topic}" para estudiantes de secundaria, distribuidas de la siguiente manera:
+      ${lang.generateText} de exactamente ${numQuestions} preguntas sobre "${topic}" para estudiantes de secundaria, distribuidas de la siguiente manera:
       - Exactamente ${mcCount} preguntas de tipo "multiple_choice" (selección única con 4 opciones).
       - Exactamente ${msCount} preguntas de tipo "multiple_select" (selección múltiple con 4 opciones).
       - Exactamente ${tfCount} preguntas de tipo "true_false" (verdadero o falso).
+
+      ${lang.languageNote}
 
       IMPORTANTE: El total debe ser exactamente ${numQuestions} preguntas (${mcCount} + ${msCount} + ${tfCount} = ${numQuestions}).
       
@@ -55,7 +83,7 @@ export async function POST(request: Request) {
       1. "type": una cadena que sea "multiple_choice", "multiple_select", o "true_false"
       2. "question": el texto de la pregunta
       3. "options": un array de strings con las alternativas
-         - Para "true_false", este array debe ser siempre ["Verdadero", "Falso"]
+         - Para "true_false", este array debe ser siempre ["${lang.trueLabel}", "${lang.falseLabel}"]
          - Para los otros dos tipos, debe contener exactamente 4 opciones de texto
       4. "correct": la respuesta correcta
          - Para "multiple_choice" y "true_false", debe ser un NÚMERO con el índice correcto (ej: 0)
@@ -118,9 +146,22 @@ export async function POST(request: Request) {
       return NextResponse.json(questions);
 
     } catch (error) {
-      console.error("Error al generar preguntas con la API de Gemini:", error);
+      console.error("[API Route] ❌ Error al generar preguntas con la API de Gemini:", error);
+      
+      let errorMessage = "No se pudieron generar las preguntas desde la IA.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes("API_KEY") || error.message.includes("403")) {
+          errorMessage = "Error de autenticación con la API de Gemini. Verifica la configuración.";
+        } else if (error.message.includes("quota") || error.message.includes("limit")) {
+          errorMessage = "Se ha excedido el límite de uso de la API de Gemini.";
+        } else if (error.message.includes("timeout")) {
+          errorMessage = "La generación de preguntas tardó demasiado tiempo.";
+        }
+      }
+      
       return NextResponse.json(
-        { error: "No se pudieron generar las preguntas desde la IA." },
+        { error: errorMessage },
         { status: 500 }
       );
     }

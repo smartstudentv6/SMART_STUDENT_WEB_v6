@@ -139,6 +139,18 @@ body {
     --custom-teal-100: 175 80% 88%;
     --custom-teal-100-hover: 175 80% 83%;
     --custom-teal-800: 175 60% 35%;
+
+    --custom-rose-50: 347 77% 95%;
+    --custom-rose-100: 347 77% 90%;
+    --custom-rose-600: 347 87% 65%;
+    --custom-rose-700: 347 87% 60%;
+    --custom-rose-800: 347 77% 50%;
+
+    --custom-emerald-50: 152 76% 95%;
+    --custom-emerald-100: 152 76% 90%;
+    --custom-emerald-600: 152 76% 50%;
+    --custom-emerald-700: 152 76% 45%;
+    --custom-emerald-800: 152 76% 40%;
   }
 
   .dark {
@@ -185,6 +197,18 @@ body {
 
     --custom-teal-100: 175 100% 95%;
     --custom-teal-800: 175 60% 35%;
+
+    --custom-rose-50: 347 77% 95%;
+    --custom-rose-100: 347 77% 90%;
+    --custom-rose-600: 347 87% 65%;
+    --custom-rose-700: 347 87% 60%;
+    --custom-rose-800: 347 77% 50%;
+
+    --custom-emerald-50: 152 76% 95%;
+    --custom-emerald-100: 152 76% 90%;
+    --custom-emerald-600: 152 76% 50%;
+    --custom-emerald-700: 152 76% 45%;
+    --custom-emerald-800: 152 76% 40%;
   }
 }
 
@@ -671,6 +695,86 @@ html.dark.theme-accent-purple {
 .dark .home-card-button-teal:focus {
   background-color: hsl(var(--custom-teal-800)) !important;
   color: hsl(var(--custom-teal-100)) !important;
+  border: none !important;
+}
+
+/* Rose button styles */
+.home-card-button-rose {
+  background-color: hsl(var(--custom-rose-600)) !important;
+  color: hsl(var(--custom-rose-50)) !important;
+  border: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+.home-card-button-rose:hover {
+  background-color: hsl(var(--custom-rose-700)) !important;
+  color: hsl(var(--custom-rose-50)) !important;
+}
+.home-card-button-rose:active {
+  background-color: hsl(var(--custom-rose-800)) !important;
+  color: hsl(var(--custom-rose-100)) !important;
+  transform: scale(0.98);
+}
+.home-card-button-rose:focus {
+  background-color: hsl(var(--custom-rose-700)) !important;
+  color: hsl(var(--custom-rose-50)) !important;
+  border: none !important;
+}
+.dark .home-card-button-rose {
+  background-color: hsl(var(--custom-rose-700)) !important;
+  color: hsl(var(--custom-rose-100)) !important;
+  border: none !important;
+}
+.dark .home-card-button-rose:hover {
+  background-color: hsl(var(--custom-rose-600)) !important;
+  color: hsl(var(--custom-rose-50)) !important;
+}
+.dark .home-card-button-rose:active {
+  background-color: hsl(var(--custom-rose-800)) !important;
+  color: hsl(var(--custom-rose-100)) !important;
+}
+.dark .home-card-button-rose:focus {
+  background-color: hsl(var(--custom-rose-800)) !important;
+  color: hsl(var(--custom-rose-100)) !important;
+  border: none !important;
+}
+
+/* Emerald button styles */
+.home-card-button-emerald {
+  background-color: hsl(var(--custom-emerald-600)) !important;
+  color: hsl(var(--custom-emerald-50)) !important;
+  border: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+.home-card-button-emerald:hover {
+  background-color: hsl(var(--custom-emerald-700)) !important;
+  color: hsl(var(--custom-emerald-50)) !important;
+}
+.home-card-button-emerald:active {
+  background-color: hsl(var(--custom-emerald-800)) !important;
+  color: hsl(var(--custom-emerald-100)) !important;
+  transform: scale(0.98);
+}
+.home-card-button-emerald:focus {
+  background-color: hsl(var(--custom-emerald-700)) !important;
+  color: hsl(var(--custom-emerald-50)) !important;
+  border: none !important;
+}
+.dark .home-card-button-emerald {
+  background-color: hsl(var(--custom-emerald-700)) !important;
+  color: hsl(var(--custom-emerald-100)) !important;
+  border: none !important;
+}
+.dark .home-card-button-emerald:hover {
+  background-color: hsl(var(--custom-emerald-600)) !important;
+  color: hsl(var(--custom-emerald-50)) !important;
+}
+.dark .home-card-button-emerald:active {
+  background-color: hsl(var(--custom-emerald-800)) !important;
+  color: hsl(var(--custom-emerald-100)) !important;
+}
+.dark .home-card-button-emerald:focus {
+  background-color: hsl(var(--custom-emerald-800)) !important;
+  color: hsl(var(--custom-emerald-100)) !important;
   border: none !important;
 }
 
