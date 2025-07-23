@@ -1117,10 +1117,10 @@
           return;
         }
         
-        if (formData.numQuestions < 1 || formData.numQuestions > 50) {
+        if (![5, 10, 15, 20, 25, 30].includes(formData.numQuestions)) {
           toast({
             title: 'Error', 
-            description: 'La cantidad de preguntas debe estar entre 1 y 50',
+            description: 'La cantidad de preguntas debe ser una de las opciones disponibles: 5, 10, 15, 20, 25 o 30',
             variant: 'destructive'
           });
           return;
@@ -2042,10 +2042,10 @@
           return;
         }
         
-        if (formData.numQuestions < 1 || formData.numQuestions > 50) {
+        if (![5, 10, 15, 20, 25, 30].includes(formData.numQuestions)) {
           toast({
             title: 'Error', 
-            description: 'La cantidad de preguntas debe estar entre 1 y 50',
+            description: 'La cantidad de preguntas debe ser una de las opciones disponibles: 5, 10, 15, 20, 25 o 30',
             variant: 'destructive'
           });
           return;
@@ -3365,7 +3365,18 @@
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">{translate('taskType')}</Label>
-                <Select value={formData.taskType} onValueChange={(value: 'tarea' | 'evaluacion') => setFormData(prev => ({ ...prev, taskType: value }))}>
+                <Select 
+                  value={formData.taskType} 
+                  onValueChange={(value: 'tarea' | 'evaluacion') => {
+                    setFormData(prev => ({
+                      ...prev,
+                      taskType: value,
+                      // Establecer valores por defecto cuando se selecciona evaluación
+                      numQuestions: value === 'evaluacion' ? 10 : prev.numQuestions,
+                      timeLimit: value === 'evaluacion' ? 2 : prev.timeLimit
+                    }))
+                  }}
+                >
                   <SelectTrigger className="select-orange-hover-trigger col-span-3">
                     <SelectValue />
                   </SelectTrigger>
@@ -3393,17 +3404,22 @@
                   
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="numQuestions" className="text-right">Cantidad de Preguntas <span className="text-red-500">*</span></Label>
-                    <Input
-                      id="numQuestions"
-                      type="number"
-                      value={formData.numQuestions || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, numQuestions: parseInt(e.target.value) || 0 }))}
-                      className="col-span-3"
-                      placeholder="Ej: 15"
-                      min="1"
-                      max="50"
-                      required
-                    />
+                    <Select 
+                      value={formData.numQuestions?.toString() || ''} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, numQuestions: parseInt(value) }))}
+                    >
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Selecciona la cantidad de preguntas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5 preguntas</SelectItem>
+                        <SelectItem value="10">10 preguntas</SelectItem>
+                        <SelectItem value="15">15 preguntas</SelectItem>
+                        <SelectItem value="20">20 preguntas</SelectItem>
+                        <SelectItem value="25">25 preguntas</SelectItem>
+                        <SelectItem value="30">30 preguntas</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -4373,17 +4389,22 @@
                   
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="numQuestions-edit" className="text-right">Cantidad de Preguntas <span className="text-red-500">*</span></Label>
-                    <Input
-                      id="numQuestions-edit"
-                      type="number"
-                      value={formData.numQuestions || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, numQuestions: parseInt(e.target.value) || 0 }))}
-                      className="col-span-3"
-                      placeholder="Ej: 15"
-                      min="1"
-                      max="50"
-                      required
-                    />
+                    <Select 
+                      value={formData.numQuestions?.toString() || ''} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, numQuestions: parseInt(value) }))}
+                    >
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Selecciona la cantidad de preguntas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5 preguntas</SelectItem>
+                        <SelectItem value="10">10 preguntas</SelectItem>
+                        <SelectItem value="15">15 preguntas</SelectItem>
+                        <SelectItem value="20">20 preguntas</SelectItem>
+                        <SelectItem value="25">25 preguntas</SelectItem>
+                        <SelectItem value="30">30 preguntas</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div className="grid grid-cols-4 items-center gap-4">

@@ -144,7 +144,7 @@ export default function DashboardLayout({
               SMART STUDENT
             </h1>
             <img 
-              src="/favicon.ico" 
+              src="/graduation-cap.svg" 
               alt="SMART STUDENT" 
               className="w-7 h-7"
             />
