@@ -5201,8 +5201,10 @@
                     <h4 className="font-medium text-gray-800 dark:text-gray-200">{translate('evalReviewDetailedReview')}</h4>
                     
                     {currentEvaluationReview.questions.map((question: any, index: number) => {
-                      const userAnswer = currentEvaluationReview.answers[index];
-                      const isCorrect = userAnswer === question.correct;
+                      // --- ✨ CORRECCIÓN CLAVE AQUÍ ✨ ---
+                      // Simplemente leemos el valor 'isCorrect' que ya fue calculado y guardado.
+                      const isCorrect = question.isCorrect;
+                      const userAnswer = question.studentAnswer; // Usamos el studentAnswer guardado
                       
                       return (
                         <div 
@@ -5232,35 +5234,47 @@
                           </p>
                           
                           <div className="space-y-2 mb-4">
-                            {question.options.map((option: string, optionIndex: number) => (
-                              <div 
-                                key={optionIndex}
-                                className={`p-2 rounded border text-sm ${
-                                  optionIndex === question.correct
-                                    ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-800 dark:text-green-300 font-medium'
-                                    : optionIndex === userAnswer && optionIndex !== question.correct
-                                    ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-800 dark:text-red-300'
-                                    : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-                                }`}
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <span className="font-semibold">
-                                    {String.fromCharCode(65 + optionIndex)}.
-                                  </span>
-                                  <span>{option}</span>
-                                  {optionIndex === question.correct && (
-                                    <Badge className="bg-green-200 text-green-800 text-xs ml-auto">
-                                      {translate('evalReviewCorrectAnswer')}
-                                    </Badge>
-                                  )}
-                                  {optionIndex === userAnswer && optionIndex !== question.correct && (
-                                    <Badge className="bg-red-200 text-red-800 text-xs ml-auto">
-                                      {translate('evalReviewYourAnswer')}
-                                    </Badge>
-                                  )}
+                            {question.options.map((option: string, optionIndex: number) => {
+                              // Determinar si esta opción fue seleccionada por el estudiante
+                              const isStudentAnswer = Array.isArray(userAnswer) 
+                                ? userAnswer.includes(optionIndex)
+                                : userAnswer === optionIndex;
+                              
+                              // Determinar si esta opción es correcta
+                              const isCorrectOption = Array.isArray(question.correct)
+                                ? question.correct.includes(optionIndex)
+                                : question.correct === optionIndex;
+                              
+                              return (
+                                <div 
+                                  key={optionIndex}
+                                  className={`p-2 rounded border text-sm ${
+                                    isCorrectOption
+                                      ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-800 dark:text-green-300 font-medium'
+                                      : isStudentAnswer && !isCorrectOption
+                                      ? 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-800 dark:text-red-300'
+                                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-semibold">
+                                      {String.fromCharCode(65 + optionIndex)}.
+                                    </span>
+                                    <span>{option}</span>
+                                    {isCorrectOption && (
+                                      <Badge className="bg-green-200 text-green-800 text-xs ml-auto">
+                                        {translate('evalReviewCorrectAnswer')}
+                                      </Badge>
+                                    )}
+                                    {isStudentAnswer && !isCorrectOption && (
+                                      <Badge className="bg-red-200 text-red-800 text-xs ml-auto">
+                                        {translate('evalReviewYourAnswer')}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                           
                           {question.explanation && (
