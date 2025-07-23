@@ -740,41 +740,53 @@ html.dark.theme-accent-purple {
 
 /* Emerald button styles */
 .home-card-button-emerald {
-  background-color: hsl(var(--custom-emerald-600)) !important;
-  color: hsl(var(--custom-emerald-50)) !important;
+  background-color: rgb(209 250 229) !important;
+  color: rgb(6 95 70) !important;
   border: none !important;
-  transition: all 0.2s ease-in-out !important;
+  transition: all 0.3s ease-out !important;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0) !important;
 }
 .home-card-button-emerald:hover {
-  background-color: hsl(var(--custom-emerald-700)) !important;
-  color: hsl(var(--custom-emerald-50)) !important;
+  background-color: rgb(6 95 70) !important;
+  color: rgb(209 250 229) !important;
+  border: none !important;
+  transform: scale(1.1) translateY(-4px) !important;
+  box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.5) !important;
 }
 .home-card-button-emerald:active {
-  background-color: hsl(var(--custom-emerald-800)) !important;
-  color: hsl(var(--custom-emerald-100)) !important;
-  transform: scale(0.98);
+  background-color: rgb(6 95 70) !important;
+  color: rgb(209 250 229) !important;
+  transform: scale(1.05) !important;
+  border: none !important;
 }
 .home-card-button-emerald:focus {
-  background-color: hsl(var(--custom-emerald-700)) !important;
-  color: hsl(var(--custom-emerald-50)) !important;
+  background-color: rgb(6 95 70) !important;
+  color: rgb(209 250 229) !important;
   border: none !important;
 }
 .dark .home-card-button-emerald {
-  background-color: hsl(var(--custom-emerald-700)) !important;
-  color: hsl(var(--custom-emerald-100)) !important;
+  background-color: rgb(209 250 229) !important;
+  color: rgb(6 95 70) !important;
   border: none !important;
+  transition: all 0.3s ease-out !important;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0) !important;
 }
 .dark .home-card-button-emerald:hover {
-  background-color: hsl(var(--custom-emerald-600)) !important;
-  color: hsl(var(--custom-emerald-50)) !important;
+  background-color: rgb(6 95 70) !important;
+  color: rgb(209 250 229) !important;
+  border: none !important;
+  transform: scale(1.1) translateY(-4px) !important;
+  box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.5) !important;
 }
 .dark .home-card-button-emerald:active {
-  background-color: hsl(var(--custom-emerald-800)) !important;
-  color: hsl(var(--custom-emerald-100)) !important;
+  background-color: rgb(6 95 70) !important;
+  color: rgb(209 250 229) !important;
+  transform: scale(1.05) !important;
+  border: none !important;
 }
 .dark .home-card-button-emerald:focus {
-  background-color: hsl(var(--custom-emerald-800)) !important;
-  color: hsl(var(--custom-emerald-100)) !important;
+  background-color: rgb(6 95 70) !important;
+  color: rgb(209 250 229) !important;
   border: none !important;
 }
 
