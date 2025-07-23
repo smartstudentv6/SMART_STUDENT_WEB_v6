@@ -536,16 +536,54 @@ export default function PerfilClient() {
       try {
         console.log(`[Perfil] Cargando datos para: ${user.username}`);
         const storedUsers = localStorage.getItem('smart-student-users');
+        
+        // Si no hay datos en localStorage, usar datos por defecto del usuario actual
         if (!storedUsers) {
-          console.error("[Perfil] Error: 'smart-student-users' no encontrado en localStorage.");
+          console.warn("[Perfil] 'smart-student-users' no encontrado en localStorage. Usando datos por defecto.");
+          
+          // Configurar perfil básico con datos del usuario autenticado
+          const defaultSubjects = [
+            { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+            { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+            { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+            { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+          ];
+
+          setDynamicUserProfileData({
+            name: user.displayName || user.username,
+            roleKey: user.role === 'teacher' ? 'profileRoleTeacher' : 'profileRoleStudent',
+            activeCourses: user.activeCourses || ['Sin curso asignado'],
+            subjects: defaultSubjects,
+            evaluationsCompleted: evaluationHistory.length,
+          });
+          
+          console.log("[Perfil] Perfil configurado con datos por defecto");
           return;
         }
 
         const usersData = JSON.parse(storedUsers);
         const fullUserData = usersData.find((u: any) => u.username === user.username);
 
+        // Si no se encuentra el usuario específico, usar datos por defecto
         if (!fullUserData) {
-          console.error(`[Perfil] Error: Usuario "${user.username}" no fue encontrado.`);
+          console.warn(`[Perfil] Usuario "${user.username}" no encontrado en localStorage. Usando datos por defecto.`);
+          
+          const defaultSubjects = [
+            { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+            { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+            { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+            { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+          ];
+
+          setDynamicUserProfileData({
+            name: user.displayName || user.username,
+            roleKey: user.role === 'teacher' ? 'profileRoleTeacher' : 'profileRoleStudent',
+            activeCourses: user.activeCourses || ['Sin curso asignado'],
+            subjects: defaultSubjects,
+            evaluationsCompleted: evaluationHistory.length,
+          });
+          
+          console.log("[Perfil] Perfil configurado con datos por defecto del usuario");
           return;
         }
 
@@ -622,7 +660,23 @@ export default function PerfilClient() {
         console.log("[Perfil] ¡Estado del perfil actualizado correctamente!");
 
       } catch (error) {
-        console.error("[Perfil] Error crítico al cargar los datos del perfil:", error);
+        console.warn("[Perfil] Error al cargar datos del perfil, usando configuración por defecto:", error);
+        
+        // Configurar perfil con datos por defecto en caso de error
+        const defaultSubjects = [
+          { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+          { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+          { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+          { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+        ];
+
+        setDynamicUserProfileData({
+          name: user?.displayName || user?.username || 'Usuario',
+          roleKey: user?.role === 'teacher' ? 'profileRoleTeacher' : 'profileRoleStudent',
+          activeCourses: user?.activeCourses || ['Sin curso asignado'],
+          subjects: defaultSubjects,
+          evaluationsCompleted: evaluationHistory.length,
+        });
       }
     };
 
@@ -969,8 +1023,18 @@ export default function PerfilClient() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
             {/* 📸 FOTO DE PERFIL - Columna izquierda - EXTRA GRANDE */}
-            <div className="lg:col-span-3 flex flex-col items-center justify-start space-y-4">
-              <div className="relative group">
+            <div className="lg:col-span-3 flex flex-col items-center justify-center space-y-4 pt-2">
+              {/* Título de la foto de perfil */}
+              <div className="text-center mb-2">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1">
+                  {language === 'en' ? 'Profile Photo' : 'Foto de Perfil'}
+                </h3>
+              </div>
+              
+              <div 
+                className="relative group cursor-pointer"
+                onClick={() => !isUploadingImage && document.getElementById('profile-image-upload')?.click()}
+              >
                 <div className="relative w-56 h-56 rounded-full overflow-hidden ring-4 ring-blue-300 shadow-xl bg-gradient-to-br from-blue-400 to-purple-500">
                   {profileImage ? (
                     <img 
@@ -985,7 +1049,11 @@ export default function PerfilClient() {
                   )}
                   
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    <Camera className="w-14 h-14 text-white" />
+                    {isUploadingImage ? (
+                      <div className="w-14 h-14 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Camera className="w-14 h-14 text-white" />
+                    )}
                   </div>
                 </div>
 
@@ -997,26 +1065,6 @@ export default function PerfilClient() {
                   className="hidden"
                 />
               </div>
-
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => document.getElementById('profile-image-upload')?.click()}
-                disabled={isUploadingImage}
-                className="bg-blue-500 border-blue-500 text-white hover:bg-transparent hover:border-blue-500 hover:text-blue-600 dark:bg-blue-600 dark:border-blue-600 dark:text-white dark:hover:bg-transparent dark:hover:border-blue-400 dark:hover:text-blue-300 transition-all duration-300"
-              >
-                {isUploadingImage ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-blue-500 dark:border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-                    {translate('profileUploading')}
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4 mr-2" />
-                    {translate('profileChangePhoto')}
-                  </>
-                )}
-              </Button>
             </div>
 
             {/* 👤 DATOS PERSONALES - Columna central */}
@@ -1189,37 +1237,38 @@ export default function PerfilClient() {
                   </div>
                 </div>
               </div>
+              
+              {/* 🛠️ ACCIONES RÁPIDAS - Sección compacta debajo */}
+              <div className="mt-4 bg-gray-200/30 dark:bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-gray-300 dark:border-white/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2 h-2 rounded-full bg-pink-400"></div>
+                  <h4 className="text-sm font-bold text-gray-600 dark:text-blue-200 uppercase tracking-wider">
+                    {translate('profileQuickActions')}
+                  </h4>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="xs"
+                    className="flex-1 bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 hover:text-white shadow-md hover:shadow-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-600 dark:hover:border-slate-500 dark:hover:text-white transition-all duration-300 text-xs px-2 py-1"
+                  >
+                    <Edit3 className="w-3 h-3 mr-1" />
+                    {translate('profileChangePass')}
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="xs"
+                    onClick={handleDownloadHistoryXlsx}
+                    className="flex-1 bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 hover:text-white shadow-md hover:shadow-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-600 dark:hover:border-slate-500 dark:hover:text-white transition-all duration-300 text-xs px-2 py-1"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    {translate('profileDownloadHistory')}
+                  </Button>
+                </div>
+              </div>
             </div>
 
-          </div>
-
-          {/* 🛠️ ACCIONES RÁPIDAS */}
-          <div className="mt-8 bg-gray-200/30 dark:bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-gray-300 dark:border-white/10">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="w-2 h-2 rounded-full bg-pink-400"></div>
-              <h4 className="text-sm font-bold text-gray-600 dark:text-blue-200 uppercase tracking-wider">
-                {translate('profileQuickActions')}
-              </h4>
-              
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="bg-blue-500 border-blue-500 text-white hover:bg-transparent hover:border-blue-500 hover:text-blue-600 dark:bg-blue-600 dark:border-blue-600 dark:text-white dark:hover:bg-transparent dark:hover:border-blue-400 dark:hover:text-blue-300 transition-all duration-300"
-              >
-                <Edit3 className="w-4 h-4 mr-2" />
-                {translate('profileChangePass')}
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleDownloadHistoryXlsx}
-                className="bg-blue-500 border-blue-500 text-white hover:bg-transparent hover:border-blue-500 hover:text-blue-600 dark:bg-blue-600 dark:border-blue-600 dark:text-white dark:hover:bg-transparent dark:hover:border-blue-400 dark:hover:text-blue-300 transition-all duration-300"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                {translate('profileDownloadHistory')}
-              </Button>
-            </div>
           </div>
 
         </CardContent>
