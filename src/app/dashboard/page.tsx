@@ -875,6 +875,23 @@ export default function DashboardHomePage() {
     }
   };
 
+  const getBorderColorClass = (color: string) => {
+    switch (color) {
+      case 'green': return 'border-green-200 dark:border-green-800';
+      case 'blue': return 'border-blue-200 dark:border-blue-800';
+      case 'yellow': return 'border-yellow-200 dark:border-yellow-800';
+      case 'cyan': return 'border-cyan-200 dark:border-cyan-800';
+      case 'purple': return 'border-purple-200 dark:border-purple-800';
+      case 'orange': return 'border-orange-200 dark:border-orange-800';
+      case 'red': return 'border-red-200 dark:border-red-800';
+      case 'indigo': return 'border-indigo-200 dark:border-indigo-800';
+      case 'teal': return 'border-teal-200 dark:border-teal-800';
+      case 'rose': return 'border-rose-200 dark:border-rose-800';
+      case 'emerald': return 'border-emerald-200 dark:border-emerald-800';
+      default: return 'border-gray-200 dark:border-gray-800';
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="mb-4">
@@ -970,8 +987,16 @@ export default function DashboardHomePage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-        {featureCards.map((card) => (
-          <Card key={card.titleKey} className="flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300">
+        {featureCards
+          .filter(card => {
+            // Filtrar la tarjeta de comunicaciones solo para administradores
+            if (card.titleKey === 'cardCommunicationsStudentTitle' && user?.role === 'admin') {
+              return false;
+            }
+            return true;
+          })
+          .map((card) => (
+          <Card key={card.titleKey} className={`flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300 ${getBorderColorClass(card.colorClass)}`}>
             <CardHeader className="items-center relative">
               {card.showBadge && card.titleKey === 'cardTasksTitle' && (
                 (() => {

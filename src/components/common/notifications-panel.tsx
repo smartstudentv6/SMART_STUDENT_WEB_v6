@@ -1612,13 +1612,13 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                           {/* Mensaje principal */}
                           <div className="space-y-3 mb-6">
                             <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
-                              ¡Todo al día!
+                              {translate('allCaughtUpTitle')}
                             </h3>
                             <p className="text-gray-600 dark:text-gray-300 text-sm">
-                              No tienes notificaciones pendientes.
+                              {translate('allCaughtUpMessage')}
                             </p>
                             <p className="text-gray-500 dark:text-gray-400 text-xs">
-                              Disfruta de este momento de tranquilidad académica ✨
+                              {translate('allCaughtUpSubtext')}
                             </p>
                           </div>
                           
@@ -1634,7 +1634,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <span className="text-white text-xs">✓</span>
                                 </div>
                               </div>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">Evaluaciones</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">{translate('evaluationsSection')}</span>
                             </div>
                             
                             {/* Tareas completadas */}
@@ -1647,7 +1647,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <span className="text-white text-xs">✓</span>
                                 </div>
                               </div>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">Tareas</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">{translate('tasksSection')}</span>
                             </div>
                             
                             {/* Comentarios al día */}
@@ -1660,14 +1660,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                   <span className="text-white text-xs">✓</span>
                                 </div>
                               </div>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">Comentarios</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">{translate('commentsSection')}</span>
                             </div>
                           </div>
                           
                           {/* Mensaje motivacional */}
                           <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
                             <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                              ¡Sigue así! Tu dedicación académica es admirable.
+                              {translate('keepItUpMessage')}
                             </p>
                           </div>
                         </div>
@@ -1944,13 +1944,13 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                         {/* Mensaje principal */}
                         <div className="space-y-3 mb-6">
                           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">
-                            ¡Trabajo completado!
+                            {translate('workCompletedTitle')}
                           </h3>
                           <p className="text-gray-600 dark:text-gray-300 text-sm">
-                            No hay entregas pendientes de revisar.
+                            {translate('noSubmissionsPendingMessage')}
                           </p>
                           <p className="text-gray-500 dark:text-gray-400 text-xs">
-                            Tiempo perfecto para planificar nuevas actividades 📚
+                            {translate('perfectTimeMessage')}
                           </p>
                         </div>
                         
@@ -1966,7 +1966,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 <span className="text-white text-xs">✓</span>
                               </div>
                             </div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Evaluaciones</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{translate('evaluationsSection')}</span>
                           </div>
                           
                           {/* Entregas calificadas */}
@@ -1979,7 +1979,7 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 <span className="text-white text-xs">✓</span>
                               </div>
                             </div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Entregas</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{translate('submissionsSection')}</span>
                           </div>
                           
                           {/* Comentarios respondidos */}
@@ -1992,14 +1992,14 @@ export default function NotificationsPanel({ count: propCount }: NotificationsPa
                                 <span className="text-white text-xs">✓</span>
                               </div>
                             </div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Comentarios</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{translate('commentsSection')}</span>
                           </div>
                         </div>
                         
                         {/* Mensaje motivacional para profesores */}
                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
                           <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                            ¡Excelente gestión académica! Tu compromiso con la educación es inspirador.
+                            {translate('excellentManagementMessage')}
                           </p>
                         </div>
                       </div>
