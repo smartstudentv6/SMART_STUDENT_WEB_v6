@@ -17,9 +17,9 @@ interface Subject {
 const mockUserSubjects: Record<string, Subject[]> = {
   jorge: [
     {
-      id: 'subject-cie-jorge',
+      id: 'subject-cnt-jorge',
       name: 'Ciencias Naturales',
-      tag: 'CIE',
+      tag: 'CNT',
       colorClass: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
       courseId: 'course-5to-basico',
     },
@@ -61,9 +61,9 @@ const mockUserSubjects: Record<string, Subject[]> = {
       courseId: 'course-5to-basico',
     },
     {
-      id: 'subject-cie-felipe',
+      id: 'subject-cnt-felipe',
       name: 'Ciencias Naturales',
-      tag: 'CIE',
+      tag: 'CNT',
       colorClass: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
       courseId: 'course-5to-basico',
     },
@@ -91,9 +91,9 @@ const mockUserSubjects: Record<string, Subject[]> = {
       courseId: 'course-5to-basico',
     },
     {
-      id: 'subject-cie-maria',
+      id: 'subject-cnt-maria',
       name: 'Ciencias Naturales',
-      tag: 'CIE',
+      tag: 'CNT',
       colorClass: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
       courseId: 'course-5to-basico',
     },
@@ -121,9 +121,9 @@ const mockUserSubjects: Record<string, Subject[]> = {
       courseId: 'course-4to-basico',
     },
     {
-      id: 'subject-cie-jose',
+      id: 'subject-cnt-jose',
       name: 'Ciencias Naturales',
-      tag: 'CIE',
+      tag: 'CNT',
       colorClass: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
       courseId: 'course-4to-basico',
     },

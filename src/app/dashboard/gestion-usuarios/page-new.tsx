@@ -527,7 +527,7 @@ export default function GestionUsuariosPage() {
         {/* Administradores Section */}
         <div>
           <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <Shield className="w-5 h-5 mr-2 text-red-600" />
+            <Users className="w-5 h-5 mr-2 text-red-600" />
             Administradores
           </h2>
           <div className="grid gap-4">
@@ -538,7 +538,7 @@ export default function GestionUsuariosPage() {
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
                         <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                          <Shield className="w-5 h-5 text-red-600" />
+                          <Users className="w-5 h-5 text-red-600" />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">

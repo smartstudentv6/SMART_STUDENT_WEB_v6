@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Users, Plus, Edit, Trash2, Shield, BookOpen, ChevronDown, ChevronRight, UserPlus, UserMinus, X } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Shield, BookOpen, ChevronDown, ChevronRight, UserPlus, UserMinus, X, Crown, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { User, UserRole, TeacherSubjectAssignment } from '@/contexts/auth-context';
 import { Course } from '@/lib/types'; // Import Course type
@@ -179,6 +179,7 @@ export default function GestionUsuariosPage() {
               password: u.password || '1234', // Default password if missing
               assignedTeacherId: (u as any).assignedTeacherId || (u as any).assignedTeacher, // Keep if ID, or keep username for now
               teachingSubjects: u.teachingSubjects || [],
+              courseSubjectAssignments: u.courseSubjectAssignments || [], // ✨ CRÍTICO: Cargar las asignaciones de cursos y asignaturas ✨
               assignedTeachers: (u as User).assignedTeachers,
               teachingAssignments: (u as User).teachingAssignments,
             } as ExtendedUser;
@@ -238,6 +239,17 @@ export default function GestionUsuariosPage() {
             // console.warn(`Teacher username "${oldAssignedTeacherFormat}" not found for student ${u.username}`);
           }
         }
+
+        // ✨ MIGRACIÓN CRÍTICA: Generar courseSubjectAssignments para profesores que no los tengan ✨
+        if (u.role === 'teacher' && (!u.courseSubjectAssignments || u.courseSubjectAssignments.length === 0) && u.activeCourses.length > 0) {
+          u.courseSubjectAssignments = u.activeCourses.map(courseId => ({
+            id: generateUniqueId(),
+            courseId: courseId,
+            courseName: loadedCourses.find(c => c.id === courseId)?.name || '',
+            subjects: u.teachingSubjects || []
+          }));
+          userChangedInMigration = true;
+        }
         if(userChangedInMigration) usersDataUpdatedForMigration = true;
         return u;
       });
@@ -246,6 +258,9 @@ export default function GestionUsuariosPage() {
       if (usersModifiedInitially || usersDataUpdatedForMigration) {
         setUsers(finalUsers);
         localStorage.setItem('smart-student-users', JSON.stringify(finalUsers));
+        
+        // ✨ NOTIFICAR CAMBIO A OTROS COMPONENTES ✨
+        window.dispatchEvent(new CustomEvent('userDataUpdated'));
       } else {
         setUsers(finalUsers);
       }
@@ -290,6 +305,14 @@ export default function GestionUsuariosPage() {
           id: user.username,
           activeCourses: activeCourseIds,
           assignedTeacherId: teacherIdValue,
+          // ✨ CRÍTICO: Generar courseSubjectAssignments para profesores por defecto ✨
+          courseSubjectAssignments: user.role === 'teacher' ? 
+            activeCourseIds.map(courseId => ({
+              id: generateUniqueId(),
+              courseId: courseId,
+              courseName: currentCourses.find(c => c.id === courseId)?.name || '',
+              subjects: user.teachingSubjects || []
+            })) : [],
           assignedTeacher: undefined, // Ensure old field is not present
           activeCourseNames: undefined,
           assignedTeacherUsername: undefined,
@@ -322,10 +345,8 @@ export default function GestionUsuariosPage() {
 
     // Validate teacher subject assignment
     if (formData.role === 'teacher') {
-      // Check main course subjects
-      const hasMainCourseSubjects = formData.teachingSubjects && formData.teachingSubjects.length > 0;
-      
-      // Check additional course subjects
+      // ✨ CORRECCIÓN: Verificar TANTO curso principal COMO cursos adicionales ✨
+      const hasMainCourseSubjects = formData.selectedCourseId && formData.teachingSubjects && formData.teachingSubjects.length > 0;
       const hasAdditionalSubjects = (formData.courseSubjectAssignments || []).some(assignment => 
         assignment.subjects.length > 0
       );
@@ -376,27 +397,30 @@ export default function GestionUsuariosPage() {
 
     let updatedUsersList;
     
-    // Calculate final active courses for teachers (main course + additional courses)
     let finalActiveCourseIds = formData.activeCourseIds;
-    let finalTeachingSubjects = formData.teachingSubjects || [];
+    let finalTeachingSubjectsList: string[] = [];
+    let finalCourseSubjectAssignments: CourseSubjectAssignment[] = [];
     
     if (formData.role === 'teacher') {
-      // Start with main course
-      const mainCourseIds = formData.selectedCourseId ? [formData.selectedCourseId] : [];
+      // ✨ CORRECCIÓN CRÍTICA: Incluir TANTO el curso principal COMO los cursos adicionales ✨
       
-      // Add additional courses
-      const additionalCourseIds = (formData.courseSubjectAssignments || [])
-        .filter(assignment => assignment.courseId && assignment.subjects.length > 0)
-        .map(assignment => assignment.courseId);
+      // 1. Primero, agregar el curso principal si existe
+      if (formData.selectedCourseId && formData.teachingSubjects && formData.teachingSubjects.length > 0) {
+        finalCourseSubjectAssignments.push({
+          id: generateUniqueId(),
+          courseId: formData.selectedCourseId,
+          courseName: courses.find(c => c.id === formData.selectedCourseId)?.name || '',
+          subjects: formData.teachingSubjects
+        });
+      }
       
-      // Combine all courses
-      finalActiveCourseIds = [...new Set([...mainCourseIds, ...additionalCourseIds])];
-      
-      // Combine all subjects
-      const additionalSubjects = (formData.courseSubjectAssignments || [])
-        .flatMap(assignment => assignment.subjects);
-      
-      finalTeachingSubjects = [...new Set([...finalTeachingSubjects, ...additionalSubjects])];
+      // 2. Luego, agregar los cursos adicionales que tengan asignaturas
+      const additionalAssignments = (formData.courseSubjectAssignments || []).filter(a => a.subjects.length > 0);
+      finalCourseSubjectAssignments = [...finalCourseSubjectAssignments, ...additionalAssignments];
+
+      // 3. Calculate final active courses and flattened subjects list from all assignments
+      finalActiveCourseIds = [...new Set(finalCourseSubjectAssignments.map(a => a.courseId))];
+      finalTeachingSubjectsList = [...new Set(finalCourseSubjectAssignments.flatMap(a => a.subjects))];
     }
     
     if (editingUser && formData.id) { // Editing existing user
@@ -412,7 +436,8 @@ export default function GestionUsuariosPage() {
             activeCourses: finalActiveCourseIds, // Use calculated final courses
             password: formData.password, // Handle password update carefully in real app
             assignedTeacherId: formData.assignedTeacherId,
-            teachingSubjects: finalTeachingSubjects, // Use calculated final subjects
+            teachingSubjects: finalTeachingSubjectsList, // Flattened list for compatibility/display
+            courseSubjectAssignments: formData.role === 'teacher' ? finalCourseSubjectAssignments : [], // The important structured data
           } as ExtendedUser;
         }
         return u;
@@ -428,7 +453,8 @@ export default function GestionUsuariosPage() {
         activeCourses: finalActiveCourseIds, // Use calculated final courses
         password: formData.password,
         assignedTeacherId: formData.assignedTeacherId,
-        teachingSubjects: formData.role === 'teacher' ? finalTeachingSubjects : undefined, // Use calculated final subjects
+        teachingSubjects: formData.role === 'teacher' ? finalTeachingSubjectsList : [],
+        courseSubjectAssignments: formData.role === 'teacher' ? finalCourseSubjectAssignments : [],
         // Initialize other User fields from auth-context if necessary
         assignedTeachers: undefined,
         teachingAssignments: undefined,
@@ -444,6 +470,9 @@ export default function GestionUsuariosPage() {
     setUsers(updatedUsersList);
     // Guardar inmediatamente en localStorage
     localStorage.setItem('smart-student-users', JSON.stringify(updatedUsersList));
+    
+    // ✨ NOTIFICAR CAMBIO A OTROS COMPONENTES ✨
+    window.dispatchEvent(new CustomEvent('userDataUpdated'));
     
     // Actualizar el contexto de autenticación si el usuario actual está logueado
     if (user) {
@@ -467,6 +496,9 @@ export default function GestionUsuariosPage() {
   const syncAllChanges = () => {
     // Guardar usuarios actualizados en localStorage
     localStorage.setItem('smart-student-users', JSON.stringify(users));
+    
+    // ✨ NOTIFICAR CAMBIO A OTROS COMPONENTES ✨
+    window.dispatchEvent(new CustomEvent('userDataUpdated'));
     
     // Actualizar el contexto de autenticación si el usuario actual está logueado
     if (user) {
@@ -573,6 +605,9 @@ export default function GestionUsuariosPage() {
     // Guardar inmediatamente en localStorage
     localStorage.setItem('smart-student-users', JSON.stringify(updatedUsers));
     
+    // ✨ NOTIFICAR CAMBIO A OTROS COMPONENTES ✨
+    window.dispatchEvent(new CustomEvent('userDataUpdated'));
+    
     // Actualizar el contexto de autenticación si el usuario actual está logueado
     if (user) {
       refreshUser();
@@ -596,52 +631,33 @@ export default function GestionUsuariosPage() {
       coursesToSet = [coursesToSet[0]]; // Keep only the first course
     }
     
-    // For teachers, reconstruct course-subject assignments
+    // ✨ CORRECCIÓN CRÍTICA: Para profesores, separar el primer curso como principal y el resto como adicionales ✨
     let mainCourseId: string | undefined;
     let mainCourseSubjects: string[] = [];
     let additionalAssignments: CourseSubjectAssignment[] = [];
-    
-    if (userToEdit.role === 'teacher' && userToEdit.activeCourses.length > 0) {
-      // Use the first course as main course
-      mainCourseId = userToEdit.activeCourses[0];
-      const mainCourseName = courses.find(c => c.id === mainCourseId)?.name || '';
+
+    if (userToEdit.role === 'teacher' && userToEdit.courseSubjectAssignments && userToEdit.courseSubjectAssignments.length > 0) {
+      // ✨ SEPARAR el primer curso como principal y el resto como adicionales ✨
+      const allAssignments = userToEdit.courseSubjectAssignments.map(a => ({...a})); // Create copies
       
-      if (mainCourseName && userToEdit.teachingSubjects) {
-        // Get subjects that belong to main course
-        const mainCourseAvailableSubjects = getSubjectsForSpecificCourse(mainCourseName);
-        mainCourseSubjects = userToEdit.teachingSubjects.filter(subject => 
-          mainCourseAvailableSubjects.includes(subject)
-        );
+      // El primer curso será el curso principal
+      if (allAssignments.length > 0) {
+        const firstAssignment = allAssignments[0];
+        mainCourseId = firstAssignment.courseId;
+        mainCourseSubjects = firstAssignment.subjects;
         
-        // Create assignments for additional courses
-        const remainingSubjects = userToEdit.teachingSubjects.filter(subject => 
-          !mainCourseSubjects.includes(subject)
-        );
-        
-        // Group remaining subjects by course
-        const courseSubjectMap = new Map<string, string[]>();
-        
-        userToEdit.activeCourses.slice(1).forEach(courseId => {
-          const courseName = courses.find(c => c.id === courseId)?.name;
-          if (courseName) {
-            const courseSubjects = getSubjectsForSpecificCourse(courseName);
-            const matchingSubjects = remainingSubjects.filter(subject => 
-              courseSubjects.includes(subject)
-            );
-            if (matchingSubjects.length > 0) {
-              courseSubjectMap.set(courseId, matchingSubjects);
-            }
-          }
-        });
-        
-        // Create course-subject assignments
-        additionalAssignments = Array.from(courseSubjectMap.entries()).map(([courseId, subjects]) => ({
-          id: generateUniqueId(),
-          courseId,
-          courseName: courses.find(c => c.id === courseId)?.name || '',
-          subjects
-        }));
+        // El resto son adicionales
+        additionalAssignments = allAssignments.slice(1);
       }
+
+    } else if (userToEdit.role === 'teacher' && userToEdit.activeCourses.length > 0) {
+      // Fallback para estructuras de datos antiguas que no tengan courseSubjectAssignments
+      const fallbackCourseId = userToEdit.activeCourses[0];
+      const fallbackSubjects = userToEdit.teachingSubjects || [];
+      
+      mainCourseId = fallbackCourseId;
+      mainCourseSubjects = fallbackSubjects;
+      additionalAssignments = [];
     }
     
     setFormData({
@@ -653,8 +669,8 @@ export default function GestionUsuariosPage() {
       activeCourseIds: coursesToSet,
       password: userToEdit.password,
       assignedTeacherId: userToEdit.assignedTeacherId,
-      teachingSubjects: mainCourseSubjects,
-      selectedCourseId: mainCourseId,
+      teachingSubjects: mainCourseSubjects, // ✨ Usar las asignaturas del curso principal ✨
+      selectedCourseId: mainCourseId, // ✨ Usar el ID del curso principal ✨
       courseSubjectAssignments: additionalAssignments
     });
     setShowCreateDialog(true);
@@ -828,6 +844,48 @@ export default function GestionUsuariosPage() {
     }
   };
 
+  // ✨ COMPONENTE PARA INSIGNIA DE ROL CON ICONO ✨
+  const UserRoleBadge = ({ role }: { role: UserRole }) => {
+    const roleConfig = {
+      admin: {
+        labelKey: 'adminRole',
+        variant: 'outline' as const,
+        className: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100 hover:text-red-800',
+        icon: Crown,
+        iconClassName: 'text-red-700'
+      },
+      teacher: {
+        labelKey: 'teacherRole',
+        variant: 'outline' as const,
+        className: 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 hover:text-blue-800',
+        icon: Shield,
+        iconClassName: 'text-blue-700'
+      },
+      student: {
+        labelKey: 'studentRole',
+        variant: 'outline' as const,
+        className: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100 hover:text-green-800',
+        icon: GraduationCap,
+        iconClassName: 'text-green-700'
+      }
+    };
+
+    const config = roleConfig[role];
+    if (!config) return null;
+
+    const IconComponent = config.icon;
+
+    return (
+      <Badge 
+        variant={config.variant}
+        className={`${config.className} text-xs font-medium px-2 py-1 inline-flex items-center gap-1.5`}
+      >
+        <IconComponent className={`w-3 h-3 flex-shrink-0 ${config.iconClassName}`} />
+        {getRoleDisplayName(role)}
+      </Badge>
+    );
+  };
+
   // Function to get students assigned to a specific teacher
   const getStudentsForTeacher = (teacherData: ExtendedUser) => {
     if (teacherData.role !== 'teacher' || !teacherData.id) return [];
@@ -968,9 +1026,9 @@ export default function GestionUsuariosPage() {
       'Matemáticas': 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
       'Lenguaje y Comunicación': 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
       'Historia, Geografía y Ciencias Sociales': 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
-      'Ciencias Naturales': 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700',
+      'Ciencias Naturales': 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
       'Inglés': 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700',
-      'Educación Física': 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+      'Educación Física': 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700',
       'Artes Visuales': 'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-700',
       'Música': 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700',
       'Tecnología': 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700',
@@ -1177,7 +1235,7 @@ export default function GestionUsuariosPage() {
         {/* Administradores Section */}
         <div>
           <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <Shield className="w-5 h-5 mr-2 text-red-600" />
+            <Users className="w-5 h-5 mr-2 text-red-600" />
             {translate('userManagementAdministrators')}
           </h2>
           <div className="grid gap-4">
@@ -1188,7 +1246,7 @@ export default function GestionUsuariosPage() {
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
                         <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                          <Shield className="w-5 h-5 text-red-600" />
+                          <Users className="w-5 h-5 text-red-600" />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1196,9 +1254,7 @@ export default function GestionUsuariosPage() {
                           <p className="text-sm font-medium text-foreground truncate">
                             {userData.displayName}
                           </p>
-                          <Badge variant={getRoleBadgeVariant(userData.role)} className={getRoleBadgeCustomClass(userData.role)}>
-                            {getRoleDisplayName(userData.role)}
-                          </Badge>
+                          <UserRoleBadge role={userData.role} />
                         </div>
                         <p className="text-sm text-muted-foreground">@{userData.username}</p>
                         {userData.email && (
@@ -1264,55 +1320,30 @@ export default function GestionUsuariosPage() {
                             <p className="text-sm font-medium text-foreground truncate">
                               {userData.displayName}
                             </p>
-                            <Badge variant={getRoleBadgeVariant(userData.role)} className={getRoleBadgeCustomClass(userData.role)}>
-                              {getRoleDisplayName(userData.role)}
-                            </Badge>
+                            <UserRoleBadge role={userData.role} />
                           </div>
                           <p className="text-sm text-muted-foreground">@{userData.username}</p>
                           {userData.email && (
                             <p className="text-xs text-muted-foreground">{userData.email}</p>
                           )}
-                          <div className="mt-1">
-                            {/* Mostrar asignaturas organizadas por curso específico con conteo individual */}
-                            {userData.activeCourses && userData.activeCourses.length > 0 && (
-                              <div className="space-y-2">
-                                {userData.activeCourses.map((courseId) => {
-                                  const course = courses.find(c => c.id === courseId);
-                                  const subjectsForCourse = getTeacherSubjectsForCourse(userData, courseId);
-                                  const studentsInCourse = users.filter(user => 
-                                    user.role === 'student' && 
-                                    user.activeCourses && 
-                                    user.activeCourses.includes(courseId)
-                                  ).length;
-                                  
-                                  if (!course || subjectsForCourse.length === 0) return null;
-                                  
+                          <div className="flex items-center space-x-2 mt-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="flex flex-wrap gap-1">
+                                {(userData.activeCourses || []).map((courseId, index) => {
+                                  const courseName = courses.find(c => c.id === courseId)?.name || courseId;
                                   return (
-                                    <div key={courseId} className="flex items-center justify-between">
-                                      <div className="flex items-center space-x-2">
-                                        <BookOpen className="w-3 h-3 text-muted-foreground" />
-                                        <span className="text-xs text-muted-foreground font-medium">{course.name}:</span>
-                                        <div className="flex flex-wrap gap-1">
-                                          {subjectsForCourse.map((subject) => (
-                                            <Badge 
-                                              key={`${courseId}-${subject}`} 
-                                              variant="outline" 
-                                              className={`text-xs px-1.5 py-0.5 h-5 font-medium ${getSubjectColors(subject)}`}
-                                            >
-                                              {getSubjectAbbreviation(subject)}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center space-x-1">
-                                        <Users className="w-3 h-3 text-blue-600" />
-                                        <span className="text-xs text-blue-600 font-medium">{studentsInCourse}</span>
-                                      </div>
-                                    </div>
+                                    <Badge 
+                                      key={courseId || index} 
+                                      variant="outline" 
+                                      className="font-medium"
+                                    >
+                                      {courseName}
+                                    </Badge>
                                   );
                                 })}
                               </div>
-                            )}
+                              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">{assignedStudents.length}</Badge>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1364,12 +1395,14 @@ export default function GestionUsuariosPage() {
                               <div key={courseId} className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg">
                                 <div className="flex items-center justify-between mb-3">
                                   <div className="flex items-center space-x-2">
-                                    <h4 className="font-medium text-sm text-foreground flex items-center">
-                                      <BookOpen className="w-4 h-4 mr-2" />
-                                      {course.name} - {userData.displayName}
-                                    </h4>
-                                    <Badge variant="outline" className="ml-2">
-                                      {studentsInThisCourse.length} {translate('userManagementStudentsCount')}
+                                    <Badge 
+                                      variant="outline" 
+                                      className="font-medium bg-white text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600"
+                                    >
+                                      {course.name}
+                                    </Badge>
+                                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                      {studentsInThisCourse.length}
                                     </Badge>
                                   </div>
                                   
@@ -1517,9 +1550,7 @@ export default function GestionUsuariosPage() {
                             <p className="text-sm font-medium text-foreground truncate">
                               {userData.displayName}
                             </p>
-                            <Badge variant={getRoleBadgeVariant(userData.role)} className={getRoleBadgeCustomClass(userData.role)}>
-                              {getRoleDisplayName(userData.role)}
-                            </Badge>
+                            <UserRoleBadge role={userData.role} />
                           </div>
                           <p className="text-sm text-muted-foreground">@{userData.username}</p>
                           {userData.email && (

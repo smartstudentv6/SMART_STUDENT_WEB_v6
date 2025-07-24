@@ -344,12 +344,12 @@ export default function PerfilClient() {
     }
   };
 
-  // ✨ FUNCIÓN PARA CONTAR ESTUDIANTES POR CURSO - VERSIÓN MEJORADA ✨
+  // ✨ FUNCIÓN PARA CONTAR ESTUDIANTES POR CURSO Y PROFESOR - VERSIÓN CORREGIDA ✨
   const getStudentCountForCourse = (courseName: string): number => {
     try {
       const storedUsers = localStorage.getItem('smart-student-users');
       const storedCourses = localStorage.getItem('smart-student-courses');
-      if (!storedUsers || !storedCourses) return 0;
+      if (!storedUsers || !storedCourses || !user) return 0;
 
       const usersData = JSON.parse(storedUsers);
       const coursesData = JSON.parse(storedCourses);
@@ -362,17 +362,22 @@ export default function PerfilClient() {
         console.warn(`[Contador] No se encontró un ID para el curso "${courseName}". El conteo podría ser 0.`);
       }
 
-      // 2. Filtra los estudiantes que coincidan por NOMBRE o por ID
-      const studentCount = usersData.filter((user: any) => {
-        if (user.role !== 'student' || !Array.isArray(user.activeCourses)) {
+      // 2. Filtra los estudiantes que coincidan por NOMBRE o por ID Y que estén asignados a ESTE profesor
+      const studentCount = usersData.filter((userData: any) => {
+        if (userData.role !== 'student' || !Array.isArray(userData.activeCourses)) {
           return false;
         }
-        // Un estudiante es contado si en su lista de cursos tiene
-        // el NOMBRE del curso O el ID del curso.
-        return user.activeCourses.includes(courseName) || (courseId && user.activeCourses.includes(courseId));
+        
+        // Verificar si el estudiante está en este curso
+        const isInCourse = userData.activeCourses.includes(courseName) || (courseId && userData.activeCourses.includes(courseId));
+        
+        // Verificar si el estudiante está asignado a ESTE profesor específico
+        const isAssignedToThisTeacher = userData.assignedTeacherId === user.id;
+        
+        return isInCourse && isAssignedToThisTeacher;
       }).length;
 
-      console.log(`[Contador] Estudiantes encontrados para "${courseName}" (ID: ${courseId}): ${studentCount}`);
+      console.log(`[Contador] Estudiantes encontrados para "${courseName}" (ID: ${courseId}) asignados al profesor ${user.displayName} (ID: ${user.id}): ${studentCount}`);
       return studentCount;
 
     } catch (error) {
@@ -528,13 +533,46 @@ export default function PerfilClient() {
 
   }, [evaluationHistory, language, translate, mounted, user]);
 
+  // ✨ FUNCIÓN PARA OBTENER ASIGNATURAS DE UN CURSO ESPECÍFICO EN ORDEN ✨
+  const getSubjectsForCourseInOrder = (courseName: string, fullUserData: any) => {
+    // Orden fijo requerido: CNT - HIS - LEN - MAT
+    const subjectOrder = ['Ciencias Naturales', 'Historia, Geografía y Ciencias Sociales', 'Lenguaje y Comunicación', 'Matemáticas'];
+    const subjectNameToObject = {
+      'Ciencias Naturales': { tag: "CNT", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+      'Historia, Geografía y Ciencias Sociales': { tag: "HIS", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+      'Lenguaje y Comunicación': { tag: "LEN", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+      'Matemáticas': { tag: "MAT", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+    };
+
+    if (!fullUserData.courseSubjectAssignments) return [];
+
+    // Buscar las asignaturas del curso específico
+    const courseAssignment = fullUserData.courseSubjectAssignments.find((assignment: any) => 
+      assignment.courseName === courseName
+    );
+
+    if (!courseAssignment || !courseAssignment.subjects) return [];
+
+    // Filtrar y ordenar las asignaturas según el orden establecido
+    const courseSubjects = courseAssignment.subjects;
+    const orderedSubjects = subjectOrder
+      .filter(subject => courseSubjects.includes(subject))
+      .map(subject => subjectNameToObject[subject as keyof typeof subjectNameToObject])
+      .filter(Boolean);
+
+    return orderedSubjects;
+  };
+
   // ✨ ACTUALIZAR PERFIL CON CONVERSIÓN DE IDS A NOMBRES - VERSIÓN DEFINITIVA ✨
+  // Estado para forzar refresco del perfil
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   useEffect(() => {
     if (!user || !mounted) return;
 
     const loadProfileData = () => {
       try {
-        console.log(`[Perfil] Cargando datos para: ${user.username}`);
+        console.log(`[Perfil] Cargando datos para: ${user.username} (trigger: ${refreshTrigger})`);
         const storedUsers = localStorage.getItem('smart-student-users');
         
         // Si no hay datos en localStorage, usar datos por defecto del usuario actual
@@ -624,14 +662,24 @@ export default function PerfilClient() {
           let userSubjects = [];
 
           if (user.role === 'teacher') {
-            // Para profesores: usar las asignaturas específicas que enseñan
-            if (fullUserData.teachingSubjects && fullUserData.teachingSubjects.length > 0) {
-              console.log("[Perfil] Usando asignaturas específicas del profesor:", fullUserData.teachingSubjects);
+            // Para profesores: Mostrar TODAS las asignaturas de TODOS los cursos asignados
+            if (fullUserData.courseSubjectAssignments && fullUserData.courseSubjectAssignments.length > 0) {
+              // ✨ CORRECCIÓN: Tomar las asignaturas de TODOS los cursos asignados ✨
+              const allAssignedSubjects = fullUserData.courseSubjectAssignments
+                .flatMap((assignment: any) => assignment.subjects || []);
+              
+              // Eliminar duplicados y mapear a objetos con tags y colores
+              const uniqueSubjects = [...new Set(allAssignedSubjects)];
+              
+              userSubjects = uniqueSubjects
+                .map((subjectName: any) => subjectNameToObject[subjectName as keyof typeof subjectNameToObject])
+                .filter((subject: any) => subject !== undefined);
+                
+            } else if (fullUserData.teachingSubjects && fullUserData.teachingSubjects.length > 0) {
               userSubjects = fullUserData.teachingSubjects
-                .map(subjectName => subjectNameToObject[subjectName])
-                .filter(subject => subject !== undefined); // Filtrar asignaturas no reconocidas
+                .map((subjectName: string) => subjectNameToObject[subjectName as keyof typeof subjectNameToObject])
+                .filter((subject: any) => subject !== undefined); // Filtrar asignaturas no reconocidas
             } else {
-              console.warn("[Perfil] Profesor sin asignaturas específicas, usando asignaturas por defecto");
               // Fallback: usar asignaturas por defecto del primer curso
               const firstCourse = activeCourseNames.length > 0 ? activeCourseNames[0] : '';
               userSubjects = getSubjectsForCourse(firstCourse);
@@ -680,6 +728,7 @@ export default function PerfilClient() {
           subjects: allSubjects,
           evaluationsCompleted: evaluationHistory.length,
         });
+
         console.log("[Perfil] ¡Estado del perfil actualizado correctamente!");
 
       } catch (error) {
@@ -705,7 +754,22 @@ export default function PerfilClient() {
 
     loadProfileData();
 
-  }, [user, mounted, evaluationHistory.length]);
+  }, [user, mounted, evaluationHistory.length, refreshTrigger]);
+
+  // ✨ LISTENER PARA CAMBIOS EN GESTIÓN DE USUARIOS ✨
+  useEffect(() => {
+    const handleUserDataUpdate = () => {
+      console.log("[Perfil] Detectado cambio en datos de usuarios, refrescando perfil...");
+      setRefreshTrigger(prev => prev + 1);
+    };
+
+    // Escuchar eventos personalizados de actualización de usuarios
+    window.addEventListener('userDataUpdated', handleUserDataUpdate);
+    
+    return () => {
+      window.removeEventListener('userDataUpdated', handleUserDataUpdate);
+    };
+  }, []);
 
   const handleDeleteHistory = () => {
     if (!mounted) return;
@@ -1067,7 +1131,7 @@ export default function PerfilClient() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
-                      <UserCircle className="w-32 h-32 text-white" />
+                      <GraduationCap className="w-32 h-32 text-white" />
                     </div>
                   )}
                   
@@ -1207,56 +1271,83 @@ export default function PerfilClient() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 dark:text-blue-200 uppercase tracking-wider mb-2">
-                      {translate('profileAssignedCourse')}
+                      {user?.role === 'teacher' ? 'Cursos Asignados' : translate('profileAssignedCourse')}
                     </label>
                     
                     {dynamicUserProfileData.activeCourses && Array.isArray(dynamicUserProfileData.activeCourses) && dynamicUserProfileData.activeCourses.length > 0 ? (
-                      <div className="flex items-center justify-between bg-gray-100 dark:bg-blue-50/10 rounded-lg p-3 border border-gray-300 dark:border-blue-300/30">
-                        <div className="flex items-center gap-3">
-                          <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                          <span className="text-gray-800 dark:text-white font-medium">
-                            {(() => {
-                              const firstCourse = dynamicUserProfileData.activeCourses[0] as any;
-                              if (typeof firstCourse === 'string') {
-                                return firstCourse;
-                              } else if (firstCourse && firstCourse.name) {
-                                return firstCourse.name;
+                      <>
+                        {user?.role === 'teacher' ? (
+                          // Para profesores: mostrar todos los cursos con sus asignaturas en la misma línea
+                          <div className="space-y-2">
+                            {dynamicUserProfileData.activeCourses.map((course: any, index: number) => {
+                              const courseName = typeof course === 'string' ? course : (course?.name || translate('profileCourseNotDefined'));
+                              const storedUsers = localStorage.getItem('smart-student-users');
+                              let courseSubjects: any[] = [];
+                              
+                              if (storedUsers) {
+                                try {
+                                  const usersData = JSON.parse(storedUsers);
+                                  const fullUserData = usersData.find((u: any) => u.username === user.username);
+                                  if (fullUserData) {
+                                    courseSubjects = getSubjectsForCourseInOrder(courseName, fullUserData);
+                                  }
+                                } catch (error) {
+                                  console.error('Error al obtener asignaturas del curso:', error);
+                                }
                               }
-                              return translate('profileCourseNotDefined');
-                            })()}
-                          </span>
-                        </div>
-                        {user?.role === 'teacher' && (() => {
-                          const firstCourse = dynamicUserProfileData.activeCourses[0] as any;
-                          return firstCourse && firstCourse.studentCount !== undefined;
-                        })() && (
-                          <div className="flex items-center gap-1 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-                            <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                            {(dynamicUserProfileData.activeCourses[0] as any)?.studentCount || 0}
+                              
+                              return (
+                                <div key={index} className="flex items-center justify-between bg-gray-100 dark:bg-blue-50/10 rounded-lg p-3 border border-gray-300 dark:border-blue-300/30 w-full overflow-x-auto">
+                                  <div className="flex items-center gap-3 min-w-0 flex-nowrap">
+                                    <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></div>
+                                    <span className="text-gray-800 dark:text-white font-medium flex-shrink-0 whitespace-nowrap">
+                                      {courseName}
+                                    </span>
+                                    {/* Badges de asignaturas en la misma línea - SIN WRAP */}
+                                    <div className="flex gap-1 flex-shrink-0">
+                                      {courseSubjects.map((subject, subIndex) => (
+                                        <span 
+                                          key={subIndex} 
+                                          className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold 
+                                                   hover:scale-105 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md flex-shrink-0 ${subject.colorClass}`}
+                                        >
+                                          {subject.tag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  {course && course.studentCount !== undefined && (
+                                    <div className="flex items-center bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold flex-shrink-0 ml-4">
+                                      {course.studentCount || 0}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          // Para estudiantes: mostrar curso único
+                          <div className="flex items-center justify-between bg-gray-100 dark:bg-blue-50/10 rounded-lg p-3 border border-gray-300 dark:border-blue-300/30">
+                            <div className="flex items-center gap-3">
+                              <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                              <span className="text-gray-800 dark:text-white font-medium">
+                                {(() => {
+                                  const firstCourse = dynamicUserProfileData.activeCourses[0] as any;
+                                  if (typeof firstCourse === 'string') {
+                                    return firstCourse;
+                                  } else if (firstCourse && firstCourse.name) {
+                                    return firstCourse.name;
+                                  }
+                                  return translate('profileCourseNotDefined');
+                                })()}
+                              </span>
+                            </div>
                           </div>
                         )}
-                      </div>
+                      </>
                     ) : (
                       <div className="text-sm text-gray-600 dark:text-blue-200 italic">{translate('profileNoCourseAssigned')}</div>
                     )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-blue-200 uppercase tracking-wider mb-2">
-                      {translate('profileMySubjects')}
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {dynamicUserProfileData.subjects.map((subject, index) => (
-                        <span 
-                          key={index} 
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold 
-                                   hover:scale-105 transition-all duration-300 cursor-pointer shadow-md hover:shadow-lg ${subject.colorClass}`}
-                        >
-                          <div className="w-1.5 h-1.5 bg-current rounded-full"></div>
-                          {subject.tag}
-                        </span>
-                      ))}
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1272,7 +1363,7 @@ export default function PerfilClient() {
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
-                    size="xs"
+                    size="sm"
                     className="flex-1 bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 hover:text-white shadow-md hover:shadow-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-600 dark:hover:border-slate-500 dark:hover:text-white transition-all duration-300 text-xs px-2 py-1"
                   >
                     <Edit3 className="w-3 h-3 mr-1" />
@@ -1281,7 +1372,7 @@ export default function PerfilClient() {
                   
                   <Button 
                     variant="outline" 
-                    size="xs"
+                    size="sm"
                     onClick={handleDownloadHistoryXlsx}
                     className="flex-1 bg-blue-600 border-blue-600 text-white hover:bg-blue-700 hover:border-blue-700 hover:text-white shadow-md hover:shadow-lg dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-600 dark:hover:border-slate-500 dark:hover:text-white transition-all duration-300 text-xs px-2 py-1"
                   >

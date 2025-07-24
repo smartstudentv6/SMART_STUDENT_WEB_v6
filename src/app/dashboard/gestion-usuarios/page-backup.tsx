@@ -470,7 +470,7 @@ export default function GestionUsuariosPage() {
                           variant={getRoleBadgeVariant(userData.role)}
                           className={getRoleBadgeCustomClass(userData.role)}
                         >
-                          <Shield className="w-3 h-3 mr-1" />
+                          <Users className="w-3 h-3 mr-1" />
                           {getRoleDisplayName(userData.role)}
                         </Badge>
                       </div>
