@@ -1272,32 +1272,47 @@ export default function GestionUsuariosPage() {
                           {userData.email && (
                             <p className="text-xs text-muted-foreground">{userData.email}</p>
                           )}
-                          <div className="flex items-center space-x-4 mt-1">
-                            <p className="text-xs text-muted-foreground">
-                              <BookOpen className="w-3 h-3 inline mr-1" />
-                              {/* Display course names by mapping IDs to names from 'courses' state */}
-                              {(userData.activeCourses || []).map(courseId => courses.find(c => c.id === courseId)?.name || courseId).join(', ')}
-                            </p>
-                            {userData.teachingSubjects && userData.teachingSubjects.length > 0 && (
-                              <div className="flex items-center space-x-1">
-                                <span className="text-xs text-muted-foreground">📚</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {userData.teachingSubjects.map((subject) => (
-                                    <Badge 
-                                      key={subject} 
-                                      variant="outline" 
-                                      className={`text-xs px-1.5 py-0.5 h-5 font-medium ${getSubjectColors(subject)}`}
-                                    >
-                                      {getSubjectAbbreviation(subject)}
-                                    </Badge>
-                                  ))}
-                                </div>
+                          <div className="mt-1">
+                            {/* Mostrar asignaturas organizadas por curso específico con conteo individual */}
+                            {userData.activeCourses && userData.activeCourses.length > 0 && (
+                              <div className="space-y-2">
+                                {userData.activeCourses.map((courseId) => {
+                                  const course = courses.find(c => c.id === courseId);
+                                  const subjectsForCourse = getTeacherSubjectsForCourse(userData, courseId);
+                                  const studentsInCourse = users.filter(user => 
+                                    user.role === 'student' && 
+                                    user.activeCourses && 
+                                    user.activeCourses.includes(courseId)
+                                  ).length;
+                                  
+                                  if (!course || subjectsForCourse.length === 0) return null;
+                                  
+                                  return (
+                                    <div key={courseId} className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-2">
+                                        <BookOpen className="w-3 h-3 text-muted-foreground" />
+                                        <span className="text-xs text-muted-foreground font-medium">{course.name}:</span>
+                                        <div className="flex flex-wrap gap-1">
+                                          {subjectsForCourse.map((subject) => (
+                                            <Badge 
+                                              key={`${courseId}-${subject}`} 
+                                              variant="outline" 
+                                              className={`text-xs px-1.5 py-0.5 h-5 font-medium ${getSubjectColors(subject)}`}
+                                            >
+                                              {getSubjectAbbreviation(subject)}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center space-x-1">
+                                        <Users className="w-3 h-3 text-blue-600" />
+                                        <span className="text-xs text-blue-600 font-medium">{studentsInCourse}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
-                            <p className="text-xs text-blue-600">
-                              <Users className="w-3 h-3 inline mr-1" />
-                              {assignedStudents.length} {translate('userManagementAssignedStudents')}
-                            </p>
                           </div>
                         </div>
                       </div>
