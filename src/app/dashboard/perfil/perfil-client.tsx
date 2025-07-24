@@ -23,7 +23,7 @@ const userProfileData: UserProfile = {
   activeCourses: [], 
   subjects: [
     { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
-    { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+    { tag: "CNT", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
     { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
     { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, 
   ],
@@ -206,7 +206,7 @@ export default function PerfilClient() {
       if (!course || course.includes('Básico')) {
         return [
           { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
-          { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+          { tag: "CNT", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
           { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
           { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, 
         ];
@@ -228,7 +228,7 @@ export default function PerfilClient() {
       // Si no se reconoce el tipo de curso, devolver asignaturas por defecto
       return [
         { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
-        { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+        { tag: "CNT", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
         { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" }, 
         { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" }, 
       ];
@@ -607,7 +607,47 @@ export default function PerfilClient() {
 
         console.log("[Perfil] Cursos con conteo de estudiantes:", activeCoursesWithCount);
 
-        // Función para obtener asignaturas según el curso
+        // ✨ FUNCIÓN CRÍTICA: Determinar asignaturas específicas del usuario ✨
+        const getUserSpecificSubjects = () => {
+          // Mapeo de nombres de asignaturas a objetos con tags y colores
+          const subjectNameToObject = {
+            'Matemáticas': { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+            'Ciencias Naturales': { tag: "CNT", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+            'Historia, Geografía y Ciencias Sociales': { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
+            'Lenguaje y Comunicación': { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+            'Física': { tag: "FIS", nameKey: "subjectPhysics", colorClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300" },
+            'Química': { tag: "QUI", nameKey: "subjectChemistry", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+            'Biología': { tag: "BIO", nameKey: "subjectBiology", colorClass: "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300" },
+            'Inglés': { tag: "ING", nameKey: "subjectEnglish", colorClass: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300" },
+          };
+
+          let userSubjects = [];
+
+          if (user.role === 'teacher') {
+            // Para profesores: usar las asignaturas específicas que enseñan
+            if (fullUserData.teachingSubjects && fullUserData.teachingSubjects.length > 0) {
+              console.log("[Perfil] Usando asignaturas específicas del profesor:", fullUserData.teachingSubjects);
+              userSubjects = fullUserData.teachingSubjects
+                .map(subjectName => subjectNameToObject[subjectName])
+                .filter(subject => subject !== undefined); // Filtrar asignaturas no reconocidas
+            } else {
+              console.warn("[Perfil] Profesor sin asignaturas específicas, usando asignaturas por defecto");
+              // Fallback: usar asignaturas por defecto del primer curso
+              const firstCourse = activeCourseNames.length > 0 ? activeCourseNames[0] : '';
+              userSubjects = getSubjectsForCourse(firstCourse);
+            }
+          } else {
+            // Para estudiantes: usar las asignaturas del curso asignado
+            const studentCourse = activeCourseNames.length > 0 ? activeCourseNames[0] : '';
+            console.log("[Perfil] Estudiante en curso:", studentCourse);
+            userSubjects = getSubjectsForCourse(studentCourse);
+          }
+
+          console.log("[Perfil] Asignaturas específicas determinadas:", userSubjects);
+          return userSubjects;
+        };
+
+        // Función para obtener asignaturas según el curso (fallback para estudiantes)
         const getSubjectsForCourse = (course: string) => {
           if (course.includes('Medio')) {
             return [
@@ -622,31 +662,14 @@ export default function PerfilClient() {
           }
           return [ // Cursos básicos y por defecto
             { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
-            { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+            { tag: "CNT", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
             { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
             { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
           ];
         };
         
-        // Determinar asignaturas basadas en los cursos convertidos
-        let allSubjects = [];
-        if (user.role === 'teacher') {
-          // Para profesores: unificar asignaturas de todos los cursos
-          const subjectsMap = new Map();
-          activeCourseNames.forEach((course: string) => {
-            const subjectsForCourse = getSubjectsForCourse(course);
-            subjectsForCourse.forEach(subject => {
-              if (!subjectsMap.has(subject.tag)) {
-                subjectsMap.set(subject.tag, subject);
-              }
-            });
-          });
-          allSubjects = Array.from(subjectsMap.values());
-        } else {
-          // Para estudiantes: usar el primer curso
-          const firstCourse = activeCourseNames.length > 0 ? activeCourseNames[0] : '';
-          allSubjects = getSubjectsForCourse(firstCourse);
-        }
+        // ✨ USAR LAS ASIGNATURAS ESPECÍFICAS DEL USUARIO ✨
+        const allSubjects = getUserSpecificSubjects();
         console.log("[Perfil] Asignaturas unificadas:", allSubjects);
 
         // Actualizar el estado con toda la información obtenida
@@ -665,7 +688,7 @@ export default function PerfilClient() {
         // Configurar perfil con datos por defecto en caso de error
         const defaultSubjects = [
           { tag: "MAT", nameKey: "subjectMath", colorClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
-          { tag: "CIE", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+          { tag: "CNT", nameKey: "subjectScience", colorClass: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
           { tag: "HIS", nameKey: "subjectHistory", colorClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
           { tag: "LEN", nameKey: "subjectLanguage", colorClass: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
         ];
