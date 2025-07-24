@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Users, Plus, Edit, Trash2, Shield, BookOpen, ChevronDown, ChevronRight, UserPlus, UserMinus } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Shield, BookOpen, ChevronDown, ChevronRight, UserPlus, UserMinus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { User, UserRole, TeacherSubjectAssignment } from '@/contexts/auth-context';
 import { Course } from '@/lib/types'; // Import Course type
@@ -25,7 +25,17 @@ interface ExtendedUser extends User { // User from auth-context already has id, 
   password: string; // Password should ideally not be part of the client-side User object for long.
   assignedTeacherId?: string; // For students: ID of their assigned teacher
   teachingSubjects?: string[]; // For teachers: subjects they teach (simplified version)
+  courseSubjectAssignments?: CourseSubjectAssignment[]; // New field for specific course-subject assignments
+  selectedCourseId?: string; // For backward compatibility
   // activeCourses will store course IDs
+}
+
+// Course-Subject assignment for teachers
+interface CourseSubjectAssignment {
+  id: string;
+  courseId: string;
+  courseName: string;
+  subjects: string[];
 }
 
 // Simulate user database management
@@ -40,6 +50,7 @@ interface UserFormData {
   assignedTeacherId?: string; // For students: ID of their assigned teacher
   teachingSubjects?: string[]; // For teachers
   selectedCourseId?: string; // For dynamic subject loading (stores course ID)
+  courseSubjectAssignments?: CourseSubjectAssignment[]; // New field for teachers
 }
 
 const initialAvailableCoursesData = [ // Renamed to avoid conflict, will be replaced by state
@@ -88,7 +99,8 @@ export default function GestionUsuariosPage() {
     password: '',
     assignedTeacherId: undefined, // Updated field name
     teachingSubjects: [],
-    selectedCourseId: undefined // Updated field name
+    selectedCourseId: undefined, // Updated field name
+    courseSubjectAssignments: [] // New field for teachers
   });
 
   // Available courses (using the initial data for now)
@@ -309,13 +321,37 @@ export default function GestionUsuariosPage() {
     }
 
     // Validate teacher subject assignment
-    if (formData.role === 'teacher' && (!formData.teachingSubjects || formData.teachingSubjects.length === 0)) {
-      toast({
-        title: "Error",
-        description: translate('teacherMustHaveSubjects'),
-        variant: 'destructive'
-      });
-      return;
+    if (formData.role === 'teacher') {
+      // Check main course subjects
+      const hasMainCourseSubjects = formData.teachingSubjects && formData.teachingSubjects.length > 0;
+      
+      // Check additional course subjects
+      const hasAdditionalSubjects = (formData.courseSubjectAssignments || []).some(assignment => 
+        assignment.subjects.length > 0
+      );
+      
+      if (!hasMainCourseSubjects && !hasAdditionalSubjects) {
+        toast({
+          title: "Error",
+          description: "El profesor debe tener al menos una asignatura asignada.",
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      // Validate that all additional course assignments have subjects selected
+      const invalidAssignments = (formData.courseSubjectAssignments || []).filter(assignment => 
+        assignment.courseName && assignment.subjects.length === 0
+      );
+      
+      if (invalidAssignments.length > 0) {
+        toast({
+          title: "Error",
+          description: translate('allCoursesAdditionalSubjects'),
+          variant: 'destructive'
+        });
+        return;
+      }
     }
 
     // Validate student course assignment (only one course allowed)
@@ -339,6 +375,30 @@ export default function GestionUsuariosPage() {
     }
 
     let updatedUsersList;
+    
+    // Calculate final active courses for teachers (main course + additional courses)
+    let finalActiveCourseIds = formData.activeCourseIds;
+    let finalTeachingSubjects = formData.teachingSubjects || [];
+    
+    if (formData.role === 'teacher') {
+      // Start with main course
+      const mainCourseIds = formData.selectedCourseId ? [formData.selectedCourseId] : [];
+      
+      // Add additional courses
+      const additionalCourseIds = (formData.courseSubjectAssignments || [])
+        .filter(assignment => assignment.courseId && assignment.subjects.length > 0)
+        .map(assignment => assignment.courseId);
+      
+      // Combine all courses
+      finalActiveCourseIds = [...new Set([...mainCourseIds, ...additionalCourseIds])];
+      
+      // Combine all subjects
+      const additionalSubjects = (formData.courseSubjectAssignments || [])
+        .flatMap(assignment => assignment.subjects);
+      
+      finalTeachingSubjects = [...new Set([...finalTeachingSubjects, ...additionalSubjects])];
+    }
+    
     if (editingUser && formData.id) { // Editing existing user
       updatedUsersList = users.map(u => {
         if (u.id === formData.id) {
@@ -349,10 +409,10 @@ export default function GestionUsuariosPage() {
             displayName: formData.displayName,
             email: formData.email,
             role: formData.role,
-            activeCourses: formData.activeCourseIds, // User.activeCourses stores course IDs
+            activeCourses: finalActiveCourseIds, // Use calculated final courses
             password: formData.password, // Handle password update carefully in real app
             assignedTeacherId: formData.assignedTeacherId,
-            teachingSubjects: formData.teachingSubjects,
+            teachingSubjects: finalTeachingSubjects, // Use calculated final subjects
           } as ExtendedUser;
         }
         return u;
@@ -365,10 +425,10 @@ export default function GestionUsuariosPage() {
         displayName: formData.displayName,
         email: formData.email,
         role: formData.role,
-        activeCourses: formData.activeCourseIds, // User.activeCourses stores course IDs
+        activeCourses: finalActiveCourseIds, // Use calculated final courses
         password: formData.password,
         assignedTeacherId: formData.assignedTeacherId,
-        teachingSubjects: formData.role === 'teacher' ? formData.teachingSubjects : undefined,
+        teachingSubjects: formData.role === 'teacher' ? finalTeachingSubjects : undefined, // Use calculated final subjects
         // Initialize other User fields from auth-context if necessary
         assignedTeachers: undefined,
         teachingAssignments: undefined,
@@ -394,10 +454,10 @@ export default function GestionUsuariosPage() {
     setHasUnsavedChanges(true);
 
     toast({
-      title: "Éxito",
+      title: translate('success'),
       description: editingUser ? 
-        "Usuario actualizado correctamente. Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema." : 
-        "Usuario creado correctamente. Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema.",
+        translate('userUpdatedSaveChanges') : 
+        translate('userCreatedSaveChanges'),
     });
 
     handleCloseDialog();
@@ -429,14 +489,14 @@ export default function GestionUsuariosPage() {
       ensureSpecialCases();
       
       toast({
-        title: "Cambios guardados",
-        description: `¡Perfecto! Los cambios han sido guardados y aplicados correctamente en todo el sistema.`,
+        title: translate('changedSavedTitle'),
+        description: translate('changedSavedDesc'),
       });
     } catch (error) {
       console.error('Error al sincronizar los cambios:', error);
       toast({
-        title: "Error al sincronizar",
-        description: "Ha ocurrido un error al aplicar los cambios en el sistema.",
+        title: translate('syncErrorTitle'),
+        description: translate('syncErrorDesc'),
         variant: 'destructive'
       });
     }
@@ -536,7 +596,56 @@ export default function GestionUsuariosPage() {
       coursesToSet = [coursesToSet[0]]; // Keep only the first course
     }
     
+    // For teachers, reconstruct course-subject assignments
+    let mainCourseId: string | undefined;
+    let mainCourseSubjects: string[] = [];
+    let additionalAssignments: CourseSubjectAssignment[] = [];
+    
+    if (userToEdit.role === 'teacher' && userToEdit.activeCourses.length > 0) {
+      // Use the first course as main course
+      mainCourseId = userToEdit.activeCourses[0];
+      const mainCourseName = courses.find(c => c.id === mainCourseId)?.name || '';
+      
+      if (mainCourseName && userToEdit.teachingSubjects) {
+        // Get subjects that belong to main course
+        const mainCourseAvailableSubjects = getSubjectsForSpecificCourse(mainCourseName);
+        mainCourseSubjects = userToEdit.teachingSubjects.filter(subject => 
+          mainCourseAvailableSubjects.includes(subject)
+        );
+        
+        // Create assignments for additional courses
+        const remainingSubjects = userToEdit.teachingSubjects.filter(subject => 
+          !mainCourseSubjects.includes(subject)
+        );
+        
+        // Group remaining subjects by course
+        const courseSubjectMap = new Map<string, string[]>();
+        
+        userToEdit.activeCourses.slice(1).forEach(courseId => {
+          const courseName = courses.find(c => c.id === courseId)?.name;
+          if (courseName) {
+            const courseSubjects = getSubjectsForSpecificCourse(courseName);
+            const matchingSubjects = remainingSubjects.filter(subject => 
+              courseSubjects.includes(subject)
+            );
+            if (matchingSubjects.length > 0) {
+              courseSubjectMap.set(courseId, matchingSubjects);
+            }
+          }
+        });
+        
+        // Create course-subject assignments
+        additionalAssignments = Array.from(courseSubjectMap.entries()).map(([courseId, subjects]) => ({
+          id: generateUniqueId(),
+          courseId,
+          courseName: courses.find(c => c.id === courseId)?.name || '',
+          subjects
+        }));
+      }
+    }
+    
     setFormData({
+      id: userToEdit.id,
       username: userToEdit.username,
       displayName: userToEdit.displayName,
       email: userToEdit.email || '',
@@ -544,8 +653,9 @@ export default function GestionUsuariosPage() {
       activeCourseIds: coursesToSet,
       password: userToEdit.password,
       assignedTeacherId: userToEdit.assignedTeacherId,
-      teachingSubjects: userToEdit.teachingSubjects || [],
-      selectedCourseId: userToEdit.role === 'teacher' && userToEdit.activeCourses.length > 0 ? userToEdit.activeCourses[0] : undefined
+      teachingSubjects: mainCourseSubjects,
+      selectedCourseId: mainCourseId,
+      courseSubjectAssignments: additionalAssignments
     });
     setShowCreateDialog(true);
   };
@@ -562,7 +672,8 @@ export default function GestionUsuariosPage() {
       password: '',
       assignedTeacherId: undefined,
       teachingSubjects: [],
-      selectedCourseId: undefined
+      selectedCourseId: undefined,
+      courseSubjectAssignments: []
     });
   };
 
@@ -633,6 +744,62 @@ export default function GestionUsuariosPage() {
       activeCourseIds: [courseId], // Use activeCourseIds and auto-select the course ID
       teachingSubjects: [] // Reset subjects when course changes
     }));
+  };
+
+  // New functions for handling course-subject assignments
+  const addCourseAssignment = () => {
+    const newAssignment: CourseSubjectAssignment = {
+      id: generateUniqueId(),
+      courseId: '',
+      courseName: '',
+      subjects: []
+    };
+    
+    setFormData(prev => ({
+      ...prev,
+      courseSubjectAssignments: [...(prev.courseSubjectAssignments || []), newAssignment]
+    }));
+  };
+
+  const removeCourseAssignment = (assignmentId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      courseSubjectAssignments: (prev.courseSubjectAssignments || []).filter(a => a.id !== assignmentId)
+    }));
+  };
+
+  const updateCourseAssignment = (assignmentId: string, courseId: string, courseName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      courseSubjectAssignments: (prev.courseSubjectAssignments || []).map(assignment => 
+        assignment.id === assignmentId 
+          ? { ...assignment, courseId, courseName, subjects: [] } // Reset subjects when course changes
+          : assignment
+      )
+    }));
+  };
+
+  const updateAssignmentSubjects = (assignmentId: string, subjects: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      courseSubjectAssignments: (prev.courseSubjectAssignments || []).map(assignment => 
+        assignment.id === assignmentId 
+          ? { ...assignment, subjects }
+          : assignment
+      )
+    }));
+  };
+
+  const toggleSubjectInAssignment = (assignmentId: string, subject: string, checked: boolean) => {
+    const assignment = formData.courseSubjectAssignments?.find(a => a.id === assignmentId);
+    if (!assignment) return;
+
+    const currentSubjects = assignment.subjects || [];
+    const newSubjects = checked 
+      ? [...currentSubjects, subject]
+      : currentSubjects.filter(s => s !== subject);
+
+    updateAssignmentSubjects(assignmentId, newSubjects);
   };
 
   const getRoleBadgeVariant = (role: UserRole) => {
@@ -726,11 +893,11 @@ export default function GestionUsuariosPage() {
     const courseName = courses.find(c => c.id === courseId)?.name || courseId;
     
     toast({
-      title: "Éxito",
+      title: translate('success'),
       description: (hadPreviousTeacher 
-        ? `Estudiante transferido al ${translate('teacherTitle')} ${teacher.displayName} - ${courseName}`
-        : `Estudiante asignado al ${translate('teacherTitle')} ${teacher.displayName} - ${courseName}`) +
-        ". Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema.",
+        ? `${translate('studentTransferredTo')} ${translate('teacherTitle')} ${teacher.displayName} - ${courseName}`
+        : `${translate('studentAssignedTo')} ${translate('teacherTitle')} ${teacher.displayName} - ${courseName}`) +
+        `. ${translate('saveChangesToApply')}`,
     });
   };
 
@@ -751,8 +918,8 @@ export default function GestionUsuariosPage() {
     // No actualizamos localStorage aquí, se hará al presionar "Guardar cambios"
     
     toast({
-      title: "Éxito",
-      description: translate('studentRemovedFromTeacher') + ". Presiona 'Guardar cambios' para aplicar los cambios en todo el sistema.",
+      title: translate('success'),
+      description: translate('studentRemovedFromTeacher') + `. ${translate('saveChangesToApply')}`,
     });
   };
 
@@ -793,6 +960,56 @@ export default function GestionUsuariosPage() {
     
     // Si no, tomar las primeras 3 letras y convertirlas a mayúsculas
     return subject.substring(0, 3).toUpperCase();
+  };
+
+  // Función para obtener el color característico de cada asignatura
+  const getSubjectColors = (subject: string): string => {
+    const colors: Record<string, string> = {
+      'Matemáticas': 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
+      'Lenguaje y Comunicación': 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
+      'Historia, Geografía y Ciencias Sociales': 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
+      'Ciencias Naturales': 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+      'Inglés': 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700',
+      'Educación Física': 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700',
+      'Artes Visuales': 'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-700',
+      'Música': 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700',
+      'Tecnología': 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700',
+      'Orientación': 'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-700',
+      'Religión': 'bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700',
+      'Filosofía': 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-900/30 dark:text-slate-300 dark:border-slate-700',
+      'Física': 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-700',
+      'Química': 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700',
+      'Biología': 'bg-lime-100 text-lime-800 border-lime-200 dark:bg-lime-900/30 dark:text-lime-300 dark:border-lime-700'
+    };
+    
+    return colors[subject] || 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/30 dark:text-gray-300 dark:border-gray-700';
+  };
+
+  // Función para obtener las asignaturas que un profesor enseña en un curso específico
+  const getTeacherSubjectsForCourse = (teacherData: ExtendedUser, courseId: string): string[] => {
+    if (!teacherData || teacherData.role !== 'teacher') return [];
+    
+    const course = courses.find(c => c.id === courseId);
+    if (!course) return [];
+    
+    // Si el profesor tiene courseSubjectAssignments (nueva estructura)
+    if (teacherData.courseSubjectAssignments && teacherData.courseSubjectAssignments.length > 0) {
+      const assignment = teacherData.courseSubjectAssignments.find(a => a.courseId === courseId);
+      return assignment?.subjects || [];
+    }
+    
+    // Fallback: Si solo tiene el curso principal y teachingSubjects (estructura anterior)
+    if (teacherData.selectedCourseId === courseId && teacherData.teachingSubjects) {
+      return teacherData.teachingSubjects;
+    }
+    
+    // Si no hay asignaciones específicas, devolver todas las asignaturas disponibles para el curso
+    // (esto es para compatibilidad con datos existentes)
+    if (teacherData.activeCourses?.includes(courseId) && teacherData.teachingSubjects) {
+      return teacherData.teachingSubjects;
+    }
+    
+    return [];
   };
 
   // Function to get the current course and teacher for a student (using IDs)
@@ -851,7 +1068,7 @@ export default function GestionUsuariosPage() {
             </div>
             <div className="ml-3">
               <p className="text-sm text-amber-700 dark:text-amber-200">
-                <strong>¡Tienes cambios sin guardar!</strong> Para que los cambios se apliquen en todo el sistema, haz clic en el botón "Guardar cambios".
+                <strong>{translate('unsavedChangesMessage')}</strong>
               </p>
             </div>
           </div>
@@ -865,25 +1082,14 @@ export default function GestionUsuariosPage() {
         </div>
         <div className="flex space-x-2">
           <Button 
-            variant="outline"
-            className="text-red-600 hover:text-red-700 border-red-200"
+            className="bg-red-600 hover:bg-red-700 text-white border-0 transition-all duration-200 hover:shadow-lg"
             onClick={() => {
-              const confirmed = window.confirm(
-                '¿Estás seguro de que quieres hacer un RESET COMPLETO?\n\n' +
-                'Esta acción eliminará:\n' +
-                '• Todas las tareas creadas por profesores\n' +
-                '• Todos los comentarios y entregas\n' +
-                '• Todas las notificaciones\n' +
-                '• Todas las evaluaciones\n\n' +
-                'Esta acción NO SE PUEDE DESHACER.'
-              );
+              const confirmed = window.confirm(translate('resetConfirmMessage'));
               
               if (confirmed) {
-                const secondConfirm = window.prompt(
-                  'Para confirmar, escribe exactamente: RESET COMPLETO'
-                );
+                const secondConfirm = window.prompt(translate('resetConfirmType'));
                 
-                if (secondConfirm === 'RESET COMPLETO') {
+                if (secondConfirm === translate('resetTypeText')) {
                   try {
                     // Lista de claves a eliminar
                     const keysToRemove = [
@@ -920,8 +1126,8 @@ export default function GestionUsuariosPage() {
                     document.dispatchEvent(new CustomEvent('notificationsCleared'));
                     
                     toast({
-                      title: "Reset Completo Exitoso",
-                      description: "Todas las tareas, comentarios, notificaciones y evaluaciones han sido eliminados. El sistema está ahora completamente limpio.",
+                      title: translate('resetSuccessTitle'),
+                      description: translate('resetSuccessDesc'),
                     });
                     
                     // Recargar página después de 2 segundos
@@ -931,33 +1137,36 @@ export default function GestionUsuariosPage() {
                     
                   } catch (error) {
                     toast({
-                      title: "Error durante el reset",
-                      description: "Hubo un problema durante el reset completo.",
+                      title: translate('resetErrorTitle'),
+                      description: translate('resetErrorDesc'),
                       variant: "destructive"
                     });
                   }
                 } else {
                   toast({
-                    title: "Reset cancelado",
-                    description: "Confirmación incorrecta. Operación cancelada.",
+                    title: translate('resetCancelledTitle'),
+                    description: translate('resetCancelledDesc'),
                     variant: "destructive"
                   });
                 }
               }
             }}
           >
-            🗑️ Reset Completo
+            🗑️ {translate('resetCompleteButton')}
           </Button>
           <Button 
-            className={`${hasUnsavedChanges ? 'bg-amber-600 hover:bg-amber-700 animate-pulse' : 'bg-teal-600 hover:bg-teal-700'}`}
+            className={`transition-all duration-200 hover:shadow-lg text-white border-0 ${hasUnsavedChanges ? 'bg-amber-600 hover:bg-amber-700 animate-pulse' : 'bg-teal-600 hover:bg-teal-700'}`}
             onClick={() => {
               syncAllChanges();
               setHasUnsavedChanges(false);
             }}
           >
-            {hasUnsavedChanges ? '¡Guardar cambios!' : 'Guardar cambios'}
+            {hasUnsavedChanges ? `¡${translate('saveChangesButton')}!` : translate('saveChangesButton')}
           </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button 
+            className="bg-blue-600 hover:bg-blue-700 text-white border-0 transition-all duration-200 hover:shadow-lg"
+            onClick={() => setShowCreateDialog(true)}
+          >
             <Plus className="w-4 h-4 mr-2" />
             {translate('userManagementCreateUser')}
           </Button>
@@ -997,7 +1206,7 @@ export default function GestionUsuariosPage() {
                         )}
                         <p className="text-xs text-muted-foreground mt-1">
                           <BookOpen className="w-3 h-3 inline mr-1" />
-                          Acceso a todos los cursos
+                          {translate('accessToAllCourses')}
                         </p>
                       </div>
                     </div>
@@ -1070,9 +1279,20 @@ export default function GestionUsuariosPage() {
                               {(userData.activeCourses || []).map(courseId => courses.find(c => c.id === courseId)?.name || courseId).join(', ')}
                             </p>
                             {userData.teachingSubjects && userData.teachingSubjects.length > 0 && (
-                              <p className="text-xs text-purple-600">
-                                📚 {userData.teachingSubjects.join(', ')}
-                              </p>
+                              <div className="flex items-center space-x-1">
+                                <span className="text-xs text-muted-foreground">📚</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {userData.teachingSubjects.map((subject) => (
+                                    <Badge 
+                                      key={subject} 
+                                      variant="outline" 
+                                      className={`text-xs px-1.5 py-0.5 h-5 font-medium ${getSubjectColors(subject)}`}
+                                    >
+                                      {getSubjectAbbreviation(subject)}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
                             )}
                             <p className="text-xs text-blue-600">
                               <Users className="w-3 h-3 inline mr-1" />
@@ -1127,13 +1347,37 @@ export default function GestionUsuariosPage() {
 
                             return (
                               <div key={courseId} className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg">
-                                <h4 className="font-medium text-sm text-foreground mb-3 flex items-center">
-                                  <BookOpen className="w-4 h-4 mr-2" />
-                                  {course.name} - {userData.displayName}
-                                  <Badge variant="outline" className="ml-2">
-                                    {studentsInThisCourse.length} {translate('userManagementStudentsCount')}
-                                  </Badge>
-                                </h4>
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center space-x-2">
+                                    <h4 className="font-medium text-sm text-foreground flex items-center">
+                                      <BookOpen className="w-4 h-4 mr-2" />
+                                      {course.name} - {userData.displayName}
+                                    </h4>
+                                    <Badge variant="outline" className="ml-2">
+                                      {studentsInThisCourse.length} {translate('userManagementStudentsCount')}
+                                    </Badge>
+                                  </div>
+                                  
+                                  {/* Mostrar asignaturas específicas para este curso */}
+                                  {(() => {
+                                    const subjectsForCourse = getTeacherSubjectsForCourse(userData, courseId);
+                                    return subjectsForCourse.length > 0 && (
+                                      <div className="flex items-center space-x-1">
+                                        <div className="flex flex-wrap gap-1">
+                                          {subjectsForCourse.map((subject) => (
+                                            <Badge 
+                                              key={subject} 
+                                              variant="outline" 
+                                              className={`text-xs px-2 py-1 h-6 font-medium ${getSubjectColors(subject)}`}
+                                            >
+                                              {getSubjectAbbreviation(subject)}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
 
                                 {/* Current students in this course with this teacher */}
                                 {studentsInThisCourse.length > 0 ? (
@@ -1203,7 +1447,7 @@ export default function GestionUsuariosPage() {
                                             size="sm"
                                             onClick={() => addStudentToTeacher(student.id, userData.id, courseId)}
                                             className="text-orange-600 hover:text-orange-700 border-orange-200"
-                                            title={`Transferir desde: ${translate('teacherTitle')} ${currentAssignment?.teacher?.displayName} - ${currentAssignment?.course?.name}`}
+                                            title={`${translate('transferFrom')} ${translate('teacherTitle')} ${currentAssignment?.teacher?.displayName} - ${currentAssignment?.course?.name}`}
                                           >
                                             <UserPlus className="w-3 h-3 mr-1" />
                                             {student.displayName}
@@ -1272,7 +1516,7 @@ export default function GestionUsuariosPage() {
                                 <div className="flex items-center space-x-4">
                                   <p className="text-xs text-muted-foreground">
                                     <BookOpen className="w-3 h-3 inline mr-1" />
-                                    {currentAssignment.course?.name || 'Curso no encontrado'}
+                                    {currentAssignment.course?.name || translate('courseNotFound')}
                                   </p>
                                   {currentAssignment.teacher && (
                                     <p className="text-xs text-blue-600">
@@ -1283,20 +1527,21 @@ export default function GestionUsuariosPage() {
                                 </div>
                                 <div className="flex flex-wrap gap-1 mt-2">
                                   {currentAssignment.course?.name && getSubjectsForCourse(currentAssignment.course.name).map(subject => (
-                                    <span 
+                                    <Badge 
                                       key={`student-${userData.id}-${subject}`} 
-                                      className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                                      variant="outline"
+                                      className={`text-xs px-2 py-0.5 h-5 font-medium ${getSubjectColors(subject)}`}
                                       title={subject}
                                     >
                                       {getSubjectAbbreviation(subject)}
-                                    </span>
+                                    </Badge>
                                   ))}
                                 </div>
                               </>
                             ) : (
                               <p className="text-xs text-yellow-600">
                                 <BookOpen className="w-3 h-3 inline mr-1" />
-                                Sin curso asignado
+                                {translate('noCourseAssigned')}
                               </p>
                             )}
                           </div>
@@ -1333,16 +1578,16 @@ export default function GestionUsuariosPage() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
-              {editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
+              {editingUser ? translate('editUser') : translate('createNewUser')}
             </DialogTitle>
             <DialogDescription>
-              {editingUser ? 'Modifica la información del usuario.' : 'Completa la información para crear un nuevo usuario.'}
+              {editingUser ? translate('editUserDescription') : translate('createUserDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="username" className="text-right">
-                Usuario *
+                {translate('userLabel')}
               </Label>
               <Input
                 id="username"
@@ -1350,24 +1595,24 @@ export default function GestionUsuariosPage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                 className="col-span-3"
                 disabled={!!editingUser}
-                placeholder="nombre_usuario"
+                placeholder={translate('usernamePlaceholder')}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="displayName" className="text-right">
-                Nombre *
+                {translate('nameLabel')}
               </Label>
               <Input
                 id="displayName"
                 value={formData.displayName}
                 onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
                 className="col-span-3"
-                placeholder="Nombre Completo"
+                placeholder={translate('fullNamePlaceholder')}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email" className="text-right">
-                Email
+                {translate('emailLabel')}
               </Label>
               <Input
                 id="email"
@@ -1375,12 +1620,12 @@ export default function GestionUsuariosPage() {
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 className="col-span-3"
-                placeholder="usuario@ejemplo.com"
+                placeholder={translate('emailPlaceholder')}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="password" className="text-right">
-                Contraseña *
+                {translate('passwordLabel')}
               </Label>
               <Input
                 id="password"
@@ -1388,7 +1633,7 @@ export default function GestionUsuariosPage() {
                 value={formData.password}
                 onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                 className="col-span-3"
-                placeholder="Contraseña"
+                placeholder={translate('passwordPlaceholder')}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -1413,7 +1658,7 @@ export default function GestionUsuariosPage() {
                 {formData.role === 'teacher' && (
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="teacherCourse" className="text-right">
-                      Curso Principal *
+                      {translate('mainCourseLabel')}
                     </Label>
                     <Select 
                       value={formData.selectedCourseId ? courses.find(c => c.id === formData.selectedCourseId)?.name || '' : ''} 
@@ -1437,11 +1682,11 @@ export default function GestionUsuariosPage() {
                 {formData.role === 'teacher' && formData.selectedCourseId && (
                   <div className="grid grid-cols-4 items-start gap-4">
                     <Label className="text-right pt-2">
-                      Asignaturas *
+                      {translate('subjectsLabel')}
                     </Label>
                     <div className="col-span-3 space-y-2">
                       <p className="text-xs text-muted-foreground mb-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
-                        📚 Asignaturas disponibles para <strong>{formData.selectedCourseId ? courses.find(c => c.id === formData.selectedCourseId)?.name : ''}</strong>
+                        {translate('availableSubjectsFor')} <strong>{formData.selectedCourseId ? courses.find(c => c.id === formData.selectedCourseId)?.name : ''}</strong>
                       </p>
                       {formData.selectedCourseId && getSubjectsForSpecificCourse(courses.find(c => c.id === formData.selectedCourseId)?.name || '').map((subject) => (
                         <div key={subject} className="flex items-center space-x-2">
@@ -1456,36 +1701,89 @@ export default function GestionUsuariosPage() {
                         </div>
                       ))}
                       
-                      {/* Additional courses option */}
+                      {/* Additional courses with independent course-subject assignments */}
                       <div className="mt-4 pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <p className="text-xs text-muted-foreground mb-2">
-                          ¿Enseña en cursos adicionales?
-                        </p>
-                        <div className="space-y-2">
-                          {availableCourses
-                            .filter(course => course !== formData.selectedCourseId)
-                            .map((course) => (
-                            <div key={course} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`additional-${course}`}
-                                checked={formData.activeCourseIds.includes(course)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      activeCourseIds: [...prev.activeCourseIds, course]
-                                    }));
-                                  } else {
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      activeCourseIds: prev.activeCourseIds.filter(c => c !== course)
-                                    }));
-                                  }
-                                }}
-                              />
-                              <Label htmlFor={`additional-${course}`} className="text-xs text-muted-foreground">
-                                {course}
-                              </Label>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs text-muted-foreground">
+                            {translate('additionalCoursesSubjects')}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addCourseAssignment}
+                            className="h-7 px-2 text-xs"
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            {translate('courseLabel')}
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {(formData.courseSubjectAssignments || []).map((assignment) => (
+                            <div key={assignment.id} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                              <div className="flex items-start gap-2 mb-2">
+                                <div className="flex-1">
+                                  <Select 
+                                    value={assignment.courseName} 
+                                    onValueChange={(courseName) => {
+                                      const courseId = courses.find(c => c.name === courseName)?.id || '';
+                                      updateCourseAssignment(assignment.id, courseId, courseName);
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder={translate('selectCourseForm')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {availableCourses
+                                        .filter(course => {
+                                          // Filter out the main course and already selected courses
+                                          const mainCourseName = courses.find(c => c.id === formData.selectedCourseId)?.name;
+                                          const selectedCourses = (formData.courseSubjectAssignments || [])
+                                            .filter(a => a.id !== assignment.id)
+                                            .map(a => a.courseName);
+                                          return course !== mainCourseName && !selectedCourses.includes(course);
+                                        })
+                                        .map(course => (
+                                          <SelectItem key={course} value={course}>
+                                            {course}
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeCourseAssignment(assignment.id)}
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              
+                              {assignment.courseName && (
+                                <div className="space-y-1">
+                                  <p className="text-xs text-muted-foreground mb-1">
+                                    {translate('subjectsFor')} {assignment.courseName}:
+                                  </p>
+                                  <div className="grid grid-cols-1 gap-1">
+                                    {getSubjectsForSpecificCourse(assignment.courseName).map((subject) => (
+                                      <div key={subject} className="flex items-center space-x-2">
+                                        <Checkbox
+                                          id={`${assignment.id}-${subject}`}
+                                          checked={assignment.subjects.includes(subject)}
+                                          onCheckedChange={(checked) => toggleSubjectInAssignment(assignment.id, subject, checked as boolean)}
+                                        />
+                                        <Label htmlFor={`${assignment.id}-${subject}`} className="text-xs">
+                                          {subject}
+                                        </Label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1498,7 +1796,7 @@ export default function GestionUsuariosPage() {
                 {formData.role !== 'teacher' && (
                   <div className="grid grid-cols-4 items-start gap-4">
                     <Label className="text-right pt-2">
-                      Cursos
+                      {translate('coursesLabel')}
                     </Label>
                     <div className="col-span-3 space-y-2">
                       {formData.role === 'student' && (
@@ -1510,13 +1808,14 @@ export default function GestionUsuariosPage() {
                               </p>
                               {formData.activeCourseIds.flatMap(course =>
                                 getSubjectsForCourse(course).map(subject => (
-                                  <span 
+                                  <Badge 
                                     key={`${course}-${subject}`} 
-                                    className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                                    variant="outline"
+                                    className={`text-xs px-2 py-1 h-5 font-medium ${getSubjectColors(subject)}`}
                                     title={subject}
                                   >
                                     {getSubjectAbbreviation(subject)}
-                                  </span>
+                                  </Badge>
                                 ))
                               )}
                             </>
@@ -1574,10 +1873,10 @@ export default function GestionUsuariosPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseDialog}>
-              Cancelar
+              {translate('cancelButton')}
             </Button>
             <Button onClick={handleSaveUser}>
-              {editingUser ? 'Actualizar' : 'Crear'}
+              {editingUser ? translate('updateButton') : translate('createButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
