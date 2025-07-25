@@ -1621,7 +1621,7 @@ export default function GestionUsuariosPage() {
 
       {/* Create/Edit User Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {editingUser ? translate('editUser') : translate('createNewUser')}
@@ -1630,7 +1630,8 @@ export default function GestionUsuariosPage() {
               {editingUser ? translate('editUserDescription') : translate('createUserDescription')}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="flex-1 overflow-y-auto pr-2">
+            <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="username" className="text-right">
                 {translate('userLabel')}
@@ -1704,14 +1705,14 @@ export default function GestionUsuariosPage() {
                 {formData.role === 'teacher' && (
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="teacherCourse" className="text-right">
-                      {translate('mainCourseLabel')}
+                      {translate('courseLabel')}
                     </Label>
                     <Select 
                       value={formData.selectedCourseId ? courses.find(c => c.id === formData.selectedCourseId)?.name || '' : ''} 
                       onValueChange={(value) => handleCourseSelection(value)}
                     >
                       <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder={translate('selectCourseFirst')} />
+                        <SelectValue placeholder={translate('selectCourseForm')} />
                       </SelectTrigger>
                       <SelectContent>
                         {availableCourses.map(course => (
@@ -1838,40 +1839,70 @@ export default function GestionUsuariosPage() {
                   </div>
                 )}
                 
-                {/* Traditional course selection for students and admins */}
-                {formData.role !== 'teacher' && (
+                {/* Course selection for students - Single course dropdown */}
+                {formData.role === 'student' && (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="studentCourse" className="text-right">
+                      {translate('courseLabel')}
+                    </Label>
+                    <div className="col-span-3 space-y-2">
+                      <Select 
+                        value={formData.activeCourseIds.length > 0 ? courses.find(c => c.id === formData.activeCourseIds[0])?.name || '' : ''} 
+                        onValueChange={(courseName) => {
+                          const courseId = courses.find(c => c.name === courseName)?.id;
+                          if (courseId) {
+                            setFormData(prev => ({
+                              ...prev,
+                              activeCourseIds: [courseId],
+                              assignedTeacherId: undefined // Reset teacher when course changes
+                            }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={translate('selectCourseForm')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableCourses.map(course => (
+                            <SelectItem key={course} value={course}>
+                              {course}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {/* Show available subjects for selected course */}
+                      {formData.activeCourseIds.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+                          <p className="text-xs text-muted-foreground w-full mb-1">
+                            {translate('userManagementStudentSubjects')}:
+                          </p>
+                          {formData.activeCourseIds.flatMap(courseId => {
+                            const courseName = courses.find(c => c.id === courseId)?.name || '';
+                            return getSubjectsForCourse(courseName).map(subject => (
+                              <Badge 
+                                key={`${courseId}-${subject}`} 
+                                variant="outline"
+                                className={`text-xs px-2 py-1 h-5 font-medium ${getSubjectColors(subject)}`}
+                                title={subject}
+                              >
+                                {getSubjectAbbreviation(subject)}
+                              </Badge>
+                            ));
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Traditional course selection for admins only */}
+                {formData.role !== 'teacher' && formData.role !== 'student' && (
                   <div className="grid grid-cols-4 items-start gap-4">
                     <Label className="text-right pt-2">
                       {translate('coursesLabel')}
                     </Label>
                     <div className="col-span-3 space-y-2">
-                      {formData.role === 'student' && (
-                        <div className="flex flex-wrap gap-2 mb-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
-                          {formData.activeCourseIds.length > 0 ? (
-                            <>
-                              <p className="text-xs text-muted-foreground w-full mb-1">
-                                {translate('userManagementStudentSubjects')}:
-                              </p>
-                              {formData.activeCourseIds.flatMap(course =>
-                                getSubjectsForCourse(course).map(subject => (
-                                  <Badge 
-                                    key={`${course}-${subject}`} 
-                                    variant="outline"
-                                    className={`text-xs px-2 py-1 h-5 font-medium ${getSubjectColors(subject)}`}
-                                    title={subject}
-                                  >
-                                    {getSubjectAbbreviation(subject)}
-                                  </Badge>
-                                ))
-                              )}
-                            </>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              {translate('userManagementStudentOneCourseInfo')}
-                            </p>
-                          )}
-                        </div>
-                      )}
                       {availableCourses.map((course) => {
                         const courseId = courses.find(c => c.name === course)?.id;
                         return (
@@ -1917,7 +1948,8 @@ export default function GestionUsuariosPage() {
               </>
             )}
           </div>
-          <DialogFooter>
+          </div>
+          <DialogFooter className="flex-shrink-0">
             <Button variant="outline" onClick={handleCloseDialog}>
               {translate('cancelButton')}
             </Button>

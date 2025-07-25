@@ -23,6 +23,8 @@ interface TaskComment {
   isSubmission: boolean;
   isNew?: boolean;
   readBy?: string[];
+  authorUsername?: string; // 🔥 NUEVO: Quién escribió realmente el comentario
+  authorRole?: 'student' | 'teacher'; // 🔥 NUEVO: Rol del autor real
 }
 
 const featureCards = [
@@ -172,7 +174,65 @@ export default function DashboardHomePage() {
           );
           setUnreadCommentsCount(unread.length);
         } else if (user.role === 'teacher') {
-          // Para profesores, cargar entregas pendientes
+          // 🔥 CORRECCIÓN PARA PROFESORES: Solo mostrar comentarios de sus estudiantes
+          const users = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
+          
+          let unread = comments.filter((comment: TaskComment) => {
+            // 🔥 NUEVA LÓGICA: Usar authorUsername si existe, sino studentUsername (retrocompatibilidad)
+            const actualAuthor = comment.authorUsername || comment.studentUsername;
+            const actualAuthorRole = comment.authorRole;
+            
+            // Excluir comentarios propios del profesor
+            if (actualAuthor === user.username) return false;
+            
+            // Excluir comentarios de entrega
+            if (comment.isSubmission) return false;
+            
+            // Excluir si ya fue leído por este profesor
+            if (comment.readBy?.includes(user.username)) return false;
+            
+            // 🚨 FILTRO PRINCIPAL: Determinar el rol del autor
+            let authorRole = actualAuthorRole;
+            if (!authorRole) {
+              const authorUser = users.find((u: any) => u.username === actualAuthor);
+              authorRole = authorUser?.role;
+            }
+            
+            // Solo incluir comentarios de estudiantes, NUNCA de otros profesores
+            if (authorRole === 'teacher') {
+              console.log(`[Dashboard] Excluyendo comentario de profesor ${actualAuthor} para profesor ${user.username}`);
+              return false;
+            }
+            
+            if (authorRole !== 'student') {
+              console.log(`[Dashboard] Excluyendo comentario de role desconocido ${actualAuthor} (${authorRole}) para profesor ${user.username}`);
+              return false;
+            }
+            
+            // Verificar que el estudiante esté asignado a este profesor
+            const studentUser = users.find((u: any) => u.username === actualAuthor);
+            if (studentUser && studentUser.assignedTeacherId !== user.id) {
+              console.log(`[Dashboard] Excluyendo comentario: estudiante ${actualAuthor} no asignado al profesor ${user.username}`);
+              return false;
+            }
+            
+            return true;
+          });
+
+          // Eliminar duplicados
+          unread = unread.filter((comment, idx, arr) =>
+            arr.findIndex(c =>
+              c.taskId === comment.taskId &&
+              c.comment === comment.comment &&
+              c.timestamp === comment.timestamp &&
+              (c.authorUsername || c.studentUsername) === (comment.authorUsername || comment.studentUsername)
+            ) === idx
+          );
+          
+          console.log(`[Dashboard] Profesor ${user.username}: ${unread.length} comentarios no leídos de estudiantes asignados`);
+          setUnreadCommentsCount(unread.length);
+          
+          // Para profesores, también cargar entregas pendientes
           loadPendingTaskSubmissions();
         }
       }
@@ -286,6 +346,9 @@ export default function DashboardHomePage() {
       
       // ✅ ESPECÍFICO: Eliminar notificaciones de comentarios propios de profesores
       TaskNotificationManager.removeTeacherOwnCommentNotifications();
+      
+      // 🔥 NUEVO: Limpiar notificaciones cruzadas entre profesores
+      TaskNotificationManager.removeCrossTeacherNotifications();
       
       // Limpiar notificaciones duplicadas o huérfanas
       const notifications = JSON.parse(localStorage.getItem('smart-student-task-notifications') || '[]');

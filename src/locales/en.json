@@ -446,7 +446,7 @@
     "userManagementAssignedStudents": "assigned students",
     "userManagementNoStudentsAssigned": "No students assigned to this course",
     "userManagementAvailableStudents": "Available students to assign:",
-    "userManagementStudentOneCourseInfo": "Students can only be assigned to one course. Select a course to view available subjects.",
+    "userManagementStudentOneCourseInfo": "Students can only be assigned to one course.",
     "userManagementStudentSubjects": "Course Subjects",
     "studentTransferredTo": "Student transferred to",
     "studentAssignedTo": "Student assigned to",

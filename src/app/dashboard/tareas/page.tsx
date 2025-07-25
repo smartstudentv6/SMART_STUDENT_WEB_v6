@@ -61,6 +61,8 @@
     teacherComment?: string; // Comentario del profesor (opcional)
     reviewedAt?: string; // Fecha de revisión (opcional)
     readBy?: string[]; // ✅ NUEVO: Lista de usernames que han leído este comentario
+    authorUsername?: string; // 🔥 NUEVO: Quién escribió realmente el comentario
+    authorRole?: 'student' | 'teacher'; // 🔥 NUEVO: Rol del autor real
   }
 
   interface TaskFile {
@@ -1252,14 +1254,21 @@
       const comment: TaskComment = {
         id: `comment_${Date.now()}`,
         taskId: selectedTask.id,
-        studentId: user?.id || '', // Use user.id
-        studentUsername: user?.username || '', // ✅ NUEVO: Agregar studentUsername para las notificaciones
-        studentName: user?.displayName || user?.username || '', // Keep displayName
+        studentId: user?.role === 'student' ? user.id : (selectedTask.assignedStudents?.[0] ? 
+          users.find(u => u.username === selectedTask.assignedStudents?.[0])?.id || user.id : user.id), // Corregir studentId
+        studentUsername: user?.role === 'student' ? user.username : 
+          (selectedTask.assignedStudents?.[0] || 'unknown'), // 🔥 CORRECCIÓN: Si es profesor, usar estudiante asignado
+        studentName: user?.role === 'student' ? (user.displayName || user.username) :
+          (selectedTask.assignedStudents?.[0] ? 
+            users.find(u => u.username === selectedTask.assignedStudents?.[0])?.displayName || selectedTask.assignedStudents?.[0] :
+            'Unknown Student'), // 🔥 CORRECCIÓN: Si es profesor, usar nombre del estudiante asignado
         comment: newComment,
         timestamp: new Date().toISOString(),
         isSubmission: isSubmission,
         attachments: attachmentsToSave, // Usar la copia de archivos adjuntos
-        readBy: [] // ✅ NUEVO: Inicializar como array vacío para tracking de lectura
+        readBy: [], // ✅ NUEVO: Inicializar como array vacío para tracking de lectura
+        authorUsername: user?.username, // 🔥 NUEVO: Campo para identificar quién escribió realmente el comentario
+        authorRole: user?.role // 🔥 NUEVO: Campo para identificar el rol del autor
       };
 
       const updatedComments = [...comments, comment];

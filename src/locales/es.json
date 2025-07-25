@@ -459,7 +459,7 @@
     "userManagementAssignedStudents": "estudiantes asignados",
     "userManagementNoStudentsAssigned": "No hay estudiantes asignados a este curso",
     "userManagementAvailableStudents": "Estudiantes disponibles para asignar:",
-    "userManagementStudentOneCourseInfo": "Los estudiantes solo pueden estar asignados a un curso. Selecciona un curso para ver las asignaturas disponibles.",
+    "userManagementStudentOneCourseInfo": "Los estudiantes solo pueden estar asignados a un curso.",
     "userManagementStudentSubjects": "Asignaturas del curso",
     "studentTransferredTo": "Estudiante transferido al",
     "studentAssignedTo": "Estudiante asignado al",

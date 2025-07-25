@@ -155,11 +155,31 @@ export class TaskNotificationManager {
     
     if (studentsInCourse.length === 0) return;
 
-    // ✅ CORRECCIÓN: Asegurar que el profesor NO esté en targetUsernames
-    const targetUsernames = studentsInCourse.map(student => student.username)
-      .filter(username => username !== teacherUsername); // Excluir al profesor de los destinatarios
+    // ✅ CORRECCIÓN REFORZADA: Filtrar solo estudiantes y excluir profesores
+    const users = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
+    const targetUsernames = studentsInCourse
+      .map(student => student.username)
+      .filter(username => {
+        // Excluir al profesor que hace el comentario
+        if (username === teacherUsername) return false;
+        
+        // 🔥 NUEVA VALIDACIÓN: Verificar que el destinatario sea realmente un estudiante
+        const targetUser = users.find((u: any) => u.username === username);
+        if (!targetUser || targetUser.role !== 'student') {
+          console.log(`[createTeacherCommentNotifications] ⚠️ Excluyendo destinatario no estudiante: ${username} (role: ${targetUser?.role || 'not found'})`);
+          return false;
+        }
+        
+        return true;
+      });
 
-    console.log(`[createTeacherCommentNotifications] Profesor: ${teacherUsername}, Destinatarios: ${targetUsernames.join(', ')}`);
+    console.log(`[createTeacherCommentNotifications] Profesor: ${teacherUsername}, Destinatarios validados: ${targetUsernames.join(', ')}`);
+
+    // ✅ VALIDACIÓN ADICIONAL: Usar función de validación específica
+    if (!this.shouldCreateTeacherCommentNotification(teacherUsername, targetUsernames)) {
+      console.log(`[createTeacherCommentNotifications] ⚠️ Validación adicional falló para profesor ${teacherUsername}`);
+      return;
+    }
 
     // ✅ VALIDACIÓN: Solo crear notificación si hay destinatarios válidos
     if (targetUsernames.length === 0) {
@@ -610,12 +630,20 @@ export class TaskNotificationManager {
         !notification.readBy.includes(username) && 
         !notification.readBy.includes(userId || '');
 
-      // 🔥 CORRECCIÓN ESPECÍFICA PARA PROFESORES: Solo excluir sus propios comentarios de estudiante, NO las entregas de estudiantes
+      // 🔥 CORRECCIÓN ESPECÍFICA PARA PROFESORES: Evitar notificaciones cruzadas entre profesores
       if (userRole === 'teacher') {
-        // Para profesores: excluir solo sus propios comentarios (teacher_comment que ellos mismos crearon)
-        // PERO permitir todas las notificaciones de entregas/calificaciones de estudiantes
-        if (notification.type === 'teacher_comment' && notification.fromUsername === username) {
-          basicFilters = false; // Excluir comentarios propios del profesor
+        // 🚨 PROTECCIÓN PRINCIPAL: Los profesores NUNCA deben ver comentarios de otros profesores
+        if (notification.type === 'teacher_comment') {
+          // Excluir TODOS los comentarios que no sean dirigidos específicamente a estudiantes
+          const users = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
+          const fromUser = users.find((u: any) => u.username === notification.fromUsername);
+          
+          // Si el comentario es de un profesor (incluido él mismo), NO mostrarlo a profesores
+          if (fromUser && fromUser.role === 'teacher') {
+            basicFilters = false;
+            console.log(`[TaskNotificationManager] ❌ BLOQUEANDO comentario de profesor ${notification.fromUsername} para profesor ${username}`);
+            return false; // Retorno inmediato para mayor claridad
+          }
         }
         // Permitir todas las demás notificaciones (task_submission, pending_grading, etc.)
       } else {
@@ -1168,6 +1196,70 @@ export class TaskNotificationManager {
       window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
     } else {
       console.log('[TaskNotificationManager] ✅ No se encontraron notificaciones de comentarios propios de profesores');
+    }
+  }
+
+  // 🔥 NUEVA FUNCIÓN: Limpiar notificaciones cruzadas entre profesores
+  static removeCrossTeacherNotifications(): void {
+    console.log('[TaskNotificationManager] 🧹 Eliminando notificaciones cruzadas entre profesores...');
+    
+    const notifications = this.getNotifications();
+    const users = JSON.parse(localStorage.getItem('smart-student-users') || '[]');
+    const teachers = users.filter((u: any) => u.role === 'teacher');
+    let cleaned = 0;
+    
+    const cleanedNotifications = notifications.filter(notification => {
+      if (notification.type === 'teacher_comment') {
+        // Verificar si el emisor es profesor
+        const fromUser = users.find((u: any) => u.username === notification.fromUsername);
+        if (fromUser && fromUser.role === 'teacher') {
+          
+          // 🚨 SOLUCIÓN AGRESIVA: Eliminar TODAS las notificaciones teacher_comment 
+          // que tengan profesores en targetUsernames
+          const hasTeacherTargets = notification.targetUsernames.some(target => 
+            teachers.some((t: any) => t.username === target || t.id === target)
+          );
+          
+          if (hasTeacherTargets) {
+            console.log(`[TaskNotificationManager] �️ ELIMINANDO notificación cruzada completa:`, {
+              from: notification.fromUsername,
+              targets: notification.targetUsernames,
+              taskTitle: notification.taskTitle,
+              reason: 'Contiene profesores como destinatarios'
+            });
+            cleaned++;
+            return false; // Eliminar completamente
+          }
+          
+          // Verificación adicional: Solo mantener si TODOS los targets son estudiantes
+          const allTargetsAreStudents = notification.targetUsernames.every(target => {
+            const targetUser = users.find((u: any) => u.username === target || u.id === target);
+            return targetUser && targetUser.role === 'student';
+          });
+          
+          if (!allTargetsAreStudents) {
+            console.log(`[TaskNotificationManager] 🗑️ ELIMINANDO notificación con targets no válidos:`, {
+              from: notification.fromUsername,
+              targets: notification.targetUsernames,
+              taskTitle: notification.taskTitle,
+              reason: 'No todos los destinatarios son estudiantes'
+            });
+            cleaned++;
+            return false; // Eliminar completamente
+          }
+        }
+      }
+      return true;
+    });
+    
+    if (cleaned > 0) {
+      this.saveNotifications(cleanedNotifications);
+      console.log(`[TaskNotificationManager] ✅ ELIMINADAS ${cleaned} notificaciones cruzadas entre profesores`);
+      
+      // Disparar evento para actualizar la UI
+      window.dispatchEvent(new CustomEvent('taskNotificationsUpdated'));
+    } else {
+      console.log('[TaskNotificationManager] ✅ No se encontraron notificaciones cruzadas entre profesores');
     }
   }
 
