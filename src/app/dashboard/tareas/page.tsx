@@ -17,6 +17,7 @@
   import { Separator } from '@/components/ui/separator';
   import { ClipboardList, Plus, Calendar, User, Users, MessageSquare, Eye, Send, Edit, Trash2, Paperclip, Download, X, Upload, Star, Lock, ClipboardCheck, Timer, ChevronRight, Award } from 'lucide-react';
   import { useToast } from '@/hooks/use-toast';
+  import { getUpdatedTeacherData, validateTeacherData } from '@/lib/data-sync';
 
   // Extended User interface with teacher assignment
   interface ExtendedUser extends UserType {
@@ -199,6 +200,10 @@
     const [timeExpiredResult, setTimeExpiredResult] = useState<any>(null);
     const [evaluationTimeExpired, setEvaluationTimeExpired] = useState(false);
 
+    // Estados para asignaturas del profesor
+    const [teacherSubjects, setTeacherSubjects] = useState<string[]>([]);
+    const [teacherCourses, setTeacherCourses] = useState<{id: string, name: string}[]>([]);
+
     // Debug: Monitor cambios en el modal de tiempo agotado
     useEffect(() => {
       console.log('🔥 [useEffect] showTimeExpiredDialog cambió a:', showTimeExpiredDialog);
@@ -220,6 +225,27 @@
     // Cargar resultados de evaluaciones existentes
     useEffect(() => {
       loadEvaluationResults();
+    }, [user]);
+
+    // useEffect adicional para recargar datos del profesor cuando cambien en gestión de usuarios
+    useEffect(() => {
+      const handleStorageChange = () => {
+        if (user && user.role === 'teacher') {
+          console.log('📡 [Storage Change] Recargando datos del profesor...');
+          refreshTeacherData();
+        }
+      };
+
+      // Escuchar cambios en localStorage
+      window.addEventListener('storage', handleStorageChange);
+      
+      // También agregar un listener personalizado para cambios internos
+      window.addEventListener('userDataUpdated', handleStorageChange);
+
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('userDataUpdated', handleStorageChange);
+      };
     }, [user]);
 
     // Function to get task status for current user, considering evaluations
@@ -297,6 +323,11 @@
       loadTasks();
       loadComments();
       loadEvaluationResults();
+      
+      // Cargar datos del profesor si es un profesor
+      if (user && user.role === 'teacher') {
+        loadTeacherData();
+      }
       
       // 🧹 LIMPIEZA AUTOMÁTICA SÚPER AGRESIVA: Eliminar TODAS las notificaciones "task_completed"
       // Ejecuta en cada carga de página y se repite para mantener el panel limpio
@@ -722,6 +753,12 @@
     // Get available courses and subjects for teacher
     const getAvailableCourses = () => {
       if (user?.role === 'teacher') {
+        // Primero usar el estado cargado si está disponible
+        if (teacherCourses.length > 0) {
+          return teacherCourses.map(course => course.id);
+        }
+        
+        // Fallback a los cursos del usuario del contexto
         return user.activeCourses || [];
       }
       return [];
@@ -752,20 +789,188 @@
     // Function to get all courses with their names for dropdown
     const getAvailableCoursesWithNames = () => {
       if (user?.role === 'teacher') {
+        // 🎯 CORRECCIÓN: Usar courseSubjectAssignments para obtener cursos específicos del profesor
+        
+        // Primero, intentar obtener desde el localStorage actualizado
+        const usersText = localStorage.getItem('smart-student-users');
+        if (usersText) {
+          const users = JSON.parse(usersText);
+          const currentUser = users.find((u: any) => u.username === user.username);
+          
+          if (currentUser && currentUser.courseSubjectAssignments && currentUser.courseSubjectAssignments.length > 0) {
+            // Extraer cursos únicos de las asignaciones con sus IDs y nombres
+            const uniqueCourses = currentUser.courseSubjectAssignments
+              .map((assignment: any) => ({ 
+                id: assignment.courseId, 
+                name: assignment.courseName 
+              }))
+              .filter((course: {id: string, name: string}, index: number, array: {id: string, name: string}[]) => 
+                array.findIndex((c: {id: string, name: string}) => c.id === course.id) === index
+              ); // Eliminar duplicados por ID
+            
+            console.log('🏫 [getAvailableCoursesWithNames] Cursos específicos del profesor:', uniqueCourses);
+            return uniqueCourses;
+          }
+        }
+        
+        // Segundo, usar el estado cargado si está disponible (fallback)
+        if (teacherCourses.length > 0) {
+          console.log('🏫 [getAvailableCoursesWithNames] Usando teacherCourses del estado:', teacherCourses);
+          return teacherCourses;
+        }
+        
+        // Tercero, generar desde los cursos del usuario del contexto (fallback)
         const courseIds = user.activeCourses || [];
-        return courseIds.map(courseId => ({
+        const coursesFromContext = courseIds.map(courseId => ({
           id: courseId,
           name: getCourseNameById(courseId)
         }));
+        console.log('🏫 [getAvailableCoursesWithNames] Usando activeCourses del contexto:', coursesFromContext);
+        return coursesFromContext;
+      }
+      return [];
+    };
+
+    // Función para refrescar los datos del profesor cuando cambien en gestión de usuarios
+    const refreshTeacherData = () => {
+      if (user && user.role === 'teacher') {
+        loadTeacherData();
+      }
+    };
+
+    // Función para cargar datos del profesor
+    const loadTeacherData = () => {
+      try {
+        if (!user?.username) return;
+        
+        // 🎯 CORRECCIÓN: Cargar datos directamente desde localStorage usando courseSubjectAssignments
+        const usersText = localStorage.getItem('smart-student-users');
+        if (usersText) {
+          const users = JSON.parse(usersText);
+          const currentUser = users.find((u: any) => u.username === user.username);
+          
+          if (currentUser && currentUser.courseSubjectAssignments && currentUser.courseSubjectAssignments.length > 0) {
+            // Extraer asignaturas únicas de las asignaciones
+            const uniqueSubjects = currentUser.courseSubjectAssignments
+              .flatMap((assignment: any) => assignment.subjects)
+              .filter((subject: string, index: number, array: string[]) => array.indexOf(subject) === index);
+            
+            setTeacherSubjects(uniqueSubjects);
+            console.log('📚 [loadTeacherData] Asignaturas específicas cargadas:', uniqueSubjects);
+            
+            // Extraer cursos únicos con sus nombres de las asignaciones
+            const uniqueCourses = currentUser.courseSubjectAssignments
+              .map((assignment: any) => ({ 
+                id: assignment.courseId, 
+                name: assignment.courseName 
+              }))
+              .filter((course: {id: string, name: string}, index: number, array: {id: string, name: string}[]) => 
+                array.findIndex((c: {id: string, name: string}) => c.id === course.id) === index
+              );
+            
+            setTeacherCourses(uniqueCourses);
+            console.log('🏫 [loadTeacherData] Cursos específicos cargados:', uniqueCourses);
+            
+            return; // Datos cargados exitosamente
+          }
+        }
+        
+        // Fallback: usar el sistema anterior si no hay courseSubjectAssignments
+        const teacherData = getUpdatedTeacherData(user.username);
+        if (teacherData && validateTeacherData(teacherData)) {
+          // Cargar asignaturas del profesor (método anterior)
+          setTeacherSubjects(teacherData.teachingSubjects || []);
+          console.log('📚 [loadTeacherData] Asignaturas cargadas (fallback):', teacherData.teachingSubjects);
+          
+          // Cargar cursos del profesor con sus nombres (método anterior)
+          const coursesWithNames = (teacherData.activeCourses || []).map((courseId: string) => ({
+            id: courseId,
+            name: getCourseNameById(courseId)
+          }));
+          setTeacherCourses(coursesWithNames);
+          console.log('🏫 [loadTeacherData] Cursos cargados (fallback):', coursesWithNames);
+        } else {
+          console.warn('⚠️ [loadTeacherData] Datos del profesor no válidos o no encontrados');
+          // Limpiar estados si no hay datos válidos
+          setTeacherSubjects([]);
+          setTeacherCourses([]);
+        }
+      } catch (error) {
+        console.error('Error loading teacher data:', error);
+        // En caso de error, limpiar estados
+        setTeacherSubjects([]);
+        setTeacherCourses([]);
+      }
+    };
+
+    // 🎯 NUEVA FUNCIÓN: Obtener asignaturas específicas para un curso seleccionado
+    const getAvailableSubjectsForCourse = (courseId: string) => {
+      if (user?.role === 'teacher' && courseId) {
+        // Obtener desde el localStorage actualizado usando courseSubjectAssignments
+        const usersText = localStorage.getItem('smart-student-users');
+        if (usersText) {
+          const users = JSON.parse(usersText);
+          const currentUser = users.find((u: any) => u.username === user.username);
+          
+          if (currentUser && currentUser.courseSubjectAssignments && currentUser.courseSubjectAssignments.length > 0) {
+            // Buscar la asignación específica para este curso
+            const courseAssignment = currentUser.courseSubjectAssignments.find(
+              (assignment: any) => assignment.courseId === courseId
+            );
+            
+            if (courseAssignment && courseAssignment.subjects) {
+              console.log(`📚 [getAvailableSubjectsForCourse] Asignaturas para curso ${courseId}:`, courseAssignment.subjects);
+              return courseAssignment.subjects;
+            }
+          }
+        }
+        
+        // Fallback: devolver todas las asignaturas disponibles si no se encuentra la asignación específica
+        console.warn(`⚠️ [getAvailableSubjectsForCourse] No se encontraron asignaturas específicas para curso ${courseId}, usando todas las disponibles`);
+        return getAvailableSubjects();
       }
       return [];
     };
 
     const getAvailableSubjects = () => {
-      if (user?.role === 'teacher' && user.teachingAssignments) {
-        return [...new Set(user.teachingAssignments.map(ta => ta.subject))];
+      if (user?.role === 'teacher') {
+        // 🎯 CORRECCIÓN: Usar courseSubjectAssignments para obtener asignaturas específicas del profesor
+        
+        // Primero, intentar obtener desde el localStorage actualizado
+        const usersText = localStorage.getItem('smart-student-users');
+        if (usersText) {
+          const users = JSON.parse(usersText);
+          const currentUser = users.find((u: any) => u.username === user.username);
+          
+          if (currentUser && currentUser.courseSubjectAssignments && currentUser.courseSubjectAssignments.length > 0) {
+            // Extraer todas las asignaturas únicas de todas las asignaciones de curso
+            const allSubjects = currentUser.courseSubjectAssignments
+              .flatMap((assignment: any) => assignment.subjects)
+              .filter((subject: string, index: number, array: string[]) => array.indexOf(subject) === index); // Eliminar duplicados
+            
+            console.log('📚 [getAvailableSubjects] Asignaturas específicas del profesor:', allSubjects);
+            return allSubjects;
+          }
+        }
+        
+        // Segundo, usar el estado cargado si está disponible (fallback)
+        if (teacherSubjects.length > 0) {
+          console.log('📚 [getAvailableSubjects] Usando teacherSubjects del estado:', teacherSubjects);
+          return teacherSubjects;
+        }
+        
+        // Tercero, intentar obtener desde teachingAssignments (estructura antigua)
+        if (user.teachingAssignments && user.teachingAssignments.length > 0) {
+          const subjects = [...new Set(user.teachingAssignments.map(ta => ta.subject))];
+          console.log('📚 [getAvailableSubjects] Usando teachingAssignments:', subjects);
+          return subjects;
+        }
+        
+        // Último fallback: asignaturas generales (NO debería llegar aquí en producción)
+        console.warn('⚠️ [getAvailableSubjects] Usando fallback - el profesor no tiene asignaciones específicas');
+        return ['Matemáticas', 'Lenguaje y Comunicación', 'Ciencias Naturales', 'Historia, Geografía y Ciencias Sociales'];
       }
-      return ['Matemáticas', 'Lenguaje y Comunicación', 'Ciencias Naturales', 'Historia, Geografía y Ciencias Sociales'];
+      return [];
     };
 
     // Get students for selected course
@@ -1251,24 +1456,29 @@
         console.log('⚠️ Advertencia: Entrega sin archivos adjuntos');
       }
 
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "Usuario no autenticado",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const comment: TaskComment = {
         id: `comment_${Date.now()}`,
         taskId: selectedTask.id,
-        studentId: user?.role === 'student' ? user.id : (selectedTask.assignedStudents?.[0] ? 
-          users.find(u => u.username === selectedTask.assignedStudents?.[0])?.id || user.id : user.id), // Corregir studentId
-        studentUsername: user?.role === 'student' ? user.username : 
-          (selectedTask.assignedStudents?.[0] || 'unknown'), // 🔥 CORRECCIÓN: Si es profesor, usar estudiante asignado
-        studentName: user?.role === 'student' ? (user.displayName || user.username) :
-          (selectedTask.assignedStudents?.[0] ? 
-            users.find(u => u.username === selectedTask.assignedStudents?.[0])?.displayName || selectedTask.assignedStudents?.[0] :
-            'Unknown Student'), // 🔥 CORRECCIÓN: Si es profesor, usar nombre del estudiante asignado
+        studentId: user.role === 'student' ? user.id : user.id, // Usar el ID del profesor cuando sea profesor
+        studentUsername: user.role === 'student' ? user.username : user.username, // Usar username del profesor cuando sea profesor
+        studentName: user.role === 'student' ? (user.displayName || user.username) :
+          `Profesor ${user.displayName || user.username}`, // 🔥 CORRECCIÓN: Si es profesor, mostrar "Profesor [nombre]"
         comment: newComment,
         timestamp: new Date().toISOString(),
         isSubmission: isSubmission,
         attachments: attachmentsToSave, // Usar la copia de archivos adjuntos
         readBy: [], // ✅ NUEVO: Inicializar como array vacío para tracking de lectura
-        authorUsername: user?.username, // 🔥 NUEVO: Campo para identificar quién escribió realmente el comentario
-        authorRole: user?.role // 🔥 NUEVO: Campo para identificar el rol del autor
+        authorUsername: user.username, // 🔥 NUEVO: Campo para identificar quién escribió realmente el comentario
+        authorRole: user.role as 'student' | 'teacher' // 🔥 NUEVO: Campo para identificar el rol del autor
       };
 
       const updatedComments = [...comments, comment];
@@ -1427,12 +1637,15 @@
       }
     };
 
-    // Funciones para la evaluación mejorada con IA de Gemini
+    // 🚫 FUNCIÓN generateFallbackQuestions ELIMINADA
+    // Todas las preguntas deben generarse dinámicamente por la IA basadas en el tema específico indicado por el profesor
+    // No se permiten preguntas hardcodeadas o genéricas
+
     const generateEvaluationQuestions = async (topic: string, numQuestions: number): Promise<any[]> => {
       try {
-        console.log(`🤖 Solicitando ${numQuestions} preguntas sobre "${topic}" a nuestra API...`);
+        console.log(`🤖 Solicitando ${numQuestions} preguntas sobre "${topic}" a la API de IA...`);
 
-        // 1. Hacer una petición POST a tu API Route
+        // 1. Hacer una petición POST a la API Route
         const response = await fetch('/api/generate-questions', {
           method: 'POST',
           headers: {
@@ -1448,7 +1661,7 @@
         console.log('📄 Contenido de la respuesta:', responseText);
 
         if (!response.ok) {
-          // Si la respuesta del servidor no es exitosa, lanza un error
+          // Si la API no está disponible, mostrar error específico
           let errorData;
           try {
             errorData = JSON.parse(responseText);
@@ -1456,72 +1669,135 @@
             errorData = { error: responseText || `Error ${response.status}: ${response.statusText}` };
           }
           
-          console.error('❌ Error del servidor:', errorData);
+          console.error('❌ Error de la API de IA:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorData: errorData,
+            responseText: responseText
+          });
           
-          // Mejorar el mensaje de error
-          const errorMessage = errorData?.error || errorData?.message || `Error ${response.status}: ${response.statusText}`;
-          throw new Error(errorMessage);
+          // Determinar el tipo de error y mostrar mensaje apropiado
+          let errorMessage = "Error de la API de IA";
+          let errorDescription = "No se pudieron generar las preguntas específicas para el tema solicitado.";
+          
+          if (response.status === 500 || errorData?.error?.includes('API Key')) {
+            errorMessage = "API de IA no configurada";
+            errorDescription = "La API de inteligencia artificial no está configurada correctamente. Contacta al administrador.";
+          } else if (response.status === 429) {
+            errorMessage = "Límite de consultas excedido";
+            errorDescription = "Se ha alcanzado el límite de consultas a la IA. Intenta de nuevo más tarde.";
+          } else if (response.status === 503) {
+            errorMessage = "Servicio de IA no disponible";
+            errorDescription = "El servicio de inteligencia artificial no está disponible temporalmente.";
+          }
+          
+          toast({
+            title: errorMessage,
+            description: errorDescription,
+            variant: "destructive",
+          });
+          
+          return []; // Devolver array vacío para indicar fallo
         }
 
         // 2. Convertir la respuesta a JSON (con validación mejorada)
         if (!responseText.trim()) {
-          throw new Error("La respuesta del servidor está vacía");
+          console.error('❌ Respuesta vacía de la API de IA');
+          toast({
+            title: "Error de respuesta",
+            description: "La API de IA devolvió una respuesta vacía. Intenta de nuevo.",
+            variant: "destructive",
+          });
+          return [];
         }
 
         let questions;
         try {
           questions = JSON.parse(responseText);
         } catch (parseError) {
-          console.error('❌ Error al parsear JSON:', parseError);
+          console.error('❌ Error al parsear JSON de la API de IA:', parseError);
           console.error('❌ Contenido que falló al parsear:', responseText);
-          throw new Error("Respuesta del servidor no es un JSON válido");
+          toast({
+            title: "Error de formato",
+            description: "La respuesta de la IA tiene un formato inválido. Intenta de nuevo.",
+            variant: "destructive",
+          });
+          return [];
         }
-        console.log('✅ Preguntas recibidas desde la API:', questions.length, questions);
+
+        console.log('✅ Preguntas recibidas desde la API de IA:', questions.length);
+        console.log('🔍 DEBUG - Estructura de primera pregunta:', JSON.stringify(questions[0], null, 2));
 
         // Validar que se recibieron preguntas válidas
         if (!Array.isArray(questions) || questions.length === 0) {
-          throw new Error("No se recibieron preguntas válidas de la API");
+          console.error('❌ Preguntas inválidas recibidas de la API de IA');
+          toast({
+            title: "Error de contenido",
+            description: "La IA no pudo generar preguntas válidas para el tema especificado.",
+            variant: "destructive",
+          });
+          return [];
         }
 
-        console.log('✅ Preguntas recibidas y validadas correctamente:', questions.length);
+        // Validar estructura de cada pregunta con debug mejorado
+        console.log('🔍 DEBUG - Validando estructura de preguntas...');
+        const validQuestions = questions.filter((q, index) => {
+          console.log(`🔍 DEBUG - Pregunta ${index}:`, {
+            hasQuestion: typeof q.question === 'string',
+            hasOptions: Array.isArray(q.options),
+            optionsLength: q.options?.length,
+            hasCorrectAnswer: q.correct_answer !== undefined,
+            hasCorrectAnswers: q.correct_answers !== undefined,
+            hasCorrect: q.correct !== undefined,
+            allKeys: Object.keys(q)
+          });
+          
+          const isValid = q && 
+            typeof q.question === 'string' && 
+            Array.isArray(q.options) && 
+            q.options.length > 0 &&
+            (q.correct_answer !== undefined || q.correct_answers !== undefined || q.correct !== undefined);
+            
+          if (!isValid) {
+            console.warn(`⚠️ Pregunta ${index} es inválida:`, q);
+          }
+          
+          return isValid;
+        });
 
-        // 3. ¡Randomizar el orden de las preguntas!
-        // Esto asegura que cada vez que se inicie la evaluación, las preguntas aparezcan en un orden diferente.
-        const shuffledQuestions = [...questions].sort(() => 0.5 - Math.random());
+        if (validQuestions.length === 0) {
+          console.error('❌ Ninguna pregunta tiene la estructura correcta');
+          toast({
+            title: "Error de validación",
+            description: "Las preguntas generadas por la IA no tienen la estructura correcta.",
+            variant: "destructive",
+          });
+          return [];
+        }
 
-        console.log('🔀 Preguntas randomizadas y validadas correctamente');
+        if (validQuestions.length < questions.length) {
+          console.warn(`⚠️ Se filtraron ${questions.length - validQuestions.length} preguntas con estructura inválida`);
+        }
+
+        console.log('✅ Preguntas validadas correctamente:', validQuestions.length);
+
+        // 3. Randomizar el orden de las preguntas
+        const shuffledQuestions = [...validQuestions].sort(() => 0.5 - Math.random());
+
+        console.log('🔀 Preguntas randomizadas y listas para uso');
         return shuffledQuestions;
 
       } catch (error: any) {
-        console.error("❌ Error completo al solicitar o procesar las preguntas:", error);
-        console.error("❌ Stack trace:", error.stack);
-        console.error("❌ Error name:", error.name);
-        console.error("❌ Error message:", error.message);
+        console.error("❌ Error crítico al solicitar preguntas de la API de IA:", error);
         
-        // Mostrar mensaje de error más específico al usuario
-        let errorMessage = "No se pudieron generar las preguntas. Por favor, inténtalo de nuevo.";
-        
-        if (error.message) {
-          if (error.message.includes("fetch") || error.message.includes("network")) {
-            errorMessage = "Error de conexión con el servidor. Verifica tu conexión a internet.";
-          } else if (error.message.includes("API Key") || error.message.includes("GEMINI_API_KEY")) {
-            errorMessage = "Error de configuración del servidor. Contacta al administrador.";
-          } else if (error.message.includes("estructura") || error.message.includes("JSON")) {
-            errorMessage = "Error en el formato de las preguntas generadas. Inténtalo nuevamente.";
-          } else if (error.message.includes("500")) {
-            errorMessage = "Error interno del servidor. Inténtalo en unos momentos.";
-          } else {
-            // Usar el mensaje de error específico si está disponible
-            errorMessage = error.message;
-          }
-        }
-        
+        // Mostrar mensaje de error específico al usuario
         toast({
-          title: "Error de IA",
-          description: errorMessage,
+          title: "Error de conexión",
+          description: "No se pudo conectar con la API de IA. Verifica tu conexión a internet e intenta de nuevo.",
           variant: "destructive",
         });
-        return []; // Devolver un array vacío en caso de error
+        
+        return []; // Devolver array vacío en caso de error crítico
       }
     };
 
@@ -2421,6 +2697,7 @@
           TaskNotificationManager.removeTaskCompletedNotifications(selectedTask.id);
           
           // 🔥 NUEVO: Disparar evento para actualizar panel de notificaciones
+          const submission = comments.find(c => c.id === submissionId);
           window.dispatchEvent(new CustomEvent('taskGraded', {
             detail: { taskId: selectedTask.id, studentUsername: submission?.studentUsername }
           }));
@@ -2821,7 +3098,7 @@
                   </SelectTrigger>
                   <SelectContent className="select-orange-hover">
                     <SelectItem value="all" className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{translate('allCourses')}</SelectItem>
-                    {getAvailableCoursesWithNames().map(course => (
+                    {getAvailableCoursesWithNames().map((course: {id: string, name: string}) => (
                       <SelectItem key={`main-header-course-filter-${course.id}`} value={course.id} className="hover:bg-orange-100 hover:text-orange-700 individual-option select-item-spaced">{course.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -3185,12 +3462,24 @@
               
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="course" className="text-right">{translate('taskCourse')} <span className="text-red-500">*</span></Label>
-                <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
+                <Select value={formData.course} onValueChange={(value) => {
+                  // Obtener asignaturas disponibles para el nuevo curso
+                  const availableSubjects = getAvailableSubjectsForCourse(value);
+                  
+                  // Si la asignatura actual no está disponible en el nuevo curso, limpiarla
+                  const newSubject = availableSubjects.includes(formData.subject) ? formData.subject : '';
+                  
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    course: value,
+                    subject: newSubject 
+                  }));
+                }}>
                   <SelectTrigger className={`${formData.taskType === 'evaluacion' ? 'select-purple-hover-trigger' : 'select-orange-hover-trigger'} col-span-3`}>
                     <SelectValue placeholder={translate('selectCourse')} />
                   </SelectTrigger>
                   <SelectContent className={formData.taskType === 'evaluacion' ? 'select-purple-hover' : 'select-orange-hover'}>
-                    {getAvailableCoursesWithNames().map(course => (
+                    {getAvailableCoursesWithNames().map((course: {id: string, name: string}) => (
                       <SelectItem key={`edit-task-course-${course.id}`} value={course.id}>{course.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -3204,7 +3493,7 @@
                     <SelectValue placeholder={translate('selectSubject')} />
                   </SelectTrigger>
                   <SelectContent className={formData.taskType === 'evaluacion' ? 'select-purple-hover' : 'select-orange-hover'}>
-                    {getAvailableSubjects().map(subject => (
+                    {(formData.course ? getAvailableSubjectsForCourse(formData.course) : getAvailableSubjects()).map((subject: string) => (
                       <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                     ))}
                   </SelectContent>
@@ -4181,12 +4470,24 @@
               
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="course" className="text-right">{translate('taskCourse')} <span className="text-red-500">*</span></Label>
-                <Select value={formData.course} onValueChange={(value) => setFormData(prev => ({ ...prev, course: value }))}>
+                <Select value={formData.course} onValueChange={(value) => {
+                  // Obtener asignaturas disponibles para el nuevo curso
+                  const availableSubjects = getAvailableSubjectsForCourse(value);
+                  
+                  // Si la asignatura actual no está disponible en el nuevo curso, limpiarla
+                  const newSubject = availableSubjects.includes(formData.subject) ? formData.subject : '';
+                  
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    course: value,
+                    subject: newSubject 
+                  }));
+                }}>
                   <SelectTrigger className="select-orange-hover-trigger col-span-3">
                     <SelectValue placeholder={translate('selectCourse')} />
                   </SelectTrigger>
                   <SelectContent className="select-orange-hover">
-                    {getAvailableCoursesWithNames().map(course => (
+                    {getAvailableCoursesWithNames().map((course: {id: string, name: string}) => (
                       <SelectItem key={`comment-course-${course.id}`} value={course.id}>{course.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -4200,7 +4501,7 @@
                     <SelectValue placeholder={translate('selectSubject')} />
                   </SelectTrigger>
                   <SelectContent className="select-orange-hover">
-                    {getAvailableSubjects().map(subject => (
+                    {(formData.course ? getAvailableSubjectsForCourse(formData.course) : getAvailableSubjects()).map((subject: string) => (
                       <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                     ))}
                   </SelectContent>

@@ -4,13 +4,13 @@ import { NextResponse } from "next/server";
 
 // Inicializa el cliente de Gemini con tu API Key desde las variables de entorno
 // ¡IMPORTANTE! Nunca escribas la API Key directamente en el código.
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "");
 
 export async function POST(request: Request) {
   try {
     // Verificar que la API Key esté configurada
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("[API Route] ❌ GEMINI_API_KEY no está configurada");
+    if (!process.env.GOOGLE_API_KEY && !process.env.GEMINI_API_KEY) {
+      console.error("[API Route] ❌ GOOGLE_API_KEY o GEMINI_API_KEY no está configurada");
       return NextResponse.json(
         { error: "La API Key de Gemini no está configurada en el servidor." },
         { status: 500 }

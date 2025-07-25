@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { User, UserRole, TeacherSubjectAssignment } from '@/contexts/auth-context';
 import { Course } from '@/lib/types'; // Import Course type
 import { generateUniqueId } from '@/lib/utils'; // Import generateUniqueId
+import { notifyUserDataUpdated } from '@/lib/data-sync';
 import { getAllSubjects, getSubjectsForCourse } from '@/lib/books-data';
 
 // Extended User interface with teacher assignment
@@ -472,7 +473,7 @@ export default function GestionUsuariosPage() {
     localStorage.setItem('smart-student-users', JSON.stringify(updatedUsersList));
     
     // ✨ NOTIFICAR CAMBIO A OTROS COMPONENTES ✨
-    window.dispatchEvent(new CustomEvent('userDataUpdated'));
+    notifyUserDataUpdated();
     
     // Actualizar el contexto de autenticación si el usuario actual está logueado
     if (user) {
@@ -498,7 +499,7 @@ export default function GestionUsuariosPage() {
     localStorage.setItem('smart-student-users', JSON.stringify(users));
     
     // ✨ NOTIFICAR CAMBIO A OTROS COMPONENTES ✨
-    window.dispatchEvent(new CustomEvent('userDataUpdated'));
+    notifyUserDataUpdated();
     
     // Actualizar el contexto de autenticación si el usuario actual está logueado
     if (user) {
