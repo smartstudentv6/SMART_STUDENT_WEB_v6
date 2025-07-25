@@ -117,7 +117,7 @@ const teacherCards = [
     btnKey: 'cardAttendanceBtn',
     targetPage: '/dashboard/asistencia',
     icon: UserCheck,
-    colorClass: 'indigo',
+    colorClass: 'teal',
     showBadge: false,
   },
   {
@@ -126,7 +126,7 @@ const teacherCards = [
     btnKey: 'cardStatisticsBtn',
     targetPage: '/dashboard/estadisticas',
     icon: TrendingUp,
-    colorClass: 'emerald',
+    colorClass: 'indigo',
     showBadge: false,
   },
 ];
@@ -1147,13 +1147,7 @@ export default function DashboardHomePage() {
         {user?.role === 'admin' && adminCards.map((card) => (
           <Card 
             key={card.titleKey} 
-            className={`flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300 ${
-              card.colorClass === 'teal' 
-                ? 'border-teal-200 dark:border-teal-800' 
-                : card.colorClass === 'red' 
-                  ? 'border-red-200 dark:border-red-800'
-                  : 'border-yellow-200 dark:border-yellow-800'
-            }`}
+            className={`flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300 ${getBorderColorClass(card.colorClass)}`}
           >
             <CardHeader className="items-center relative">
               {card.showBadge && card.titleKey === 'cardPasswordRequestsTitle' && pendingPasswordRequestsCount > 0 && (
@@ -1190,15 +1184,7 @@ export default function DashboardHomePage() {
         {user?.role === 'teacher' && teacherCards.map((card) => (
           <Card 
             key={card.titleKey} 
-            className={`flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300 ${
-              card.colorClass === 'rose' 
-                ? 'border-rose-200 dark:border-rose-800' 
-                : card.colorClass === 'indigo' 
-                  ? 'border-indigo-200 dark:border-indigo-800'
-                  : card.colorClass === 'emerald'
-                    ? 'border-emerald-200 dark:border-emerald-800'
-                    : 'border-gray-200 dark:border-gray-800'
-            }`}
+            className={`flex flex-col text-center shadow-sm hover:shadow-lg transition-shadow duration-300 ${getBorderColorClass(card.colorClass)}`}
           >
             <CardHeader className="items-center relative">
               <card.icon className={`w-10 h-10 mb-3 ${getIconColorClass(card.colorClass)}`} />
